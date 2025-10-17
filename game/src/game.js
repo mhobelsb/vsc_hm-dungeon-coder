@@ -908,11 +908,19 @@ class Character extends GameObject {
 
     setName(name) {
         this.heroName = name;
+        return true;
     }
 
     setTypeNumber(typeNumber) {
-        this.typeNumber = typeNumber;
-        this.setStateAndDirection(this.getState(), this.getDirection());
+        var success = true;
+        if (typeNumber > 0 && typeNumber <= 15) {
+            this.typeNumber = typeNumber;
+            this.setStateAndDirection(this.getState(), this.getDirection());
+        } else {
+            console.log("Error: type number is out of range. It must be a value from 0 to 15.");
+            success = false;
+        }
+        return success;
     }
 
     isMoving() {
@@ -982,7 +990,7 @@ class Character extends GameObject {
         return [newTargetX, newTargetY];
     }
 
-    isCollisionInFront(level, newDirection = this.direction) {
+    isCollisionInFront(level, newDirection = this.getDirection()) {
         const newTargetXY = this.getPositionInDirection(newDirection, true);
         return level.isCollision(newTargetXY[0], newTargetXY[1]);
     }
@@ -1510,9 +1518,10 @@ class CharacterInterface {
     }
 
     configure(name, typeNumber) {
-        this.character.setName(name);
-        this.character.setTypeNumber(typeNumber);
-        return true;
+        var success = true;
+        success = this.character.setName(name);
+        success &= this.character.setTypeNumber(typeNumber);
+        return success;
     }
 
     turnLeft() {
@@ -1523,6 +1532,10 @@ class CharacterInterface {
         return this.character.isFacingNorth();
     }
 
+    isCollisionInFront() {
+        return this.character.isCollisionInFront(this.level);
+    }
+
     isMoving() {
         return this.character.isMoving();
     }
@@ -1531,8 +1544,9 @@ class CharacterInterface {
         return this.character.interact(this.level);
     }
 
-
-
+    isAtGoal() {
+        return this.level.isComplete();
+    }
 }
 
 export class Game {

@@ -111,12 +111,15 @@ function loadFileAsync(file) {
                     break;
                 
                 case 'is_at_goal':
-                    response.result = game.isComplete();
+                    response.result = character.isAtGoal();
                     response.message = response.result ? `Hero has reached the goal.`: `Hero is not at the goal.`
                     break;
 
                 case 'is_collision_in_front':
-                case 'is_switch_in_front':
+                    response.result = character.isCollisionInFront();
+                    response.message = response.result ? `There is a collision in front.`: `There is no collision in front.`
+                    break;
+
                 default:
                     response.success = false;
                     response.message = "Error: Command not found."
