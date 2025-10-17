@@ -148,6 +148,7 @@ function startServer(sendToWebview: (cmd: string) => void) {
         'is_collision_in_front',
         'is_facing_north',
         'is_at_goal',
+        'is_torch_in_front'
     ];
 
     get_endpoints.forEach((get_endpoint) => {

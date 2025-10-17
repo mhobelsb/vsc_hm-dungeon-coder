@@ -120,6 +120,12 @@ function loadFileAsync(file) {
                     response.message = response.result ? `There is a collision in front.`: `There is no collision in front.`
                     break;
 
+                case 'is_torch_in_front':
+                    response.result = character.isTorchInFront();
+                    response.message = response.result ? `There is a torch in front.`: `There is no torch in front.`
+                    break;
+
+
                 default:
                     response.success = false;
                     response.message = "Error: Command not found."

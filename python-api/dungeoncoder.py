@@ -49,9 +49,9 @@ def parse_api_response(response: requests.Response) -> bool:
     except requests.JSONDecodeError:
         raise RuntimeError(f"Failed to decode JSON. Response: {response.text[:50]}...")
 
-    if "success" in data and "result" in data:
-        if data["success"] is True:
-            return response["result"]
+    if "status" in data and "result" in data:
+        if data["status"] == "success":
+            return data["result"]
         else:
             error_msg = data.get("message", "API response payload indicated failure.")
             raise RuntimeError(f"API operation failed: {error_msg}")
@@ -106,7 +106,12 @@ class Hero:
         response = send_request(URL, 'GET')
         return parse_api_response(response)
 
-        
+    def is_torch_in_front(self):
+        """Checks if there is a switch in front of the hero."""
+        URL = f"{self.BASE_URL}/hero/is_torch_in_front"
+        response = send_request(URL, 'GET')
+        return parse_api_response(response)
+    
     def is_at_goal(self):
         """Checks if the hero is at the goal."""
         URL = f"{self.BASE_URL}/hero/is_at_goal"

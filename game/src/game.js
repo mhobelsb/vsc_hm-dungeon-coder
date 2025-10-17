@@ -995,6 +995,17 @@ class Character extends GameObject {
         return level.isCollision(newTargetXY[0], newTargetXY[1]);
     }
 
+    isTorchInFront(level) {
+        const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
+        const object = level.getObjectAtPosition(newTargetXY[0], newTargetXY[1]);
+        if (object) {
+            if (object.type === "Torch") {
+                return true;
+            }
+        }
+        return false;
+    }
+
     move(newDirection, level) {
         if (this.isMoving()) {
             return false; // Already moving, cannot initiate a new movement
@@ -1534,6 +1545,10 @@ class CharacterInterface {
 
     isCollisionInFront() {
         return this.character.isCollisionInFront(this.level);
+    }
+
+    isTorchInFront() {
+        return this.character.isTorchInFront(this.level);
     }
 
     isMoving() {
