@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game Data Loader Test</title>
+</head>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #222;
+        color: #eee;
+        font-family: monospace;
+    }
+
+    canvas {
+        border: 2px solid #555;
+        background-color: #000;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges; /* Fallback for older browsers */
+    }
+
+    #debugInfo {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 5px;
+        border-radius: 5px;
+        font-size: 0.9em;
+    }
+    input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: block;
+            margin-bottom: 15px;
+    }
+</style>
+<body>
+    
+    <div class="container">
+        <input type="file" id="json-file-input" accept=".json">
+        <canvas id="gameCanvas" tabindex="-1" width="640" height="480"></canvas>
+    </div>
+    <script nonce="${nonce}">
+        const VscodeGameMediaUri = '${gameFolderUri}';
+    </script>
+    <script nonce="${nonce}" src="${gameFolderUri}/src/script.js" type="module"></script>
+</body>
+</html>

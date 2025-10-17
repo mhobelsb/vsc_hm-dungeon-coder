@@ -1,0 +1,67 @@
+{
+  "name": "dungeon-coder",
+  "displayName": "Dungeon Coder",
+  "description": "Code to escape the dungeon",
+  "publisher": "benidiet",
+	"author": {
+		"name": "Munich University of Applied Sciences",
+		"email": "benedikt.dietrich@hm.edu"
+	},
+	"license": "MIT",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "icon": "game/assets/images/dungeon_coder_icon.png",
+  "categories": [
+    "Other"
+  ],
+  "private": true,
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/hm-riscv/vscode-riscv-venus"
+	},
+	"bugs": {
+		"url": "https://github.com/hm-riscv/vscode-riscv-venus/issues"
+	},
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dungeon-coder.startGame",
+        "title": "Start Dungeon Coder"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/node-fetch": "^2.6.12",
+    "@types/vscode": "^1.102.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.25.1",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "webpack": "^5.99.7",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
