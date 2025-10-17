@@ -146,7 +146,6 @@ function startServer(sendToWebview: (cmd: string) => void) {
 
     const get_endpoints = [
         'is_collision_in_front',
-        'is_switch_in_front',
         'is_facing_north',
         'is_at_goal',
     ];
@@ -185,17 +184,6 @@ function startServer(sendToWebview: (cmd: string) => void) {
         } catch (error: any) {
             console.error('API Error:', error);
             res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}` });
-        }
-    });
-
-    app.post('/level/reset', (req, res) => {
-        const { command } = req.body;
-
-        if (webviewPanel) {
-            sendToWebview("reset");
-            res.send({ status: 'ok' });
-        } else {
-            res.status(500).send({ error: 'Webview is not open' });
         }
     });
 
@@ -264,23 +252,19 @@ async function createWebview(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    const dungeonCoderExtension = vscode.extensions.getExtension('benidiet.dungeon-coder');
+    const dungeonCoderExtension = vscode.extensions.getExtension('hm-benidiet.vscode-dungeon-coder');
     if (dungeonCoderExtension) {
         const extensionId = dungeonCoderExtension.id; 
 
         console.log('Dungeon Coder loaded successfully. Have fun coding!');
 
-        let disposable = vscode.commands.registerCommand('dungeon-coder.startGame', () => {
+        let disposable = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', () => {
             vscode.window.showInformationMessage('Enter the dungeon!');
             createWebview(context);  
             startServer((cmd: string) => {
                 if (webviewPanel)
                     webviewPanel.webview.postMessage({ command: cmd });
             });
-        });
-
-        disposable = vscode.commands.registerCommand('dungeon-coder.configure', () => {
-            vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId}`);
         });
 
         context.subscriptions.push(disposable);
