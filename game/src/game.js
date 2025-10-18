@@ -655,6 +655,27 @@ class GameObject {
             this.tile.draw(ctx, destX, destY, destWidth, destHeight);
         }
     }
+
+    interact(level) {
+        if (this.getProperty('controls')) {
+            const propertyControls = this.getProperty('controls');
+            let object = null;
+            if (propertyControls) {
+                object = level.getObjectById(propertyControls.value);
+            } else {
+                console.warn(`GameObject has no property controls set.`);
+            }
+            if (object) {
+                if (typeof object.interact === 'function') {
+                    object.interact(level);
+                } else {
+                    console.log(`Error: the GameObject cannot interact with the object with ID "${propertyControls.value}.`)
+                }
+            } else {
+                console.warn(`Object with ID "${propertyControls.value}" not found.`);
+            }
+        }
+    }
 }
 
 class Torch extends GameObject {
@@ -674,6 +695,7 @@ class Torch extends GameObject {
 
     interact(level) {
         this.toggleState();
+        super.interact(level);
     }
 
     toggleState() {
@@ -718,24 +740,7 @@ class TwoWaySwitch extends GameObject {
 
     interact(level) {
         this.toggleState();
-        if (this.getProperty('controls')) {
-            const propertyControls = this.getProperty('controls');
-            let object = null;
-            if (propertyControls) {
-                object = level.getObjectById(propertyControls.value);
-            } else {
-                console.warn(`Switch has no property controls set.`);
-            }
-            if (object) {
-                if (typeof object.interact === 'function') {
-                    object.interact(level);
-                } else {
-                    console.log(`Error: the switch cannot interact with the object with ID "${propertyControls.value}.`)
-                }
-            } else {
-                console.warn(`Object with ID "${propertyControls.value}" not found.`);
-            }
-        }
+        super.interact(level);
     }
 
     left() {
