@@ -943,22 +943,14 @@ class Character extends GameObject {
         if (this.isMoving()) {
             return false;
         }
-    
-        let newDirection = "north";
-        switch (direction) {
-            case "north":
-                newDirection = "west";
-                break;
-            case "west":
-                newDirection = "south";
-                break;
-            case "south":
-                newDirection = "east";
-                break;
-            case "east":
-                newDirection = "north";
-                break;
-        }
+
+        const nextDirectionMap = {
+            "north": "west",
+            "west": "south",
+            "south": "east",
+            "east": "north"
+        };
+        const newDirection = nextDirectionMap[direction];
 
         this.setStateAndDirection(state, newDirection)
 
