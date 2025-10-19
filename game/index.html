@@ -48,8 +48,27 @@
         <canvas id="gameCanvas" tabindex="-1" width="640" height="480"></canvas>
     </div>
     <script nonce="${nonce}">
-        const VscodeGameMediaUri = '${gameFolderUri}';
+        const rawGameFolderUri = '${gameFolderUri}'; 
+
+        let FINAL_GAME_URI;
+
+        // If gameFolderUri was not replaced by VS Code the game is running in the browser
+        if (rawGameFolderUri.includes('gameFolderUri') || rawGameFolderUri === '') {
+            FINAL_GAME_URI = '';
+            console.log("Using local relative path: /");
+        } else {
+            FINAL_GAME_URI = rawGameFolderUri + "/";
+            console.log("Using VS Code URI:", FINAL_GAME_URI);
+        }
+        window.VscodeGameMediaUri = FINAL_GAME_URI;    
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = FINAL_GAME_URI + "src/script.js";
+        script.onload = (event) => {
+            const loadedUrl = event.target.src;
+            console.log(`Script loaded successfully from: ${loadedUrl}`);
+        };
+        document.body.appendChild(script);
     </script>
-    <script nonce="${nonce}" src="${gameFolderUri}/src/script.js" type="module"></script>
 </body>
 </html>

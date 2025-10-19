@@ -1,21 +1,30 @@
 import { Game, GAME_WIDTH, GAME_HEIGHT } from './game.js';
 
-const vscode = acquireVsCodeApi();
+let vscode = null;
+
+function acquireVsCodeIfAvailable() {
+    if (isRunningInVSCodeWebview() && vscode == null) {
+        vscode = acquireVsCodeApi();
+    }
+
+    return vscode;
+}
 
 function isRunningInVSCodeWebview() {
     return typeof acquireVsCodeApi === 'function';
 }
 
 export function getAssetPath(relativePath) {
-    return VscodeGameMediaUri + '/' + relativePath;
+    return window.VscodeGameMediaUri + '/' + relativePath;
 }
 
 // VS Code stuff if extension
-if (typeof VscodeGameMediaUri === 'undefined') {
+if (typeof window.VscodeGameMediaUri === 'undefined') {
     console.error('VscodeGameMediaUri is not defined. Make sure the script injecting it runs first.');
 }
 
 function send_response_vscode(requestId, response) {
+    let vscode = acquireVsCodeIfAvailable();
     vscode.postMessage({
         command: 'webviewResponse',
         requestId: requestId,
