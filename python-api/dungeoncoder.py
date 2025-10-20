@@ -106,6 +106,12 @@ class Hero:
         response = send_request(URL, 'GET')
         return parse_api_response(response)
 
+    def is_abyss_in_front(self):
+        """Checks if the hero is an abyss is in front of the hero."""
+        URL = f"{self.BASE_URL}/hero/is_abyss_in_front"
+        response = send_request(URL, 'GET')
+        return parse_api_response(response)
+
     def is_torch_in_front(self):
         """Checks if there is a switch in front of the hero."""
         URL = f"{self.BASE_URL}/hero/is_torch_in_front"

@@ -118,6 +118,11 @@ function loadFileAsync(file) {
                     response.result = character.isFacingNorth();
                     response.message = response.result ? `Hero is facing north.`: `Hero is not facing north.`
                     break;
+
+                case 'is_abyss_in_front':
+                    response.result = character.isAbyssInFront();
+                    response.message = response.result ? `Hero is standing in front of an abyss.`: `Hero is standing on solid ground. No abyss in front.`
+                    break;
                 
                 case 'is_at_goal':
                     response.result = character.isAtGoal();
