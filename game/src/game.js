@@ -66,6 +66,16 @@ class Tile {
         return null;
     }
 
+    getBooleanProperty(name, defaultValue = false) {
+        if (this.properties) {
+            const prop = this.properties.find(p => p.name === name);
+            if (prop && prop.type === 'bool') {
+                return prop.value;
+            }
+        }
+        return defaultValue;
+    }
+
     hasAnimation() {
         return (this.animationDescription?.length ?? 0) > 0;
     }
@@ -78,22 +88,29 @@ class Tile {
      * @param {number} [destWidth=this.width] The optional width to draw the tile (defaults to original tile width).
      * @param {number} [destHeight=this.height] The optional height to draw the tile (defaults to original tile height).
      */
-    draw(ctx, destX, destY, destWidth = this.width, destHeight = this.height) {
+    draw(ctx, destX, destY, destWidth = this.width, destHeight = this.height, angle = 0, scaling_factor = 1.0) {
         if (!this.visible)
             return;
         
         destY -= this.height; // tiled coordinates are bottom left corner
-        ctx.drawImage(
-            this.image,
-            this.x,
-            this.y,
-            this.width,
-            this.height,
-            destX + this.x_offset,         
-            destY + this.y_offset,        
-            destWidth,  
-            destHeight  
-        );
+
+        ctx.save()
+        ctx.translate(destX + this.width / 2, destY + this.height / 2); // Move to the tile's center
+
+        // Rotate the canvas
+        ctx.rotate(angle);
+
+        // Draw the image centered at (0, 0)
+        ctx.drawImage(this.image, 
+                      this.x, 
+                      this.y, 
+                      this.width, 
+                      this.height, 
+                      -this.width / 2 + this.x_offset, 
+                      -this.height / 2 + this.y_offset, 
+                      this.width * scaling_factor, 
+                      this.height * scaling_factor);
+        ctx.restore(); // Restore the original state
     }
 }
 
@@ -130,20 +147,9 @@ class AnimatedTile {
         return this.animationFrames[this.currentFrameIndex].tile;
     }
 
-    draw(ctx, destX, destY, destWidth = this.width, destHeight = this.height) {
+    draw(ctx, destX, destY, destWidth = this.width, destHeight = this.height, angle = 0, scaling_factor = 1.0) {
         const tile = this.getCurrentTile();
-        destY -= this.height; // tiled coordinates are bottom left corner
-        ctx.drawImage(
-            tile.image,
-            tile.x,    
-            tile.y,    
-            tile.width,
-            tile.height,
-            destX + tile.x_offset,         
-            destY + tile.y_offset,     
-            destWidth,  
-            destHeight  
-        );
+        tile.draw(ctx, destX, destY, destWidth, destHeight, angle, scaling_factor);
     }
 
     static create(tile, tileset) {
@@ -650,9 +656,9 @@ class GameObject {
         return false;
     }
 
-    draw(ctx, destX = this.x, destY = this.y, destWidth = this.width, destHeight = this.height) {
+    draw(ctx, destX = this.x, destY = this.y, destWidth = this.width, destHeight = this.height, angle=0, scaling_factor=1.0) {
         if (this.visible) {
-            this.tile.draw(ctx, destX, destY, destWidth, destHeight);
+            this.tile.draw(ctx, destX, destY, destWidth, destHeight, angle, scaling_factor);
         }
     }
 
@@ -909,6 +915,15 @@ class Character extends GameObject {
         this.moveDuration = 1000 / 2; // Duration in ms to move one tile
         this.setName("Alina");
         this.setTypeNumber(7);
+        this.isCharacterDead = false;
+
+        this.isCharacterFalling = false;
+        this.angle = 0;
+        this.scaling_factor = 1.0;
+        this.fallDuration = 0;
+        this.MAX_FALL_TIME_MS = 3000;
+        this.ROTATION_PER_SECOND = 6;
+        this.SHRINK_RATE_PER_SECOND = 0.6;
     }
 
     setName(name) {
@@ -934,6 +949,10 @@ class Character extends GameObject {
 
     isFacingNorth() {
         return this.getDirection() === "north";
+    }
+
+    isFalling() {
+        return this.isCharacterFalling;
     }
 
     turnLeft() {
@@ -992,6 +1011,11 @@ class Character extends GameObject {
         return level.isCollision(newTargetXY[0], newTargetXY[1]);
     }
 
+    isAbyssInFront(level, newDirection = this.getDirection()) {
+        const newTargetXY = this.getPositionInDirection(newDirection, true);
+        return level.isAbyss(newTargetXY[0], newTargetXY[1]);
+    }
+
     isTorchInFront(level) {
         const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
         const object = level.getObjectAtPosition(newTargetXY[0], newTargetXY[1]);
@@ -1001,6 +1025,10 @@ class Character extends GameObject {
             }
         }
         return false;
+    }
+
+    isDead() {
+        return this.isCharacterDead;
     }
 
     move(newDirection, level) {
@@ -1013,15 +1041,22 @@ class Character extends GameObject {
             return false;
         } else {
             const newTargetXY = this.getPositionInDirection(newDirection);
-            this.targetX = newTargetXY[0];
-            this.targetY = newTargetXY[1];
-            this.movementProgress = 0;
-            this.setStateAndDirection("walking", newDirection);
-            
-            // Store the exact pixel coordinates where this current movement starts
-            this.currentMoveStartX = this.x;
-            this.currentMoveStartY = this.y;
-            
+
+            if (this.isAbyssInFront(level, newDirection)) {
+                this.isCharacterFalling = true;
+                this.x = newTargetXY[0];
+                this.y = newTargetXY[1];
+            } else {
+                this.targetX = newTargetXY[0];
+                this.targetY = newTargetXY[1];
+                this.movementProgress = 0;
+                this.setStateAndDirection("walking", newDirection);
+                
+                // Store the exact pixel coordinates where this current movement starts
+                this.currentMoveStartX = this.x;
+                this.currentMoveStartY = this.y;
+            }
+
             return true;
         }
     }
@@ -1058,19 +1093,31 @@ class Character extends GameObject {
 
     draw(ctx) {
         // For debugging
-        ctx.fillStyle = 'black';
-        ctx.fillRect(this.x, this.y, 1, 1);
+        if (false) {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(this.x, this.y, 1, 1);
+    
+            const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
+            ctx.fillStyle = 'red';
+            ctx.fillRect(newTargetXY[0], newTargetXY[1], 1, 1);
+        }
 
-        const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
-        ctx.fillStyle = 'red';
-        ctx.fillRect(newTargetXY[0], newTargetXY[1], 1, 1);
-
-        super.draw(ctx);
+        super.draw(ctx, this.x, this.y, this.width, this.height, this.angle, this.scaling_factor);
     }
 
     update(deltaTime) {
+        if (this.isFalling()) {
+            const dt = deltaTime / 1000;
+            this.fallDuration += deltaTime;
+            this.angle += this.ROTATION_PER_SECOND * dt;
+            this.angle %= (2 * Math.PI);
+            this.scaling_factor = Math.max(0.1, this.scaling_factor - (this.SHRINK_RATE_PER_SECOND * dt));
 
-        if (this.isMoving()) {
+            if (this.fallDuration > this.MAX_FALL_TIME_MS) {
+                this.isCharacterDead = true;
+            }
+        }
+        else if (this.isMoving()) {
             this.movementProgress += deltaTime; // Accumulate time for movement
             const progressRatio = Math.min(1, this.movementProgress / this.moveDuration);
 
@@ -1338,6 +1385,31 @@ class Level {
         return false;
     }
 
+    isAbyss(x, y) {
+        const tileCol = Math.floor(x / this.tileWidth);
+        const tileRow = Math.floor(y / this.tileHeight);
+
+        // Check for out of bounds
+        if (tileCol < 0 || tileCol >= this.width || tileRow < 0 || tileRow >= this.height) {
+            console.warn("Checking for collision out of bounds.")
+            return true; // Consider out of bounds as a collision
+        }
+
+        for (const layer of this.layers) {
+            if (layer instanceof TileLayer) {
+                const tile = layer.getTileAt(tileRow, tileCol);
+                if (tile) {
+                    const property = tile.getProperty('abyss');
+                    if (property) {
+                        return property;                      
+                    }
+                }
+            }
+        }
+
+        return false; // No collision detected
+    }
+
     isCollision(x, y) {
         const tileCol = Math.floor(x / this.tileWidth);
         const tileRow = Math.floor(y / this.tileHeight);
@@ -1544,6 +1616,10 @@ class CharacterInterface {
         return this.character.isCollisionInFront(this.level);
     }
 
+    isAbyssInFront() {
+        return this.character.isAbyssInFront(this.level);
+    }
+
     isTorchInFront() {
         return this.character.isTorchInFront(this.level);
     }
@@ -1661,7 +1737,7 @@ export class Game {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 this.level.draw(this.ctx);
                 this.drawDarkOverlay(this.ctx, this.canvas.width, this.canvas.height);
-                if (this.level.isComplete()) {
+                if (this.level.isComplete() || this.character.isDead()) {
                     this.currentGameState =  Game.GAME_STATE.LEVEL_COMPLETE;
                 }
                 break;
@@ -1670,12 +1746,22 @@ export class Game {
                 this.ctx.fillStyle = 'black';
                 this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 this.ctx.globalAlpha = 1.0;
+                let text = ""
+                let color = ""
 
-                this.ctx.fillStyle = 'green';
+                if (this.character.isDead()) {
+                    color = 'red';
+                    text = `Game Over! Continue in ${Math.ceil(this.remainingTime / 1000)}s.`
+                } else {
+                    text = `Level Completed! Continue in ${Math.ceil(this.remainingTime / 1000)}s.`;
+                    color = 'green';
+                }
+
+                this.ctx.fillStyle = color;
                 this.ctx.font = `${FONT_SIZE}px Arial`;
                 this.ctx.textAlign = 'center';
                 this.ctx.textBaseline = 'middle';
-                this.ctx.fillText(`Level Completed! Continue in ${Math.ceil(this.remainingTime / 1000)}s.`, centerX, centerY);
+                this.ctx.fillText(text, centerX, centerY);
                 this.remainingTime -= deltaTimeMs;
                 if (this.remainingTime <= 0) {
                     this.currentGameState = Game.GAME_STATE.WAITING_FOR_LEVEL;
