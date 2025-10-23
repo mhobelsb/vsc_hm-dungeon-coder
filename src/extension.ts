@@ -189,7 +189,7 @@ function startServer(sendToWebview: (cmd: string) => void) {
         }
     });
 
-    serverInstance = app.listen(3000, () => console.log('API running on http://localhost:3000'));
+    serverInstance = app.listen(3000, () => console.log('API running on http://127.0.0.1:3000'));
 }
 
 export function stopServer() {
