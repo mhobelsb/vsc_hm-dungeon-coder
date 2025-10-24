@@ -189,7 +189,12 @@ function startServer(sendToWebview: (cmd: string) => void) {
         }
     });
 
-    serverInstance = app.listen(3000, () => console.log('API running on http://127.0.0.1:3000'));
+    serverInstance = app.listen(3000, "127.0.0.1", () => console.log('API running on http://127.0.0.1:3000'));
+    serverInstance.on('error', err => {
+        if ((err as any).code === 'EADDRINUSE') {
+            console.error('Port already in use, retrying...');
+        }
+    });
 }
 
 export function stopServer() {
@@ -289,11 +294,25 @@ async function getWebviewContent(webview: vscode.Webview, extensionPath: string)
         throw new Error(`Could not read index.html: ${error.message}`);
     }
 
+    const port = 3000; // or your dynamic port
+    const csp = `
+        <meta http-equiv="Content-Security-Policy"
+        content="
+            default-src 'none';
+            img-src ${webview.cspSource} https:;
+            script-src ${webview.cspSource} 'nonce-${nonce}';
+            style-src ${webview.cspSource} 'nonce-${nonce}';
+            connect-src ${webview.cspSource} http://127.0.0.1:${port};
+        ">
+    `;
+
 
     // Replace the placeholders in the HTML with actual values
-    htmlContent = htmlContent.replace(/\$\{webview.cspSource\}/g, webview.cspSource);
-    htmlContent = htmlContent.replace(/\$\{nonce\}/g, nonce);
-    htmlContent = htmlContent.replace(/\$\{gameFolderUri\}/g, mediaFolderUri.toString());
+    htmlContent = htmlContent
+        .replace('<!-- CSP -->', csp)
+        .replace(/\$\{webview.cspSource\}/g, webview.cspSource)
+        .replace(/\$\{nonce\}/g, nonce)
+        .replace(/\$\{gameFolderUri\}/g, mediaFolderUri.toString());
 
     return htmlContent;
 }

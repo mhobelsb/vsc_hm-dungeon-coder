@@ -2,6 +2,8 @@ import requests
 import json
 import os
 
+os.environ["NO_PROXY"] = "127.0.0.1"
+
 def send_request(url: str, 
                  method: str = 'GET',
                  data: dict = None,
@@ -133,7 +135,7 @@ class Game:
         level: An instance of Level, which handles level-related commands.
     """
     
-    BASE_URL = "http://localhost:3000"
+    BASE_URL = "http://127.0.0.1:3000"
 
     def __init__(self, level_file):
         self.__level = self.Level(self.BASE_URL)

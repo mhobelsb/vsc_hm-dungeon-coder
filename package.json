@@ -2,13 +2,14 @@
   "name": "vscode-dungeon-coder",
   "displayName": "Dungeon Coder",
   "description": "Code to escape the dungeon",
+  "extensionKind": ["ui"],
   "publisher": "hm-benidiet",
 	"author": {
 		"name": "Munich University of Applied Sciences",
 		"email": "benedikt.dietrich@hm.edu"
 	},
 	"license": "MIT",
-  "version": "0.0.8",
+  "version": "0.0.11",
   "engines": {
     "vscode": "^1.102.0"
   },
@@ -63,5 +64,10 @@
   },
   "dependencies": {
     "express": "^5.1.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    }
   }
 }
