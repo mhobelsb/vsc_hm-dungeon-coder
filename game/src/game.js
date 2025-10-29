@@ -1011,20 +1011,28 @@ class Character extends GameObject {
         return level.isCollision(newTargetXY[0], newTargetXY[1]);
     }
 
-    isInFront(level, name) {
-        const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
+    isInDirection(level, direction, name) {
+        const newTargetXY = this.getPositionInDirection(direction, true);
         const object = level.getObjectAtPosition(newTargetXY[0], newTargetXY[1]);
         if (object) {
             if (object.type === name) {
                 return true;
             }
         }
+        const tiles = level.getTilesAtPosition(newTargetXY[0], newTargetXY[1]);
+        for(const tile of tiles) {
+            if (tile) {
+                if (tile.type === name) {
+                    return true;
+                }
+            }
+        }
+
         return false;
     }
 
-    isAbyssInFront(level, newDirection = this.getDirection()) {
-        const newTargetXY = this.getPositionInDirection(newDirection, true);
-        return level.isAbyss(newTargetXY[0], newTargetXY[1]);
+    isInFront(level, name) {
+        return this.isInDirection(level, this.getDirection(), name);
     }
 
     isDead() {
@@ -1042,7 +1050,7 @@ class Character extends GameObject {
         } else {
             const newTargetXY = this.getPositionInDirection(newDirection);
 
-            if (this.isAbyssInFront(level, newDirection)) {
+            if (this.isInDirection(level, newDirection, "Abyss")) {
                 this.isCharacterFalling = true;
                 this.x = newTargetXY[0];
                 this.y = newTargetXY[1];
@@ -1349,6 +1357,22 @@ class Level {
 
     getObjectAtPosition(x, y) {
         return this.objectFactory.getObjectAtPosition(x, y);
+    }
+
+    getTilesAtPosition(x, y) {
+        const tileCol = Math.floor(x / this.tileWidth);
+        const tileRow = Math.floor(y / this.tileHeight);
+        let tiles = [];
+
+        this.layers.forEach(layer => {
+            if (layer instanceof TileLayer) {
+                const tile = layer.getTileAt(tileRow, tileCol);
+                if (tile) {
+                    tiles.push(tile);
+                }
+            }
+        });
+        return tiles;
     }
 
     getObjectById(id) {
