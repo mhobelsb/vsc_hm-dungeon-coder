@@ -1011,20 +1011,20 @@ class Character extends GameObject {
         return level.isCollision(newTargetXY[0], newTargetXY[1]);
     }
 
-    isAbyssInFront(level, newDirection = this.getDirection()) {
-        const newTargetXY = this.getPositionInDirection(newDirection, true);
-        return level.isAbyss(newTargetXY[0], newTargetXY[1]);
-    }
-
-    isTorchInFront(level) {
+    isInFront(level, name) {
         const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
         const object = level.getObjectAtPosition(newTargetXY[0], newTargetXY[1]);
         if (object) {
-            if (object.type === "Torch") {
+            if (object.type === name) {
                 return true;
             }
         }
         return false;
+    }
+
+    isAbyssInFront(level, newDirection = this.getDirection()) {
+        const newTargetXY = this.getPositionInDirection(newDirection, true);
+        return level.isAbyss(newTargetXY[0], newTargetXY[1]);
     }
 
     isDead() {
@@ -1617,11 +1617,15 @@ class CharacterInterface {
     }
 
     isAbyssInFront() {
-        return this.character.isAbyssInFront(this.level);
+        return this.character.isInFront(this.level, "Abyss");
     }
 
     isTorchInFront() {
-        return this.character.isTorchInFront(this.level);
+        return this.character.isInFront(this.level, "Torch");
+    }
+
+    isSwitchInFront() {
+        return this.character.isInFront(this.level, "Switch");
     }
 
     isMoving() {

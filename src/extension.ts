@@ -152,6 +152,7 @@ function startServer(sendToWebview: (cmd: string) => void) {
         'is_facing_north',
         'is_at_goal',
         'is_torch_in_front',
+        'is_switch_in_front',
         'is_abyss_in_front'
     ];
 
@@ -268,6 +269,16 @@ export function activate(context: vscode.ExtensionContext) {
 
         console.log('Dungeon Coder loaded successfully. Have fun coding!');
 
+
+        let startGameOldDisposable = vscode.commands.registerCommand('vscode-dungeon-coder.startGame_old', () => {
+            vscode.window.showInformationMessage('Enter the dungeon!');
+            createWebview(context);  
+            startServer((cmd: string) => {
+                if (webviewPanel)
+                    webviewPanel.webview.postMessage({ command: cmd });
+            });
+        });
+
         let startGameDisposable = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', () => {
             vscode.window.showInformationMessage('Enter the dungeon!');
             createWebview(context);  
@@ -314,6 +325,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         });
 
+        context.subscriptions.push(startGameOldDisposable);
         context.subscriptions.push(startGameDisposable);
         context.subscriptions.push(copyPythonDisposable);
     }

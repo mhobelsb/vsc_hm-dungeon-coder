@@ -9,7 +9,7 @@
 		"email": "benedikt.dietrich@hm.edu"
 	},
 	"license": "MIT",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "engines": {
     "vscode": "^1.102.0"
   },
@@ -29,6 +29,10 @@
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "vscode-dungeon-coder.startGame_old",
+        "title": "Start Dungeon Coder"
+      },
       {
         "command": "vscode-dungeon-coder.startGame",
         "title": "Dungeon Coder: Enter the dungeon"

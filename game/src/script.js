@@ -118,11 +118,6 @@ function loadFileAsync(file) {
                     response.result = character.isFacingNorth();
                     response.message = response.result ? `Hero is facing north.`: `Hero is not facing north.`
                     break;
-
-                case 'is_abyss_in_front':
-                    response.result = character.isAbyssInFront();
-                    response.message = response.result ? `Hero is standing in front of an abyss.`: `Hero is standing on solid ground. No abyss in front.`
-                    break;
                 
                 case 'is_at_goal':
                     response.result = character.isAtGoal();
@@ -134,11 +129,20 @@ function loadFileAsync(file) {
                     response.message = response.result ? `There is a collision in front.`: `There is no collision in front.`
                     break;
 
+                case 'is_abyss_in_front':
+                    response.result = character.isAbyssInFront();
+                    response.message = response.result ? `Hero is standing in front of an abyss.`: `Hero is standing on solid ground. No abyss in front.`
+                    break;
+
                 case 'is_torch_in_front':
                     response.result = character.isTorchInFront();
                     response.message = response.result ? `There is a torch in front.`: `There is no torch in front.`
                     break;
 
+                case 'is_switch_in_front':
+                    response.result = character.isSwitchInFront();
+                    response.message = response.result ? `There is a switch in front.`: `There is no switch in front.`
+                    break;
 
                 default:
                     response.success = false;
