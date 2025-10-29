@@ -1,0 +1,1 @@
+from .dungeoncoder import Game, Hero

@@ -31,7 +31,11 @@
     "commands": [
       {
         "command": "vscode-dungeon-coder.startGame",
-        "title": "Start Dungeon Coder"
+        "title": "Dungeon Coder: Enter the dungeon"
+      },
+      {
+        "command": "vscode-dungeon-coder.copyPythonAPI",
+        "title": "Dungeon Coder: Copy Python API to workspace"
       }
     ]
   },

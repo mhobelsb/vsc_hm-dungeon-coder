@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
+import { readFileSync } from 'fs';
+import { constants as fsConstants } from 'fs';
+
 import express from 'express';
 import { Server } from 'http'; 
 
@@ -265,7 +268,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         console.log('Dungeon Coder loaded successfully. Have fun coding!');
 
-        let disposable = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', () => {
+        let startGameDisposable = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', () => {
             vscode.window.showInformationMessage('Enter the dungeon!');
             createWebview(context);  
             startServer((cmd: string) => {
@@ -274,8 +277,60 @@ export function activate(context: vscode.ExtensionContext) {
             });
         });
 
-        context.subscriptions.push(disposable);
+        let copyPythonDisposable = vscode.commands.registerCommand('vscode-dungeon-coder.copyPythonAPI', async () => {
+            const folders = vscode.workspace.workspaceFolders;
+            if (!folders || folders.length === 0) {
+            vscode.window.showErrorMessage('Please open a workspace or folder first.');
+            return;
+            }
+
+            const workspacePath = folders[0].uri.fsPath;
+            const sourcePath = path.join(context.extensionPath, 'api', 'python', 'dungeoncoder');
+            const destPath = path.join(workspacePath, 'dungeoncoder');
+
+            try {
+                // Check if already exists
+                try {
+                    await fs.access(destPath, fsConstants.F_OK);
+                    const overwrite = await vscode.window.showQuickPick(['Yes', 'No'], {
+                        placeHolder: `Folder 'dungeoncoder' already exists. Overwrite?`
+                    });
+                    if (overwrite !== 'Yes') return;
+                } catch {
+                    // folder doesn’t exist, continue
+            }
+
+            // Create destination folder
+            await fs.mkdir(destPath, { recursive: true });
+
+            // Copy files recursively
+            await copyFolderRecursive(sourcePath, destPath);
+
+            vscode.window.showInformationMessage(`Python files copied to ${destPath}`);
+            const uri = vscode.Uri.file(destPath);
+            //vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: false });
+            } catch (err) {
+            vscode.window.showErrorMessage(`Failed to copy Python files: ${err}`);
+            }
+        });
+
+        context.subscriptions.push(startGameDisposable);
+        context.subscriptions.push(copyPythonDisposable);
     }
+}
+
+async function copyFolderRecursive(src: string, dest: string) {
+  const entries = await fs.readdir(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      await fs.mkdir(destPath, { recursive: true });
+      await copyFolderRecursive(srcPath, destPath);
+    } else {
+      await fs.copyFile(srcPath, destPath);
+    }
+  }
 }
 
 async function getWebviewContent(webview: vscode.Webview, extensionPath: string): Promise<string> {
@@ -289,7 +344,7 @@ async function getWebviewContent(webview: vscode.Webview, extensionPath: string)
 
     let htmlContent: string;
     try {
-        htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
+        htmlContent = readFileSync(htmlFilePath, 'utf8');
     } catch (error: any) { // Type 'any' for error to access 'message'
         throw new Error(`Could not read index.html: ${error.message}`);
     }
