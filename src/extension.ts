@@ -35,7 +35,7 @@ async function sendMessageToWebview(message: any): Promise<WebviewResponse> {
         webviewPanel!.webview.postMessage(messageWithId);
     });
 }
- 
+
 function startServer(sendToWebview: (cmd: string) => void) {
     const app = express();
     app.use(express.json());
@@ -110,6 +110,25 @@ function startServer(sendToWebview: (cmd: string) => void) {
         }
     });
 
+    // app.post('/hero/pace', async (req, res) => {
+    //     try {
+    //         const config = req.body;
+    //         const response = await sendMessageToWebview({
+    //             command: "set_pace",
+    //             data: config
+    //         });
+// 
+    //         if (response.success) {
+    //             res.status(200).json({ status: 'success', message: response.message });
+    //         } else {
+    //             res.status(500).json({ status: 'error', message: response.message });
+    //         }
+    //     } catch (error: any) {
+    //         console.error('API Error:', error);
+    //         res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}` });
+    //     }
+    // });
+
     app.post('/hero/turn_left', async (req, res) => {
         try {
             const response = await sendMessageToWebview({
@@ -146,6 +165,77 @@ function startServer(sendToWebview: (cmd: string) => void) {
             res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}` });
         }
     });
+
+    app.get('/hero/get_items_at_position', async (req, res) => {
+        try {
+            const response = await sendMessageToWebview({
+                command: "get_items_at_position",
+                data: null
+            });
+            if (response.success) {
+                res.status(200).json({ status: 'success', message: response.message, result: response.result });
+            } else {
+                res.status(500).json({ status: 'error', message: response.message, result: []});
+            }
+        } catch (error: any) {
+            console.error('API Error:', error);
+            res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}`, result: [] });
+        }
+    });
+
+    app.get('/hero/inventory', async (req, res) => {
+        try {
+            const response = await sendMessageToWebview({
+                command: "get_inventory",
+                data: null
+            });
+            if (response.success) {
+                res.status(200).json({ status: 'success', message: response.message, result: response.result });
+            } else {
+                res.status(500).json({ status: 'error', message: response.message, result: []});
+            }
+        } catch (error: any) {
+            console.error('API Error:', error);
+            res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}`, result: [] });
+        }
+    });
+
+    app.post('/hero/pickup', async (req, res) => {
+        try {
+            const data = req.body;
+            const response = await sendMessageToWebview({
+                command: "pickup",
+                data: data
+            });
+            if (response.success) {
+                res.status(200).json({ status: 'success', message: response.message, result: response.result });
+            } else {
+                res.status(500).json({ status: 'error', message: response.message, result: []});
+            }
+        } catch (error: any) {
+            console.error('API Error:', error);
+            res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}`, result: [] });
+        }
+    });
+
+    app.post('/hero/drop', async (req, res) => {
+        try {
+            const data = req.body;
+            const response = await sendMessageToWebview({
+                command: "drop",
+                data: data
+            });
+            if (response.success) {
+                res.status(200).json({ status: 'success', message: response.message, result: response.result });
+            } else {
+                res.status(500).json({ status: 'error', message: response.message, result: []});
+            }
+        } catch (error: any) {
+            console.error('API Error:', error);
+            res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}`, result: [] });
+        }
+    });
+
 
     const get_endpoints = [
         'is_collision_in_front',

@@ -155,15 +155,19 @@ function loadFileAsync(file) {
                     break;
 
                 case 'pickup':
-                    const name = message.data;
-                    response.result = this.character.pickup(name);
+                    response.result = character.pickup(message.data.name);
                     response.message = response.result ? `Picked up item. "${message.data}"` : `Item "${message.data}" not found at current location.`;
                     break;
 
                 case 'drop':
-                    response.result = this.character.drop(message.data);
+                    response.result = character.drop(message.data.name);
                     response.message = response.result ? `Successfully dropped item "${message.data}."` : `Item "${message.data}" not in inventory.`;
                     break;
+
+                //case 'set_pace':
+                //    response.result = character.set_pace(message.data.factor);
+                //    response.message = response.result ? `Successfully dropped item "${message.data}."` : `Item "${message.data}" not in inventory.`;
+                //    break;
 
                 default:
                     response.success = false;

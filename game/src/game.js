@@ -916,6 +916,7 @@ class Character extends GameObject {
         this.setName("Alina");
         this.setTypeNumber(7);
         this.isCharacterDead = false;
+        //this.pace_factor = 1.0;
 
         this.isCharacterFalling = false;
         this.angle = 0;
@@ -924,7 +925,7 @@ class Character extends GameObject {
         this.MAX_FALL_TIME_MS = 3000;
         this.ROTATION_PER_SECOND = 6;
         this.SHRINK_RATE_PER_SECOND = 0.6;
-        this.inventory = []
+        this.inventory = [] // TODO: Add items essential to survive: Towel, Baby Wipes and Tissues
     }
 
     setName(name) {
@@ -943,6 +944,10 @@ class Character extends GameObject {
         }
         return success;
     }
+
+    //setPace(factor) {
+    //    this.pace_factor = factor;
+    //}
 
     isMoving() {
         return this.getState() === "walking";
@@ -1045,29 +1050,43 @@ class Character extends GameObject {
         return this.isCharacterDead;
     }
 
+    getCurrentPosition(centered = true) {
+        let current_x = this.x;
+        let current_y = this.y;
+
+        if (centered) {
+            current_x += TILE_SIZE / 2;
+            current_y -= TILE_SIZE / 2;
+        }
+
+        return [current_x, current_y];
+    }
+
+    getItemsAtCurrentPosition(level) {
+        let item_names = []
+        const current_position = this.getCurrentPosition();
+        const objects =  level.getObjectsAtPosition(current_position[0], current_position[1]);
+        for (const object of objects) {
+            if (object.type != "Character") {
+                item_names.push(object.type);
+            }
+        }
+        return item_names;
+    }
 
     getInventory() {
         let list_of_names = []
-        for (item of this.inventory) {
+        for (const item of this.inventory) {
             list_of_names.push(item.type);
         }
         return list_of_names;
     }
 
-    getItemsAtCurrentPosition(level) {
-        let item_names = []
-        const objects =  level.getObjectsAtPosition(this.x, this.y);
-        for (const object of objects) {
-            item_names.push(object.type);
-        }
-        return item_names;
-    }
-
     pickup(level, name) {
-        const objects = level.getObjectsAtPosition(this.x, this.y);
+        const current_position = this.getCurrentPosition();
+        const objects =  level.getObjectsAtPosition(current_position[0], current_position[1]);
         for (const object of objects) {
             if (object.type === name) {
-                // move to inventory
                 this.inventory.push(object);
                 object.x = -100;
                 object.y = -100;
@@ -1080,12 +1099,14 @@ class Character extends GameObject {
     }
 
     drop(level, name) {
-        for (const item of this.inventory) {
+        for (let i = 0; i < this.inventory.length; i++) {
+            const item = this.inventory[i];
             if (item.type === name) {
                 item.x = this.x;
                 item.y = this.y;
                 item.visible = true;
-
+                this.inventory.splice(i, 1);
+                
                 return true;
             }
         }
@@ -1239,7 +1260,7 @@ class GameObjectFactory {
             const tile = tileFactory.getTileByGlobalTileId(gid);
             if (!tile) {
                 console.warn(`Object with invalid tile id "${gid}" found.`);
-                objectType = "";
+                objectType = "Unknown Object";
             } else {
                 objectType = tile.type;
             }
@@ -1250,7 +1271,7 @@ class GameObjectFactory {
         } else {
             console.warn(`Object with type "${objectType}" not defined in Object Map. Check object layer in your level.`)
         }
-        const gameObject = new classConstructor(objectDescription, tileFactory, classConstructor.name);
+        const gameObject = new classConstructor(objectDescription, tileFactory, objectType);
         this.gameObjects.push(gameObject);
         return gameObject;
     }
@@ -1518,14 +1539,14 @@ class Level {
                         }
                     }
                 }
-            } else if (layer instanceof ObjectLayer) {
-                const objects =  level.getObjectsAtPosition(x, y);
-                if (Array.isArray(objects) && objects.length != 0) {
-                    for (const object of objects) {
-                        if (object.isCollision()) {
-                            return true;
-                        }
-                    }
+            }
+        }
+
+        const objects =  this.getObjectsAtPosition(x, y);
+        if (Array.isArray(objects) && objects.length != 0) {
+            for (const object of objects) {
+                if (object.isCollision()) {
+                    return true;
                 }
             }
         }
@@ -1691,6 +1712,10 @@ class CharacterInterface {
         success &= this.character.setTypeNumber(typeNumber);
         return success;
     }
+
+    //set_pace(factor) {
+    //    return this.character.setPace(factor);
+    //}
 
     turnLeft() {
         return this.character.turnLeft();
