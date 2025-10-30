@@ -885,7 +885,7 @@ class Character extends GameObject {
 
     static generateCombinedStrings(array1, array2) {
         const combined = [];
-        for (var i = 0; i < 15; i++) {
+        for (var i = 0; i <= 15; i++) {
             for (const item1 of array1) {
                 for (const item2 of array2) {
                     combined.push(`${item1}_${item2}_${i}`);
