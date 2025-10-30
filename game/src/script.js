@@ -144,6 +144,27 @@ function loadFileAsync(file) {
                     response.message = response.result ? `There is a switch in front.`: `There is no switch in front.`
                     break;
 
+                case 'get_items_at_position':
+                    response.result = character.getItemsAtHeroPosition();
+                    response.message = response.result.length > 0 ? 'There are items at the current position.' : 'There are no items at the current position.';
+                    break;
+
+                case 'get_inventory':
+                    response.result = character.getInventory();
+                    response.message = response.result.length > 0 ? 'There are items in the inventory.' : 'There are no items in the inventory.';
+                    break;
+
+                case 'pickup':
+                    const name = message.data;
+                    response.result = this.character.pickup(name);
+                    response.message = response.result ? `Picked up item. "${message.data}"` : `Item "${message.data}" not found at current location.`;
+                    break;
+
+                case 'drop':
+                    response.result = this.character.drop(message.data);
+                    response.message = response.result ? `Successfully dropped item "${message.data}."` : `Item "${message.data}" not in inventory.`;
+                    break;
+
                 default:
                     response.success = false;
                     response.message = "Error: Command not found."

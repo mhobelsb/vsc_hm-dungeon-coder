@@ -924,6 +924,7 @@ class Character extends GameObject {
         this.MAX_FALL_TIME_MS = 3000;
         this.ROTATION_PER_SECOND = 6;
         this.SHRINK_RATE_PER_SECOND = 0.6;
+        this.inventory = []
     }
 
     setName(name) {
@@ -1013,12 +1014,17 @@ class Character extends GameObject {
 
     isInDirection(level, direction, name) {
         const newTargetXY = this.getPositionInDirection(direction, true);
-        const object = level.getObjectAtPosition(newTargetXY[0], newTargetXY[1]);
-        if (object) {
-            if (object.type === name) {
-                return true;
+        const objects = level.getObjectsAtPosition(newTargetXY[0], newTargetXY[1]);
+        if (Array.isArray(objects) && objects.length != 0) {
+            for (const object of objects) {
+                if (object) {
+                    if (object.type === name) {
+                        return true;
+                    }
+                }
             }
         }
+    
         const tiles = level.getTilesAtPosition(newTargetXY[0], newTargetXY[1]);
         for(const tile of tiles) {
             if (tile) {
@@ -1037,6 +1043,54 @@ class Character extends GameObject {
 
     isDead() {
         return this.isCharacterDead;
+    }
+
+
+    getInventory() {
+        let list_of_names = []
+        for (item of this.inventory) {
+            list_of_names.push(item.type);
+        }
+        return list_of_names;
+    }
+
+    getItemsAtCurrentPosition(level) {
+        let item_names = []
+        const objects =  level.getObjectsAtPosition(this.x, this.y);
+        for (const object of objects) {
+            item_names.push(object.type);
+        }
+        return item_names;
+    }
+
+    pickup(level, name) {
+        const objects = level.getObjectsAtPosition(this.x, this.y);
+        for (const object of objects) {
+            if (object.type === name) {
+                // move to inventory
+                this.inventory.push(object);
+                object.x = -100;
+                object.y = -100;
+                object.visible = false;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    drop(level, name) {
+        for (const item of this.inventory) {
+            if (item.type === name) {
+                item.x = this.x;
+                item.y = this.y;
+                item.visible = true;
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     move(newDirection, level) {
@@ -1071,14 +1125,19 @@ class Character extends GameObject {
 
     interact(level) {
         const position = this.getPositionInDirection(this.getDirection(), true);
-        const object =  level.getObjectAtPosition(position[0], position[1]);
-        if (object) {
-            if (typeof object.interact === 'function') {
-                object.interact(level);
-            } else {
-                console.log(`You cannot interact with the object with ID "${object.id}".`)
+        const objects =  level.getObjectsAtPosition(position[0], position[1]);
+        if (Array.isArray(objects) && objects.length != 0) {
+            for (const object of objects) {
+                if (object) {
+                    if (typeof object.interact === 'function') {
+                        object.interact(level);
+                    } else {
+                        console.log(`You cannot interact with the object of class "${object.type}" and ID "${object.id}".`)
+                    }
+                }
             }
-        } else {
+        }
+        else {
             console.log(`There is no object in front of the player to interact with.`);
         }
         return false;
@@ -1229,13 +1288,14 @@ class GameObjectFactory {
         return null;
     }
 
-    getObjectAtPosition(x, y) {
+    getObjectsAtPosition(x, y) {
+        let objects = [];
         for (const object of this.gameObjects) {
             if (object.isAtPosition(x, y)) {
-                return object;
+                objects.push(object);
             }
         }
-        return null;
+        return objects;
     }
 }
 
@@ -1355,8 +1415,8 @@ class Level {
         return this.objectFactory.getObjectByType(type);
     }
 
-    getObjectAtPosition(x, y) {
-        return this.objectFactory.getObjectAtPosition(x, y);
+    getObjectsAtPosition(x, y) {
+        return this.objectFactory.getObjectsAtPosition(x, y);
     }
 
     getTilesAtPosition(x, y) {
@@ -1459,9 +1519,13 @@ class Level {
                     }
                 }
             } else if (layer instanceof ObjectLayer) {
-                const object = this.objectFactory.getObjectAtPosition(x, y);
-                if (object) {
-                    return object.isCollision();
+                const objects =  level.getObjectsAtPosition(x, y);
+                if (Array.isArray(objects) && objects.length != 0) {
+                    for (const object of objects) {
+                        if (object.isCollision()) {
+                            return true;
+                        }
+                    }
                 }
             }
         }
@@ -1650,6 +1714,23 @@ class CharacterInterface {
 
     isSwitchInFront() {
         return this.character.isInFront(this.level, "Switch");
+    }
+
+    getInventory() {
+        return this.character.getInventory();
+    }
+
+    getItemsAtHeroPosition() {
+        
+        return this.character.getItemsAtCurrentPosition(this.level);
+    }
+
+    pickup(name) {
+        this.character.pickup(this.level, name);
+    }
+
+    drop(name) {
+        this.character.drop(this.level, name);
     }
 
     isMoving() {
