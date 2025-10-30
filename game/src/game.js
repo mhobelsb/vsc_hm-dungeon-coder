@@ -1697,14 +1697,19 @@ class KeyBoardInput {
 }
 
 class CharacterInterface {
-    constructor(game, level, character) {
+    constructor(game, level, character, statistics) {
         this.game = game;
         this.level = level;
         this.character = character;
+        this.statistics = statistics;
     }
 
     move() {
-        return this.character.move(this.character.getDirection(), this.level);
+        const ret = this.character.move(this.character.getDirection(), this.level);
+        if (ret) {
+            this.statistics.addMove();
+        }
+        return ret;
     }
 
     configure(name, typeNumber) {
@@ -1719,6 +1724,7 @@ class CharacterInterface {
     }
 
     turnLeft() {
+        this.statistics.addTurn();
         return this.character.turnLeft();
     }
 
@@ -1772,6 +1778,25 @@ class CharacterInterface {
     }
 }
 
+class Statistics {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.number_of_moves = 0;
+        this.number_of_turns = 0;
+    }
+
+    addMove() {
+        this.number_of_moves += 1;
+    }
+
+    addTurn() {
+        this.number_of_turns += 1;
+    }
+}
+
 export class Game {
     static GAME_STATE = {
         WAITING_FOR_LEVEL: "WAITING", 
@@ -1798,12 +1823,14 @@ export class Game {
         this.character = null;
         this.characterInterface = null;
         this.pathPrefix = pathPrefix;
+        this.statistics = new Statistics();
     }
 
     async loadLevel(levelData) {
+        this.statistics.reset();
         this.level = await Level.create(levelData, this.pathPrefix);
         this.character = this.level.getObjectByName("MainCharacter");
-        this.characterInterface = new CharacterInterface(this, this.level, this.character);
+        this.characterInterface = new CharacterInterface(this, this.level, this.character, this.statistics);
         this.inputManager.setCharacter(this.character);
         console.log("Level successfully loaded.");
         this.currentGameState = Game.GAME_STATE.PLAYING;
@@ -1837,6 +1864,16 @@ export class Game {
 
     isComplete() {
         return this.level.isComplete();
+    }
+
+    drawMultilineText(ctx, text, x, y, lineHeight) {
+        const lines = text.split('\n');
+        let currentY = y - (lines.length - 1) * lineHeight / 2; // Center the whole block
+                
+        lines.forEach((line) => {
+            ctx.fillText(line, x, currentY);
+            currentY += lineHeight;
+        });
     }
 
     gameLoop(currentTime) {
@@ -1888,7 +1925,11 @@ export class Game {
                     color = 'red';
                     text = `Game Over! Continue in ${Math.ceil(this.remainingTime / 1000)}s.`
                 } else {
-                    text = `Level Completed! Continue in ${Math.ceil(this.remainingTime / 1000)}s.`;
+                    text = `Good job! Level Complete!\n\n`;
+                    text += `**Level Statistics**\n`;
+                    text += `Moves: ${this.statistics.number_of_moves}\n`;
+                    text += `Turns: ${this.statistics.number_of_turns}\n\n`;
+                    text += `Continue in ${Math.ceil(this.remainingTime / 1000)}s.`;
                     color = 'green';
                 }
 
@@ -1896,7 +1937,9 @@ export class Game {
                 this.ctx.font = `${FONT_SIZE}px Arial`;
                 this.ctx.textAlign = 'center';
                 this.ctx.textBaseline = 'middle';
-                this.ctx.fillText(text, centerX, centerY);
+
+                this.drawMultilineText(this.ctx, text, centerX, centerY, FONT_SIZE * 1.2);
+
                 this.remainingTime -= deltaTimeMs;
                 if (this.remainingTime <= 0) {
                     this.currentGameState = Game.GAME_STATE.WAITING_FOR_LEVEL;
