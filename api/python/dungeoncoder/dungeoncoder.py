@@ -166,10 +166,10 @@ class Hero:
     def set_pace(self, factor: float) -> bool:
         """Sets the hero's pace depending on the factor."""
         URL = f"{self.BASE_URL}/hero/pace"
-        if type(factor) != float or type(factor) != int:
+        if type(factor) != float and type(factor) != int:
             print("Error: Factor has to be of type 'int' or 'float'.")
             return False
-        response = send_request(URL, 'POST', data = json.dumps(factor))
+        response = send_request(URL, 'POST', data = {"factor": factor})
         return parse_api_response(response)
     
 class Game:
