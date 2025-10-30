@@ -130,7 +130,12 @@ class Hero:
         """Returns the items at the hero's current position."""
         URL = f"{self.BASE_URL}/hero/get_items_at_position"
         response = send_request(URL, 'GET')
-        return parse_api_response(response)
+        ret = parse_api_response(response)
+        if ret == False:
+            print("Unknown error occurred while getting items.")
+            return []
+        
+        return ret
 
     def get_inventory(self) -> list[str]:
         """Returns the list of items in the hero's inventory."""
@@ -145,7 +150,7 @@ class Hero:
         if type(name) != str:
             print("Error: You have to pass a single string with the item to pickup.")
             return False
-        response = send_request(URL, 'POST', data = json.dumps(name))
+        response = send_request(URL, 'POST', data = {"name": name})
         return parse_api_response(response)
     
     def drop(self, name: str) -> bool:
@@ -155,17 +160,17 @@ class Hero:
         if type(name) != str:
             print("Error: You have to pass a single string with the item to drop.")
             return False
-        response = send_request(URL, 'POST', data = json.dumps(name))
+        response = send_request(URL, 'POST', data = {"name": name})
         return parse_api_response(response)
     
-    #def set_pace(self, factor: float) -> bool:
-    #    """Sets the hero's pace depending on the factor."""
-    #    URL = f"{self.BASE_URL}/hero/pace"
-    #    if type(factor) != float or type(factor) != int:
-    #        print("Error: Factor has to be of type 'int' or 'float'.")
-    #        return False
-    #    response = send_request(URL, 'POST', data = json.dumps(factor))
-    #    return parse_api_response(response)
+    def set_pace(self, factor: float) -> bool:
+        """Sets the hero's pace depending on the factor."""
+        URL = f"{self.BASE_URL}/hero/pace"
+        if type(factor) != float or type(factor) != int:
+            print("Error: Factor has to be of type 'int' or 'float'.")
+            return False
+        response = send_request(URL, 'POST', data = json.dumps(factor))
+        return parse_api_response(response)
     
 class Game:
     """

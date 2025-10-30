@@ -9,6 +9,8 @@ import { Server } from 'http';
 
 let webviewPanel: vscode.WebviewPanel | undefined;
 let serverInstance: Server | undefined;
+let turn_delay = 200;
+let current_pace_factor = 1.0;
 
 const pendingWebviewRequests = new Map<string, (result: WebviewResponse) => void>();
 
@@ -110,24 +112,25 @@ function startServer(sendToWebview: (cmd: string) => void) {
         }
     });
 
-    // app.post('/hero/pace', async (req, res) => {
-    //     try {
-    //         const config = req.body;
-    //         const response = await sendMessageToWebview({
-    //             command: "set_pace",
-    //             data: config
-    //         });
-// 
-    //         if (response.success) {
-    //             res.status(200).json({ status: 'success', message: response.message });
-    //         } else {
-    //             res.status(500).json({ status: 'error', message: response.message });
-    //         }
-    //     } catch (error: any) {
-    //         console.error('API Error:', error);
-    //         res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}` });
-    //     }
-    // });
+    app.post('/hero/pace', async (req, res) => {
+        try {
+            const config = req.body;
+            const response = await sendMessageToWebview({
+                command: "set_pace",
+                data: config
+            });
+
+            if (response.success) {
+                current_pace_factor = config.factor;
+                res.status(200).json({ status: 'success', message: response.message });
+            } else {
+                res.status(500).json({ status: 'error', message: response.message });
+            }
+        } catch (error: any) {
+            console.error('API Error:', error);
+            res.status(500).json({ status: 'error', message: `Internal server error: ${error.message}` });
+        }
+    });
 
     app.post('/hero/turn_left', async (req, res) => {
         try {
@@ -136,7 +139,7 @@ function startServer(sendToWebview: (cmd: string) => void) {
                 data: null
             });
 
-            await delay(200);
+            await delay(turn_delay / current_pace_factor);
 
             if (response.success) {
                 res.status(200).json({ status: 'success', message: response.message });
@@ -175,7 +178,7 @@ function startServer(sendToWebview: (cmd: string) => void) {
             if (response.success) {
                 res.status(200).json({ status: 'success', message: response.message, result: response.result });
             } else {
-                res.status(500).json({ status: 'error', message: response.message, result: []});
+                res.status(500).json({ status: 'error', message: response.message, result: [] });
             }
         } catch (error: any) {
             console.error('API Error:', error);

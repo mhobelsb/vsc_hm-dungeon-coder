@@ -916,7 +916,7 @@ class Character extends GameObject {
         this.setName("Alina");
         this.setTypeNumber(7);
         this.isCharacterDead = false;
-        //this.pace_factor = 1.0;
+        this.pace_factor = 1.0;
 
         this.isCharacterFalling = false;
         this.angle = 0;
@@ -945,9 +945,10 @@ class Character extends GameObject {
         return success;
     }
 
-    //setPace(factor) {
-    //    this.pace_factor = factor;
-    //}
+    setPace(factor) {
+        this.pace_factor = factor;
+        return true;
+    }
 
     isMoving() {
         return this.getState() === "walking";
@@ -1207,7 +1208,7 @@ class Character extends GameObject {
         }
         else if (this.isMoving()) {
             this.movementProgress += deltaTime; // Accumulate time for movement
-            const progressRatio = Math.min(1, this.movementProgress / this.moveDuration);
+            const progressRatio = Math.min(1, this.movementProgress / (this.moveDuration / this.pace_factor));
 
             // Interpolate position from the *stored start* position to target tile position
             this.x = this.currentMoveStartX + (this.targetX - this.currentMoveStartX) * progressRatio;
@@ -1713,9 +1714,9 @@ class CharacterInterface {
         return success;
     }
 
-    //set_pace(factor) {
-    //    return this.character.setPace(factor);
-    //}
+    set_pace(factor) {
+        return this.character.setPace(factor);
+    }
 
     turnLeft() {
         return this.character.turnLeft();

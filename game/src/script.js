@@ -164,10 +164,10 @@ function loadFileAsync(file) {
                     response.message = response.result ? `Successfully dropped item "${message.data}."` : `Item "${message.data}" not in inventory.`;
                     break;
 
-                //case 'set_pace':
-                //    response.result = character.set_pace(message.data.factor);
-                //    response.message = response.result ? `Successfully dropped item "${message.data}."` : `Item "${message.data}" not in inventory.`;
-                //    break;
+                case 'set_pace':
+                    response.result = character.set_pace(message.data.factor);
+                    response.message = response.result ? `Successfully changed pace to factor "${message.data.factor}."` : `Could not change pace to "${message.data.factor}".`;
+                    break;
 
                 default:
                     response.success = false;
