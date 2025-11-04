@@ -188,8 +188,8 @@ class Game:
         try:
             self.__level.load(level_file)
         except:
-            print(f"Error: Level {level_file} could not be loaded. Please make sure the file exists and is valid.")
-            raise FileExistsError
+            print(f"Error: Level {level_file} could not be loaded. Please make sure the file exists, is valid and you opened the folder correctly.")
+            exit(-1)
 
         self.__hero = Hero(self.BASE_URL)
 
