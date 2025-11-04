@@ -188,7 +188,8 @@ class Game:
         try:
             self.__level.load(level_file)
         except:
-            print(f"Error: Level {level_file} could not be loaded. Did you open the project folder correctly?")
+            print(f"Error: Level {level_file} could not be loaded. Please make sure the file exists and is valid.")
+            raise FileExistsError
 
         self.__hero = Hero(self.BASE_URL)
 
@@ -210,7 +211,7 @@ class Game:
                 filename (str): The path to the JSON file containing the level data.
             """
             if not os.path.exists(filename):
-                raise FileNotFoundError
+                raise FileExistsError
             
             with open(filename, 'r') as f:
                 level_data = json.load(f)
