@@ -1,6 +1,7 @@
-// Ambient typing for the plain-JS shared command registry at
-// game/src/commands.js, so extension.ts can import it without pulling the
-// untyped game/ tree into TypeScript's compilation graph (no `allowJs`).
+// Ambient typing for the plain-JS, generated config modules under game/src/
+// (commands.js, api-config.js), so extension.ts can import them without
+// pulling the untyped game/ tree into TypeScript's compilation graph (no
+// `allowJs`).
 declare module '*commands.js' {
     export const COMMANDS: {
         readonly LOAD_LEVEL: 'load_level';
@@ -23,4 +24,10 @@ declare module '*commands.js' {
         readonly SET_PACE: 'set_pace';
     };
     export const COMMAND_LIST: readonly string[];
+}
+
+declare module '*api-config.js' {
+    export const API_HOST: string;
+    export const API_PORT: number;
+    export const API_BASE_URL: string;
 }

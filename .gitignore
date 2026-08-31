@@ -11,4 +11,6 @@ node_modules
 # api/python/dungeoncoder/_generated, nothing outside this repo's own build
 # consumes these directly, so there's no need to commit them.
 game/src/commands.js
+game/src/api-config.js
 src/generated/
+api/python/dungeoncoder/_api_config.py

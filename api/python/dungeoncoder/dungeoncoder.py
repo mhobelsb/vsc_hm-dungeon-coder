@@ -3,6 +3,7 @@ import os
 
 import httpx
 
+from ._api_config import BASE_URL as DEFAULT_BASE_URL, HOST
 from ._generated import Client
 from ._generated.errors import UnexpectedStatus
 from ._generated.models.api_error_response import ApiErrorResponse
@@ -29,7 +30,7 @@ from ._generated.api.hero import (
 )
 from ._generated.api.level import load_level as _load_level_api, reset_level as _reset_level_api
 
-os.environ["NO_PROXY"] = "127.0.0.1"
+os.environ["NO_PROXY"] = HOST
 
 
 def _extract_message(response) -> str:
@@ -77,7 +78,7 @@ class Hero:
     """
     A class to control the hero's actions and get its state.
     """
-    BASE_URL = "http://127.0.0.1:3000"
+    BASE_URL = DEFAULT_BASE_URL
 
     def __init__(self, base_url: str = BASE_URL):
         self._client = Client(base_url=base_url, timeout=httpx.Timeout(1))
@@ -163,7 +164,7 @@ class Game:
         level: An instance of Level, which handles level-related commands.
     """
 
-    BASE_URL = "http://127.0.0.1:3000"
+    BASE_URL = DEFAULT_BASE_URL
 
     def __init__(self, level_file):
         self.__level = self.Level(self.BASE_URL)

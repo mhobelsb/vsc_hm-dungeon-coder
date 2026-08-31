@@ -15,10 +15,11 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import * as OpenApiValidator from 'express-openapi-validator';
 import { COMMANDS, COMMAND_LIST } from '../game/src/commands.js';
+import { API_HOST, API_PORT } from '../game/src/api-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HOST = '127.0.0.1';
-const HTTP_PORT = 3000;
+const HOST = API_HOST;
+const HTTP_PORT = API_PORT;
 const WS_PORT = 8000;
 const TURN_DELAY_MS = 200;
 

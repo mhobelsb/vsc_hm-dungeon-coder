@@ -6,6 +6,7 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import * as OpenApiValidator from 'express-openapi-validator';
 import { Server } from 'http';
 import { COMMANDS, COMMAND_LIST } from '../game/src/commands.js';
+import { API_HOST, API_PORT } from '../game/src/api-config.js';
 import type { components } from './generated/api-types.js';
 
 /** Business-outcome payload, unchanged externally so the Python client needs no changes. */
@@ -53,8 +54,8 @@ export class DungeonCoderServer {
     private serverInstance?: Server;
     private currentPaceFactor = 1.0;
     private turnDelay = 200;
-    private readonly url = '127.0.0.1';
-    private readonly port = 3000;
+    private readonly url = API_HOST;
+    private readonly port = API_PORT;
     private readonly pendingWebviewRequests = new Map<string, (response: WebviewRpcResponse) => void>();
     private readonly registeredCommands = new Set<string>();
 
