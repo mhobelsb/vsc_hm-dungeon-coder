@@ -4,3 +4,11 @@ node_modules
 .vscode-test/
 *.vsix
 **/__pycache__
+.codegen-venv
+
+# Generated from api/openapi.yaml by `npm run generate` (wired into compile/
+# watch/package/dev:browser, so these are always fresh when needed). Unlike
+# api/python/dungeoncoder/_generated, nothing outside this repo's own build
+# consumes these directly, so there's no need to commit them.
+game/src/commands.js
+src/generated/

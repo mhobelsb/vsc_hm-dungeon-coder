@@ -1,0 +1,347 @@
+openapi: 3.0.3
+info:
+  title: Dungeon Coder API
+  version: 0.0.16
+  description: |
+    Single source of truth for the Dungeon Coder REST API. This spec drives,
+    via generators wired into `npm run generate`:
+      - runtime request validation in the extension host (express-openapi-validator)
+      - TypeScript request/response types for src/extension.ts (openapi-typescript)
+      - the shared webview command registry, game/src/commands.js (tools/generate-commands.mjs)
+      - the generated low-level Python client under api/python/dungeoncoder/_client
+        (openapi-python-client), wrapped by the hand-written, student-facing
+        Hero/Game/Level classes in api/python/dungeoncoder/dungeoncoder.py
+
+    Note on status codes: `result: false` for an ordinary business outcome
+    (e.g. "move blocked by a wall") is, for historical reasons, returned with
+    HTTP 500 rather than 200 - the same status used for actual RPC/transport
+    failures. This is preserved as-is because the Python client's
+    `parse_api_response` relies on `requests.raise_for_status()` to collapse
+    both cases to a falsy return value; changing it is a breaking change to
+    every student-facing method (`move()`, `pickup()`, ...) and out of scope
+    for this spec.
+servers:
+  - url: http://127.0.0.1:3000
+
+# RPC method names used between the extension host and the webview that have
+# no HTTP surface of their own (is_moving drives the move-completion poll
+# loop internally). Listed here so tools/generate-commands.mjs can treat
+# this spec as the complete source of truth for the webview's command
+# registry, not just its HTTP-exposed subset.
+x-internal-commands:
+  - is_moving
+
+paths:
+  /hero/move:
+    post:
+      operationId: move
+      summary: Move the hero one tile forward.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/turn_left:
+    post:
+      operationId: turn_left
+      summary: Turn the hero 90 degrees to the left.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/interact:
+    post:
+      operationId: interact
+      summary: Interact with whatever the hero is facing (torch, switch, door, chest, ...).
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/configure:
+    post:
+      operationId: configure
+      summary: Set the hero's display name and sprite variant.
+      tags: [Hero]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigureParams'
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/pace:
+    post:
+      operationId: set_pace
+      summary: Scale the hero's movement/turn animation speed.
+      tags: [Hero]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaceParams'
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/pickup:
+    post:
+      operationId: pickup
+      summary: Pick up the named item at the hero's current position.
+      tags: [Hero]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameParam'
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/drop:
+    post:
+      operationId: drop
+      summary: Drop the named item from the hero's inventory.
+      tags: [Hero]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameParam'
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/get_items_at_position:
+    get:
+      operationId: get_items_at_position
+      summary: List item names at the hero's current position.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/StringArraySuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/inventory:
+    get:
+      operationId: get_inventory
+      summary: List item names currently in the hero's inventory.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/StringArraySuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/is_collision_in_front:
+    get:
+      operationId: is_collision_in_front
+      summary: Whether a solid obstacle blocks the tile in front of the hero.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/is_facing_north:
+    get:
+      operationId: is_facing_north
+      summary: Whether the hero currently faces north.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/is_at_goal:
+    get:
+      operationId: is_at_goal
+      summary: Whether the hero has reached the level's goal tile.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/is_torch_in_front:
+    get:
+      operationId: is_torch_in_front
+      summary: Whether a torch is on the tile in front of the hero.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/is_switch_in_front:
+    get:
+      operationId: is_switch_in_front
+      summary: Whether a switch is on the tile in front of the hero.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/is_abyss_in_front:
+    get:
+      operationId: is_abyss_in_front
+      summary: Whether the tile in front of the hero is an impassable abyss.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /level/load:
+    post:
+      operationId: load_level
+      summary: Load a level from a Tiled JSON export.
+      tags: [Level]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TiledLevel'
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /level/reset:
+    post:
+      operationId: reset_level
+      summary: Reload the most recently loaded level from scratch.
+      tags: [Level]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    BooleanSuccess:
+      description: Operation completed; result carries its boolean outcome.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BooleanResult'
+    StringArraySuccess:
+      description: Operation completed; result carries a list of item names.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StringArrayResult'
+    Error:
+      description: RPC-level failure, or an ordinary negative business outcome (see info.description).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+
+  schemas:
+    ApiErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        exception:
+          type: string
+
+    BooleanResult:
+      type: object
+      required: [status, message, result]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        result:
+          type: boolean
+
+    StringArrayResult:
+      type: object
+      required: [status, message, result]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        result:
+          type: array
+          items:
+            type: string
+
+    NameParam:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Item name, as returned by get_items_at_position/get_inventory.
+
+    ConfigureParams:
+      type: object
+      required: [name, typeNumber]
+      properties:
+        name:
+          type: string
+          description: Display name shown above the hero.
+        typeNumber:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: Selects the hero sprite variant.
+
+    PaceParams:
+      type: object
+      required: [factor]
+      properties:
+        factor:
+          type: number
+          description: Multiplier applied to movement/turn animation speed.
+
+    TiledLevel:
+      type: object
+      description: >-
+        A Tiled (mapeditor.org) JSON map export. Not fully modeled here -
+        the game engine (game/src/game.js) is the source of truth for what
+        it accepts.
+      additionalProperties: true

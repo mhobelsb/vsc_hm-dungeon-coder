@@ -1824,6 +1824,7 @@ export class Game {
         this.characterInterface = null;
         this.pathPrefix = pathPrefix;
         this.statistics = new Statistics();
+        this.lastLevelData = null;
     }
 
     async loadLevel(levelData) {
@@ -1832,9 +1833,19 @@ export class Game {
         this.character = this.level.getObjectByName("MainCharacter");
         this.characterInterface = new CharacterInterface(this, this.level, this.character, this.statistics);
         this.inputManager.setCharacter(this.character);
+        this.lastLevelData = levelData;
         console.log("Level successfully loaded.");
         this.currentGameState = Game.GAME_STATE.PLAYING;
         this.remainingTime = 5000;
+    }
+
+    /** Reloads the most recently loaded level from scratch. */
+    async resetLevel() {
+        if (!this.lastLevelData) {
+            return false;
+        }
+        await this.loadLevel(this.lastLevelData);
+        return true;
     }
 
     start() {

@@ -2,15 +2,47 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readFileSync, constants as fsConstants } from 'fs';
-import express, { Application, Request, Response } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
+import * as OpenApiValidator from 'express-openapi-validator';
 import { Server } from 'http';
+import { COMMANDS, COMMAND_LIST } from '../game/src/commands.js';
+import type { components } from './generated/api-types.js';
 
+/** Business-outcome payload, unchanged externally so the Python client needs no changes. */
 interface WebviewResponse {
     success: boolean;
     message: string;
     exception?: string;
     result?: any;
 }
+
+/**
+ * Wire format between the extension host and the webview: a JSON-RPC 2.0
+ * style envelope, shared (as far as the message shape goes) with the
+ * WebSocket transport used when the game runs outside VS Code. `method` is
+ * always one of COMMANDS (game/src/commands.js) - the single source of truth
+ * also consumed by game/src/script.js's dispatch table.
+ */
+interface WebviewRequest {
+    jsonrpc: '2.0';
+    id: string;
+    method: string;
+    params?: any;
+}
+
+interface WebviewRpcSuccess {
+    jsonrpc: '2.0';
+    id: string;
+    result: WebviewResponse;
+}
+
+interface WebviewRpcError {
+    jsonrpc: '2.0';
+    id: string;
+    error: { message: string };
+}
+
+type WebviewRpcResponse = WebviewRpcSuccess | WebviewRpcError;
 
 /**
  * DungeonCoderServer – Singleton handling Express API + VS Code Webview.
@@ -23,7 +55,8 @@ export class DungeonCoderServer {
     private turnDelay = 200;
     private readonly url = '127.0.0.1';
     private readonly port = 3000;
-    private readonly pendingWebviewRequests = new Map<string, (result: WebviewResponse) => void>();
+    private readonly pendingWebviewRequests = new Map<string, (response: WebviewRpcResponse) => void>();
+    private readonly registeredCommands = new Set<string>();
 
     private constructor() { }
 
@@ -40,20 +73,25 @@ export class DungeonCoderServer {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    /** Send message to webview and await reply */
-    private async sendMessageToWebview(message: any): Promise<WebviewResponse> {
+    /** Send a JSON-RPC request to the webview and await its reply. */
+    private async sendMessageToWebview(method: string, params: any = null): Promise<WebviewResponse> {
         if (!this.webviewPanel) {
             vscode.window.showErrorMessage('Webview not open.');
             return { success: false, message: 'Webview not open.', exception: 'WebViewNotOpen' };
         }
 
-        const requestId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
-        const messageWithId = { ...message, requestId };
+        const id = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+        const request: WebviewRequest = { jsonrpc: '2.0', id, method, params };
 
-        return new Promise(resolve => {
-            this.pendingWebviewRequests.set(requestId, resolve);
-            this.webviewPanel!.webview.postMessage(messageWithId);
+        const rpcResponse = await new Promise<WebviewRpcResponse>(resolve => {
+            this.pendingWebviewRequests.set(id, resolve);
+            this.webviewPanel!.webview.postMessage(request);
         });
+
+        if ('error' in rpcResponse) {
+            return { success: false, message: rpcResponse.error.message, exception: 'RpcError' };
+        }
+        return rpcResponse.result;
     }
 
     /** Unified Express route registration helper */
@@ -67,10 +105,11 @@ export class DungeonCoderServer {
             onSuccess?: (response: WebviewResponse, req: Request) => void | Promise<void>;
         }
     ) {
+        this.registeredCommands.add(command);
         (app as any)[method](route, async (req: Request, res: Response) => {
             try {
                 const data = options?.includeBody ? req.body : null;
-                const response = await this.sendMessageToWebview({ command, data });
+                const response = await this.sendMessageToWebview(command, data);
 
                 if (!response.success) {
                     this.sendApiResponse(res, response);
@@ -100,10 +139,7 @@ export class DungeonCoderServer {
     /** Poll helper for move() until hero stops */
     private async pollUntilStopped(pollInterval = 10): Promise<void> {
         while (true) {
-            const isMovingResponse = await this.sendMessageToWebview({
-                command: 'is_moving',
-                data: null,
-            });
+            const isMovingResponse = await this.sendMessageToWebview(COMMANDS.IS_MOVING);
 
             if (isMovingResponse.success && !isMovingResponse.result) return;
             await this.delay(pollInterval);
@@ -138,7 +174,7 @@ export class DungeonCoderServer {
     }
 
     /** Start server */
-    public startServer() {
+    public startServer(extensionPath: string) {
         if (this.serverInstance) {
             vscode.window.showErrorMessage("It seems like Dungeon Coder is already running in a different tab. Please check!");
             return false;
@@ -147,48 +183,81 @@ export class DungeonCoderServer {
         const app = express();
         app.use(express.json());
 
+        // Validates every request against api/openapi.yaml before it reaches
+        // a route handler - the spec is the single source of truth for what
+        // a request is allowed to look like, so this is enforced rather than
+        // re-checked by hand per route.
+        app.use(OpenApiValidator.middleware({
+            apiSpec: path.join(extensionPath, 'api', 'openapi.yaml'),
+            validateRequests: true,
+            validateResponses: false,
+        }));
+
         // --- Hero Movement ---
-        this.registerRoute(app, 'post', '/hero/move', 'move', {
+        this.registerRoute(app, 'post', '/hero/move', COMMANDS.MOVE, {
             onSuccess: async () => {
                 await this.pollUntilStopped(10);
             },
         });
 
-        this.registerDelayedCommandRoute(app, '/hero/turn_left', 'turn_left', this.turnDelay);
+        this.registerDelayedCommandRoute(app, '/hero/turn_left', COMMANDS.TURN_LEFT, this.turnDelay);
 
         // --- Configuration ---
-        this.registerRoute(app, 'post', '/hero/configure', 'configure', { includeBody: true });
-        this.registerRoute(app, 'post', '/hero/pace', 'set_pace', {
+        this.registerRoute(app, 'post', '/hero/configure', COMMANDS.CONFIGURE, { includeBody: true });
+        this.registerRoute(app, 'post', '/hero/pace', COMMANDS.SET_PACE, {
             includeBody: true,
             onSuccess: async (_, req) => {
-                const factor = req.body?.factor;
-                if (typeof factor === 'number') {
-                    this.currentPaceFactor = factor;
-                    console.log(`Updated current pace factor: ${factor}`);
-                }
+                // req.body is shaped per api/openapi.yaml's PaceParams schema and
+                // has already passed the OpenAPI validator by the time we get here.
+                const body: components['schemas']['PaceParams'] = req.body;
+                this.currentPaceFactor = body.factor;
+                console.log(`Updated current pace factor: ${body.factor}`);
             },
         });
 
         // --- Interaction ---
-        this.registerRoute(app, 'post', '/hero/interact', 'interact');
-        this.registerRoute(app, 'post', '/hero/pickup', 'pickup', { includeBody: true });
-        this.registerRoute(app, 'post', '/hero/drop', 'drop', { includeBody: true });
+        this.registerRoute(app, 'post', '/hero/interact', COMMANDS.INTERACT);
+        this.registerRoute(app, 'post', '/hero/pickup', COMMANDS.PICKUP, { includeBody: true });
+        this.registerRoute(app, 'post', '/hero/drop', COMMANDS.DROP, { includeBody: true });
 
         // --- Queries ---
-        this.registerRoute(app, 'get', '/hero/get_items_at_position', 'get_items_at_position');
-        this.registerRoute(app, 'get', '/hero/inventory', 'get_inventory');
-        this.registerRoute(app, 'post', '/level/load', 'load_level', { includeBody: true });
+        this.registerRoute(app, 'get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITION);
+        this.registerRoute(app, 'get', '/hero/inventory', COMMANDS.GET_INVENTORY);
+
+        // --- Level ---
+        this.registerRoute(app, 'post', '/level/load', COMMANDS.LOAD_LEVEL, { includeBody: true });
+        this.registerRoute(app, 'post', '/level/reset', COMMANDS.RESET_LEVEL);
 
         [
-            'is_collision_in_front',
-            'is_facing_north',
-            'is_at_goal',
-            'is_torch_in_front',
-            'is_switch_in_front',
-            'is_abyss_in_front',
-        ].forEach(endpoint =>
-            this.registerRoute(app, 'get', `/hero/${endpoint}`, endpoint)
+            COMMANDS.IS_COLLISION_IN_FRONT,
+            COMMANDS.IS_FACING_NORTH,
+            COMMANDS.IS_AT_GOAL,
+            COMMANDS.IS_TORCH_IN_FRONT,
+            COMMANDS.IS_SWITCH_IN_FRONT,
+            COMMANDS.IS_ABYSS_IN_FRONT,
+        ].forEach(command =>
+            this.registerRoute(app, 'get', `/hero/${command}`, command)
         );
+
+        // IS_MOVING is used only internally by pollUntilStopped(), not exposed as an HTTP route.
+        this.registeredCommands.add(COMMANDS.IS_MOVING);
+        const missingRoutes = COMMAND_LIST.filter(command => !this.registeredCommands.has(command));
+        if (missingRoutes.length > 0) {
+            console.error(`Dungeon Coder: no HTTP route registered for command(s): ${missingRoutes.join(', ')}`);
+        }
+
+        // Translates express-openapi-validator's error shape (and any other
+        // thrown error) into the same { status, message, exception } envelope
+        // every route already returns, so the Python client's response
+        // parsing doesn't need to special-case validation failures.
+        app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+            console.error('API validation/error:', err.message);
+            res.status(err.status ?? 500).json({
+                status: 'error',
+                message: err.message,
+                exception: err.name ?? 'ServerError',
+            });
+        });
 
         this.serverInstance = app.listen(this.port, this.url, () =>
             console.log(`API running on ${this.url}:${this.port}`)
@@ -243,14 +312,12 @@ export class DungeonCoderServer {
         );
 
         this.webviewPanel.webview.onDidReceiveMessage(
-            message => {
-                if (message.command === 'webviewResponse') {
-                    const requestId = message.requestId;
-                    const response = message.response;
-                    const resolver = this.pendingWebviewRequests.get(requestId);
+            (message: WebviewRpcResponse) => {
+                if (message?.jsonrpc === '2.0' && message.id) {
+                    const resolver = this.pendingWebviewRequests.get(message.id);
                     if (resolver) {
-                        resolver(response);
-                        this.pendingWebviewRequests.delete(requestId);
+                        resolver(message);
+                        this.pendingWebviewRequests.delete(message.id);
                     }
                 }
             },
@@ -323,7 +390,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const oldStartGame = vscode.commands.registerCommand('vscode-dungeon-coder.startGame_old', async () => {
         let ret = await server.createWebview(context);
-        ret = ret && server.startServer();
+        ret = ret && server.startServer(context.extensionPath);
         if (ret) {
             vscode.window.showInformationMessage('Enter the dungeon!');
         } else {
@@ -333,7 +400,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const startGame = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', async () => {
         let ret = await server.createWebview(context);
-        ret = ret && server.startServer();
+        ret = ret && server.startServer(context.extensionPath);
         if (ret) {
             vscode.window.showInformationMessage('Enter the dungeon!');
         } else {

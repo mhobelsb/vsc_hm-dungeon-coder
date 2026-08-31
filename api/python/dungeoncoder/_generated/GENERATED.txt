@@ -1,0 +1,9 @@
+This directory is generated. Do not edit its contents by hand - changes will
+be silently overwritten the next time it is regenerated.
+
+Source:      api/openapi.yaml
+Generator:   openapi-python-client==0.29.0
+Regenerate:  npm run generate:python-client   (see tools/generate-python-client.sh)
+
+api/python/dungeoncoder/dungeoncoder.py wraps this client with the small,
+hand-written, student-facing Hero/Game/Level API. Edit that file, not this one.

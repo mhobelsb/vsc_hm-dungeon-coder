@@ -45,17 +45,23 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "webpack",
-    "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
+    "generate:commands": "node tools/generate-commands.mjs",
+    "generate:types": "openapi-typescript api/openapi.yaml -o src/generated/api-types.d.ts",
+    "generate": "npm run generate:commands && npm run generate:types",
+    "generate:python-client": "bash tools/generate-python-client.sh",
+    "compile": "npm run generate && webpack",
+    "watch": "npm run generate && webpack --watch",
+    "package": "npm run generate && webpack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "dev:browser": "npm run generate:commands && node tools/dev-server.mjs"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/node-fetch": "^2.6.12",
@@ -65,13 +71,17 @@
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
+    "js-yaml": "^5.4.1",
+    "openapi-typescript": "^7.13.0",
     "ts-loader": "^9.5.2",
     "typescript": "^5.8.3",
     "webpack": "^5.99.7",
-    "webpack-cli": "^6.0.1"
+    "webpack-cli": "^6.0.1",
+    "ws": "^8.18.3"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "express-openapi-validator": "^5.6.2"
   },
   "capabilities": {
     "untrustedWorkspaces": {
