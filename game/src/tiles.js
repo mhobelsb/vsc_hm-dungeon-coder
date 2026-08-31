@@ -300,12 +300,6 @@ export class Tileset {
 
         const tileset = new Tileset(jsonPath, tileset_data, tilesetImage, firstgid);
 
-        for (const [id, tile] of tileset.tiles) {
-            if (tile instanceof AnimatedTile) {
-                tile.initializeAnimations(tileset);
-            }
-        }
-
         return tileset;
     }
 }

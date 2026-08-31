@@ -429,8 +429,6 @@ export function activate(context: vscode.ExtensionContext) {
             await copyFolderRecursive(sourcePath, destPath);
 
             vscode.window.showInformationMessage(`Python files copied to ${destPath}`);
-            const uri = vscode.Uri.file(destPath);
-            //vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: false });
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to copy Python files: ${err}`);
         }

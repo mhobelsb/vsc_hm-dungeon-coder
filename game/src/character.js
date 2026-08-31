@@ -27,7 +27,12 @@ export class Character extends GameObject {
         return parts[0];
     }
 
-    constructor(objectDescription, tileFactory) {
+    /**
+     * @param {boolean} debugDraw When true, draw() also renders a debug
+     *   overlay (bounding box, anchor point, facing-tile marker). Off by
+     *   default - flip it at construction time when debugging positioning.
+     */
+    constructor(objectDescription, tileFactory, _objectType, debugDraw = false) {
         const all_states = Character.generateCombinedStrings(Character.STATES, Character.DIRECTIONS);
         super(objectDescription, tileFactory, Character.name, all_states);
         // Movement Properties
@@ -48,6 +53,7 @@ export class Character extends GameObject {
         this.ROTATION_PER_SECOND = 6;
         this.SHRINK_RATE_PER_SECOND = 0.6;
         this.inventory = [] // TODO: Add items essential to survive: Towel, Baby Wipes and Tissues
+        this.debugDraw = debugDraw;
     }
 
     setName(name) {
@@ -303,17 +309,32 @@ export class Character extends GameObject {
     }
 
     draw(ctx) {
-        // For debugging
-        if (false) {
-            ctx.fillStyle = 'black';
-            ctx.fillRect(this.x, this.y, 1, 1);
-
-            const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
-            ctx.fillStyle = 'red';
-            ctx.fillRect(newTargetXY[0], newTargetXY[1], 1, 1);
+        if (this.debugDraw) {
+            this.drawDebugOverlay(ctx);
         }
-
         super.draw(ctx, this.x, this.y, this.width, this.height, this.angle, this.scaling_factor);
+    }
+
+    /**
+     * Draws the character's bounding box, its anchor point, and the tile it
+     * is currently facing - useful when debugging positioning/collision.
+     */
+    drawDebugOverlay(ctx) {
+        ctx.save();
+
+        // Tiled coordinates are bottom-left, matching Tile.draw()'s convention.
+        ctx.strokeStyle = 'lime';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x, this.y - this.height, this.width, this.height);
+
+        ctx.fillStyle = 'black';
+        ctx.fillRect(this.x, this.y, 1, 1);
+
+        const newTargetXY = this.getPositionInDirection(this.getDirection(), true);
+        ctx.fillStyle = 'red';
+        ctx.fillRect(newTargetXY[0], newTargetXY[1], 1, 1);
+
+        ctx.restore();
     }
 
     update(deltaTime) {
