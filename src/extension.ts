@@ -388,16 +388,6 @@ export class DungeonCoderServer {
 export function activate(context: vscode.ExtensionContext) {
     const server = DungeonCoderServer.getInstance();
 
-    const oldStartGame = vscode.commands.registerCommand('vscode-dungeon-coder.startGame_old', async () => {
-        let ret = await server.createWebview(context);
-        ret = ret && server.startServer(context.extensionPath);
-        if (ret) {
-            vscode.window.showInformationMessage('Enter the dungeon!');
-        } else {
-            vscode.window.showErrorMessage("Error: Dungeon Coder could not be started.")
-        }
-    });
-
     const startGame = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', async () => {
         let ret = await server.createWebview(context);
         ret = ret && server.startServer(context.extensionPath);
@@ -445,7 +435,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(oldStartGame);
     context.subscriptions.push(startGame);
     context.subscriptions.push(copyPythonDisposable);
 

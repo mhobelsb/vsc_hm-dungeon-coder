@@ -30,10 +30,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscode-dungeon-coder.startGame_old",
-        "title": "Start Dungeon Coder"
-      },
-      {
         "command": "vscode-dungeon-coder.startGame",
         "title": "Dungeon Coder: Enter the dungeon"
       },
