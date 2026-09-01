@@ -95,22 +95,6 @@ export class Level {
         });
     }
 
-    /**
-     * Draws all layers of the level onto a 2D rendering context.
-     * Layers are drawn in the order they appear in the Tiled JSON.
-     * @param {CanvasRenderingContext2D} ctx The 2D rendering context of the canvas.
-     */
-    draw(ctx) {
-        if (!ctx) {
-            console.warn("Cannot draw tile layers: ctx not provided.");
-            return;
-        }
-
-        this.layers.forEach(layer => {
-            layer.draw(ctx, this.tileWidth,this.tileHeight);
-        });
-    }
-
     getObjectByName(name) {
         return this.objectFactory.getObjectByName(name);
     }

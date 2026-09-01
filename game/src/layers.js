@@ -95,30 +95,6 @@ export class TileLayer extends BaseLayer {
     replaceTile(col, row, newTile) {
         this.tileMap[row][col] = newTile;
     }
-
-    /**
-     * Draws the tile layer onto a 2D rendering context.
-     * @param {CanvasRenderingContext2D} ctx The 2D rendering context of the canvas.
-     */
-    draw(ctx, levelTileWidth, levelTileHeight) {
-        if (!this.visible || this.opacity <= 0) {
-            return;
-        }
-
-        ctx.globalAlpha = this.opacity;
-
-        this.tileMap.forEach((row, rowIndex) => {
-            row.forEach((tile, colIndex) => {
-                if (tile) {
-                    const destX = colIndex * levelTileWidth;
-                    const destY = rowIndex * levelTileHeight + levelTileHeight; // Compute tiled coordinates here, i.e. bottom left
-                    tile.draw(ctx, destX, destY);
-                }
-            });
-        });
-
-        ctx.globalAlpha = 1.0;
-    }
 }
 
 export class ObjectLayer extends BaseLayer {
@@ -148,13 +124,5 @@ export class ObjectLayer extends BaseLayer {
         this.objects.forEach((object) => {
             object.update(deltaTime);
         });
-    }
-
-    draw(ctx, levelTileWidth, levelTileHeight) {
-        if (this.visible) {
-            this.objects.forEach((object) =>  {
-                object.draw(ctx);
-            });
-        }
     }
 }

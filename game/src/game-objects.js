@@ -110,12 +110,6 @@ export class GameObject {
         return false;
     }
 
-    draw(ctx, destX = this.x, destY = this.y, destWidth = this.width, destHeight = this.height, angle=0, scaling_factor=1.0) {
-        if (this.visible) {
-            this.tile.draw(ctx, destX, destY, destWidth, destHeight, angle, scaling_factor);
-        }
-    }
-
     interact(level) {
         if (this.getProperty('controls')) {
             const propertyControls = this.getProperty('controls');

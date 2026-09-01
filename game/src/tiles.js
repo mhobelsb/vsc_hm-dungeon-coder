@@ -76,39 +76,6 @@ export class Tile {
     hasAnimation() {
         return (this.animationDescription?.length ?? 0) > 0;
     }
-
-    /**
-     * Draws the tile onto a 2D rendering context.
-     * @param {CanvasRenderingContext2D} ctx The 2D rendering context of the canvas.
-     * @param {number} destX The X-coordinate (pixel) on the canvas to draw the tile.
-     * @param {number} destY The Y-coordinate (pixel) on the canvas to draw the tile.
-     * @param {number} [destWidth=this.width] The optional width to draw the tile (defaults to original tile width).
-     * @param {number} [destHeight=this.height] The optional height to draw the tile (defaults to original tile height).
-     */
-    draw(ctx, destX, destY, destWidth = this.width, destHeight = this.height, angle = 0, scaling_factor = 1.0) {
-        if (!this.visible)
-            return;
-
-        destY -= this.height; // tiled coordinates are bottom left corner
-
-        ctx.save()
-        ctx.translate(destX + this.width / 2, destY + this.height / 2); // Move to the tile's center
-
-        // Rotate the canvas
-        ctx.rotate(angle);
-
-        // Draw the image centered at (0, 0)
-        ctx.drawImage(this.image,
-                      this.x,
-                      this.y,
-                      this.width,
-                      this.height,
-                      -this.width / 2 + this.x_offset,
-                      -this.height / 2 + this.y_offset,
-                      this.width * scaling_factor,
-                      this.height * scaling_factor);
-        ctx.restore(); // Restore the original state
-    }
 }
 
 export class AnimationFrame {
@@ -142,11 +109,6 @@ export class AnimatedTile {
 
     getCurrentTile() {
         return this.animationFrames[this.currentFrameIndex].tile;
-    }
-
-    draw(ctx, destX, destY, destWidth = this.width, destHeight = this.height, angle = 0, scaling_factor = 1.0) {
-        const tile = this.getCurrentTile();
-        tile.draw(ctx, destX, destY, destWidth, destHeight, angle, scaling_factor);
     }
 
     static create(tile, tileset) {
