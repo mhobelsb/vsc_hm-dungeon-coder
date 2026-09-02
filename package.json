@@ -9,7 +9,7 @@
 		"email": "benedikt.dietrich@hm.edu"
 	},
 	"license": "MIT",
-  "version": "0.0.16",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.102.0"
   },
