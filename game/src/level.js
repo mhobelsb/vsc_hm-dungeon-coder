@@ -17,6 +17,7 @@ export class Level {
             height = 0,
             infinite = false,
             layers = [],
+            properties = [],
             nextlayerid = 0,
             nextobjectid = 0,
             orientation = "orthogonal",
@@ -32,6 +33,7 @@ export class Level {
 
         this.width = width;
         this.height = height;
+        this.properties = properties;   // custom map properties set in Tiled
         this.infinite = infinite;
         this.tileWidth = tilewidth;
         this.tileHeight = tileheight;
@@ -81,6 +83,21 @@ export class Level {
         const level = new Level(levelData, tileFactory);
 
         return level;
+    }
+
+    /**
+     * Reads a bool custom property of the map (Tiled: Map > Map Properties).
+     * @param {string} name
+     * @param {boolean} defaultValue used when the property is not set
+     */
+    getBooleanProperty(name, defaultValue = false) {
+        const prop = this.properties.find(p => p.name === name);
+        return prop && prop.type === 'bool' ? prop.value : defaultValue;
+    }
+
+    /** Levels can forbid moving the hero by hand with `keyboard: false`. */
+    isKeyboardEnabled() {
+        return this.getBooleanProperty('keyboard', true);
     }
 
     update(deltaTime) {
@@ -149,6 +166,13 @@ export class Level {
 
     isComplete() {
         if (this.character && this.goal) {
+            // Only a hero that has finished its step counts. Mid-step, the
+            // interpolated position can round to exactly the goal
+            // (e.g. 320 + 16 * 0.9999999999999998 === 336), and completing then
+            // freezes the hero in "walking" because updates stop.
+            if (this.character.isMoving()) {
+                return false;
+            }
             if (this.character.x == this.goal.x && this.character.y == this.goal.y) {
                 return true;
             }

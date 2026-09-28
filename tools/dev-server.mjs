@@ -25,6 +25,9 @@ const HOST = API_HOST;
 const HTTP_PORT = Number(process.env.DC_PORT ?? API_PORT);
 const WS_PORT = 8000;
 const TURN_DELAY_MS = 200;
+// Same move() step bound as src/extension.ts: animation 500 ms / pace plus slack.
+const MOVE_DURATION_MS = 500;
+const MOVE_TIMEOUT_BASE_MS = 5000;
 
 let currentPaceFactor = 1.0;
 let activeSocket = null;
@@ -69,16 +72,26 @@ wss.on('connection', socket => {
         console.log('Browser client disconnected.');
         if (activeSocket === socket) {
             activeSocket = null;
+            // Fail everything still waiting for this page, so no request (and
+            // no move poll) outlives the session it belongs to.
+            for (const resolver of pendingRequests.values()) {
+                resolver({ success: false, message: 'Browser client disconnected.', exception: 'NoClient' });
+            }
+            pendingRequests.clear();
         }
     });
 });
 
+/** Polls until the hero has finished its step; returns an error response on failure or timeout. */
 async function pollUntilStopped(pollInterval = 10) {
-    while (true) {
+    const deadline = Date.now() + MOVE_TIMEOUT_BASE_MS + MOVE_DURATION_MS / currentPaceFactor;
+    while (Date.now() < deadline) {
         const isMovingResponse = await sendToClient(COMMANDS.IS_MOVING);
-        if (isMovingResponse.success && !isMovingResponse.result) return;
+        if (!isMovingResponse.success) return isMovingResponse;
+        if (!isMovingResponse.result) return undefined;
         await delay(pollInterval);
     }
+    return { success: false, message: 'The hero did not finish its step in time.', exception: 'MoveTimeout' };
 }
 
 const app = express();
@@ -104,7 +117,12 @@ function registerRoute(method, route, command, options = {}) {
             const params = options.includeBody ? req.body : null;
             const response = await sendToClient(command, params);
             if (response.success && options.onSuccess) {
-                await options.onSuccess(response, req);
+                // onSuccess may return a replacement response, e.g. a failed move poll.
+                const replacement = await options.onSuccess(response, req);
+                if (replacement) {
+                    sendApiResponse(res, replacement);
+                    return;
+                }
             }
             sendApiResponse(res, response);
         } catch (error) {
@@ -142,8 +160,10 @@ registerRoute('get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITI
 registerRoute('get', '/hero/inventory', COMMANDS.GET_INVENTORY);
 
 // --- Level ---
-registerRoute('post', '/level/load', COMMANDS.LOAD_LEVEL, { includeBody: true });
-registerRoute('post', '/level/reset', COMMANDS.RESET_LEVEL);
+// A (re)loaded level has a fresh hero at pace 1; reset the server's copy too.
+const resetPace = () => { currentPaceFactor = 1.0; };
+registerRoute('post', '/level/load', COMMANDS.LOAD_LEVEL, { includeBody: true, onSuccess: resetPace });
+registerRoute('post', '/level/reset', COMMANDS.RESET_LEVEL, { onSuccess: resetPace });
 
 const registeredCommands = new Set([
     COMMANDS.MOVE, COMMANDS.TURN_LEFT, COMMANDS.CONFIGURE, COMMANDS.SET_PACE,

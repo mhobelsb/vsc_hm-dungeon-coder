@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 import httpx
 
@@ -31,6 +32,12 @@ from ._generated.api.hero import (
 from ._generated.api.level import load_level as _load_level_api, reset_level as _reset_level_api
 
 os.environ["NO_PROXY"] = HOST
+
+# move() and turn_left() return only after the animation: a step takes
+# _STEP_SECONDS / pace (game/src/character.js). The server gives up on a step
+# after 5 s + step time (src/extension.ts), so the client waits a bit longer.
+_STEP_SECONDS = 0.5
+_ACTION_TIMEOUT_SLACK = 6.0
 
 
 def _extract_message(response) -> str:
@@ -81,22 +88,31 @@ class Hero:
     BASE_URL = DEFAULT_BASE_URL
 
     def __init__(self, base_url: str = BASE_URL):
+        self._base_url = base_url
         self._client = Client(base_url=base_url, timeout=httpx.Timeout(1))
+        self._pace = 1.0
+        self._action_client = self._make_action_client()
+
+    def _make_action_client(self) -> Client:
+        """Client for requests that wait for an animation; its timeout follows the pace."""
+        read_timeout = _ACTION_TIMEOUT_SLACK + _STEP_SECONDS / self._pace
+        return Client(base_url=self._base_url, timeout=httpx.Timeout(1, read=read_timeout))
 
     def configure(self, name: str, typeNumber: int) -> bool:
         return _call(self._client, _configure_api.sync_detailed, default=False,
                      body=ConfigureParams(name=name, type_number=typeNumber))
 
     def move(self) -> bool:
-        """Sends a command to move the hero forward."""
-        return _call(self._client, _move_api.sync_detailed, default=False)
+        """Moves the hero one field forward. Returns False if the way is blocked."""
+        return _call(self._action_client, _move_api.sync_detailed, default=False)
 
     def turn_left(self) -> bool:
-        """Sends a command to turn the hero to the left."""
-        return _call(self._client, _turn_left_api.sync_detailed, default=False)
+        """Turns the hero 90 degrees to the left."""
+        return _call(self._action_client, _turn_left_api.sync_detailed, default=False)
 
     def interact(self) -> bool:
-        """Sends a command for the hero to interact with an object."""
+        """Interacts with the object in front of the hero (torch, switch, chest, ...).
+           Returns True if something reacted, False if there is nothing to interact with."""
         return _call(self._client, _interact_api.sync_detailed, default=False)
 
     def is_collision_in_front(self) -> bool:
@@ -112,11 +128,11 @@ class Hero:
         return _call(self._client, _is_facing_north_api.sync_detailed, default=False)
 
     def is_abyss_in_front(self) -> bool:
-        """Checks if the hero is an abyss is in front of the hero."""
+        """Checks if there is an abyss in front of the hero."""
         return _call(self._client, _is_abyss_in_front_api.sync_detailed, default=False)
 
     def is_torch_in_front(self) -> bool:
-        """Checks if there is a switch in front of the hero."""
+        """Checks if there is a torch in front of the hero."""
         return _call(self._client, _is_torch_in_front_api.sync_detailed, default=False)
 
     def is_at_goal(self) -> bool:
@@ -148,11 +164,18 @@ class Hero:
         return _call(self._client, _drop_api.sync_detailed, default=False, body=NameParam(name=name))
 
     def set_pace(self, factor: float) -> bool:
-        """Sets the hero's pace depending on the factor."""
+        """Sets the hero's speed: 1 is normal, 2 twice as fast, 0.5 half as fast."""
         if type(factor) != float and type(factor) != int:
             print("Error: Factor has to be of type 'int' or 'float'.")
             return False
-        return _call(self._client, _set_pace_api.sync_detailed, default=False, body=PaceParams(factor=factor))
+        if factor <= 0:
+            print("Error: Factor has to be greater than 0.")
+            return False
+        ok = _call(self._client, _set_pace_api.sync_detailed, default=False, body=PaceParams(factor=factor))
+        if ok:
+            self._pace = factor
+            self._action_client = self._make_action_client()
+        return ok
 
 
 class Game:
@@ -169,10 +192,19 @@ class Game:
     def __init__(self, level_file):
         self.__level = self.Level(self.BASE_URL)
         try:
-            self.__level.load(level_file)
-        except:
-            print(f"Error: Level {level_file} could not be loaded. Please make sure the file exists, is valid and you opened the folder correctly.")
-            exit(-1)
+            loaded = self.__level.load(level_file)
+        except FileNotFoundError:
+            print(f"Error: Level file '{level_file}' not found. "
+                  f"Please check the path and that you opened the right folder in VS Code "
+                  f"(current folder: {os.getcwd()}).")
+            sys.exit(1)
+        except json.JSONDecodeError as err:
+            print(f"Error: Level file '{level_file}' is not valid JSON: {err}")
+            sys.exit(1)
+        if not loaded:
+            print(f"Error: Level '{level_file}' could not be loaded. Did you start Dungeon Coder "
+                  f"(\"Dungeon Coder: Enter the dungeon\")?")
+            sys.exit(1)
 
         self.__hero = Hero(self.BASE_URL)
 
@@ -194,7 +226,7 @@ class Game:
                 filename (str): The path to the JSON file containing the level data.
             """
             if not os.path.exists(filename):
-                raise FileExistsError
+                raise FileNotFoundError(filename)
 
             with open(filename, 'r') as f:
                 level_data = json.load(f)

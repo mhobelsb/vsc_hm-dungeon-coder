@@ -64,7 +64,7 @@ export class Character extends GameObject {
 
     setTypeNumber(typeNumber) {
         var success = true;
-        if (typeNumber > 0 && typeNumber <= 15) {
+        if (typeNumber >= 0 && typeNumber <= 15) {
             this.typeNumber = typeNumber;
             this.setStateAndDirection(this.getState(), this.getDirection());
         } else {
@@ -75,6 +75,10 @@ export class Character extends GameObject {
     }
 
     setPace(factor) {
+        // 0 or less would stop the hero forever (step duration / 0).
+        if (!(factor > 0)) {
+            return false;
+        }
         this.pace_factor = factor;
         return true;
     }
@@ -274,14 +278,19 @@ export class Character extends GameObject {
         }
     }
 
+    /**
+     * Interacts with every object on the tile in front of the character.
+     * @returns {boolean} true if at least one object reacted.
+     */
     interact(level) {
         const position = this.getPositionInDirection(this.getDirection(), true);
         const objects =  level.getObjectsAtPosition(position[0], position[1]);
+        let reacted = false;
         if (Array.isArray(objects) && objects.length != 0) {
             for (const object of objects) {
                 if (object) {
                     if (typeof object.interact === 'function') {
-                        object.interact(level);
+                        reacted = object.interact(level) || reacted;
                     } else {
                         console.log(`You cannot interact with the object of class "${object.type}" and ID "${object.id}".`)
                     }
@@ -291,7 +300,7 @@ export class Character extends GameObject {
         else {
             console.log(`There is no object in front of the player to interact with.`);
         }
-        return false;
+        return reacted;
     }
 
     setStateAndDirection(state, direction) {
@@ -363,10 +372,9 @@ export class CharacterInterface {
     }
 
     configure(name, typeNumber) {
-        var success = true;
-        success = this.character.setName(name);
-        success &= this.character.setTypeNumber(typeNumber);
-        return success;
+        const nameSet = this.character.setName(name);
+        const typeSet = this.character.setTypeNumber(typeNumber);
+        return nameSet && typeSet;
     }
 
     set_pace(factor) {
@@ -374,8 +382,11 @@ export class CharacterInterface {
     }
 
     turnLeft() {
-        this.statistics.addTurn();
-        return this.character.turnLeft();
+        const ret = this.character.turnLeft();
+        if (ret) {
+            this.statistics.addTurn();
+        }
+        return ret;
     }
 
     isFacingNorth() {
@@ -408,11 +419,11 @@ export class CharacterInterface {
     }
 
     pickup(name) {
-        this.character.pickup(this.level, name);
+        return this.character.pickup(this.level, name);
     }
 
     drop(name) {
-        this.character.drop(this.level, name);
+        return this.character.drop(this.level, name);
     }
 
     isMoving() {

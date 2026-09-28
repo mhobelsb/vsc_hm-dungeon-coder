@@ -9,6 +9,11 @@ import { COMMANDS, COMMAND_LIST } from '../game/src/commands.js';
 import { API_HOST, API_PORT } from '../game/src/api-config.js';
 import type { components } from './generated/api-types.js';
 
+// Upper bound for one move() step: the animation takes MOVE_DURATION_MS / pace
+// (Character.moveDuration in game/src/character.js), plus generous slack.
+const MOVE_DURATION_MS = 500;
+const MOVE_TIMEOUT_BASE_MS = 5000;
+
 /** Business-outcome payload, unchanged externally so the Python client needs no changes. */
 interface WebviewResponse {
     success: boolean;
@@ -103,7 +108,8 @@ export class DungeonCoderServer {
         command: string,
         options?: {
             includeBody?: boolean;
-            onSuccess?: (response: WebviewResponse, req: Request) => void | Promise<void>;
+            // May return a replacement response, e.g. when a follow-up step fails.
+            onSuccess?: (response: WebviewResponse, req: Request) => void | WebviewResponse | Promise<void | WebviewResponse>;
         }
     ) {
         this.registeredCommands.add(command);
@@ -118,7 +124,11 @@ export class DungeonCoderServer {
                 }
 
                 if (options?.onSuccess) {
-                    await options.onSuccess(response, req);
+                    const replacement = await options.onSuccess(response, req);
+                    if (replacement) {
+                        this.sendApiResponse(res, replacement);
+                        return;
+                    }
                 }
 
                 this.sendApiResponse(res, response);
@@ -137,14 +147,26 @@ export class DungeonCoderServer {
         });
     }
 
-    /** Poll helper for move() until hero stops */
-    private async pollUntilStopped(pollInterval = 10): Promise<void> {
-        while (true) {
+    /**
+     * Polls until the hero has finished its step. Gives up when the webview
+     * reports an error or the step takes far longer than the animation
+     * should, instead of polling forever.
+     * @returns undefined once the hero stands, otherwise an error response.
+     */
+    private async pollUntilStopped(pollInterval = 10): Promise<WebviewResponse | undefined> {
+        const deadline = Date.now() + MOVE_TIMEOUT_BASE_MS + MOVE_DURATION_MS / this.currentPaceFactor;
+        while (Date.now() < deadline) {
             const isMovingResponse = await this.sendMessageToWebview(COMMANDS.IS_MOVING);
 
-            if (isMovingResponse.success && !isMovingResponse.result) return;
+            if (!isMovingResponse.success) {
+                return isMovingResponse;
+            }
+            if (!isMovingResponse.result) {
+                return undefined;
+            }
             await this.delay(pollInterval);
         }
+        return { success: false, message: 'The hero did not finish its step in time.', exception: 'MoveTimeout' };
     }
 
     /** Unified success/error response handling */
@@ -196,9 +218,7 @@ export class DungeonCoderServer {
 
         // --- Hero Movement ---
         this.registerRoute(app, 'post', '/hero/move', COMMANDS.MOVE, {
-            onSuccess: async () => {
-                await this.pollUntilStopped(10);
-            },
+            onSuccess: async () => this.pollUntilStopped(10),
         });
 
         this.registerDelayedCommandRoute(app, '/hero/turn_left', COMMANDS.TURN_LEFT, this.turnDelay);
@@ -226,8 +246,11 @@ export class DungeonCoderServer {
         this.registerRoute(app, 'get', '/hero/inventory', COMMANDS.GET_INVENTORY);
 
         // --- Level ---
-        this.registerRoute(app, 'post', '/level/load', COMMANDS.LOAD_LEVEL, { includeBody: true });
-        this.registerRoute(app, 'post', '/level/reset', COMMANDS.RESET_LEVEL);
+        // A (re)loaded level has a fresh hero at pace 1, so the host's copy of
+        // the pace must be reset too, or turns keep the old script's delay.
+        const resetPace = () => { this.currentPaceFactor = 1.0; };
+        this.registerRoute(app, 'post', '/level/load', COMMANDS.LOAD_LEVEL, { includeBody: true, onSuccess: resetPace });
+        this.registerRoute(app, 'post', '/level/reset', COMMANDS.RESET_LEVEL, { onSuccess: resetPace });
 
         [
             COMMANDS.IS_COLLISION_IN_FRONT,

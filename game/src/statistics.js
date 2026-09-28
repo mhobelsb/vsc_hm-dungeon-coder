@@ -6,6 +6,7 @@ export class Statistics {
     reset() {
         this.number_of_moves = 0;
         this.number_of_turns = 0;
+        this.number_of_keyboard_moves = 0;
     }
 
     addMove() {
@@ -14,5 +15,10 @@ export class Statistics {
 
     addTurn() {
         this.number_of_turns += 1;
+    }
+
+    /** Moves made by hand (WASD), kept apart from the scripted ones. */
+    addKeyboardMove() {
+        this.number_of_keyboard_moves += 1;
     }
 }

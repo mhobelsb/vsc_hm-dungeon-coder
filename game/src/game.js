@@ -40,10 +40,13 @@ export class Game {
         this.character = this.level.getObjectByName("MainCharacter");
         this.characterInterface = new CharacterInterface(this, this.level, this.character, this.statistics);
         this.inputManager.setCharacter(this.character);
+        this.inputManager.setStatistics(this.statistics);
+        this.inputManager.setEnabled(this.level.isKeyboardEnabled());
         this.lastLevelData = levelData;
         console.log("Level successfully loaded.");
         this.currentGameState = GAME_STATE.PLAYING;
         this.remainingTime = 5000;
+        return true;
     }
 
     /** Reloads the most recently loaded level from scratch. */

@@ -110,6 +110,10 @@ export class GameObject {
         return false;
     }
 
+    /**
+     * Passes the interaction on to the object this one `controls`, if any.
+     * @returns {boolean} true if the controlled object reacted.
+     */
     interact(level) {
         if (this.getProperty('controls')) {
             const propertyControls = this.getProperty('controls');
@@ -121,7 +125,7 @@ export class GameObject {
             }
             if (object) {
                 if (typeof object.interact === 'function') {
-                    object.interact(level);
+                    return object.interact(level);
                 } else {
                     console.log(`Error: the GameObject cannot interact with the object with ID "${propertyControls.value}.`)
                 }
@@ -129,6 +133,7 @@ export class GameObject {
                 console.warn(`Object with ID "${propertyControls.value}" not found.`);
             }
         }
+        return false;
     }
 }
 
@@ -145,11 +150,13 @@ export class TwoStateGameObject extends GameObject {
         this.setState(this.getState() === stateA ? stateB : stateA);
     }
 
+    /** @returns {boolean} true if this object changed state or a controlled object reacted. */
     interact(level) {
+        const stateBefore = this.getState();
         this.toggleState();
-        if (this.propagatesInteract()) {
-            super.interact(level);
-        }
+        const changed = this.getState() !== stateBefore;
+        const propagated = this.propagatesInteract() ? super.interact(level) : false;
+        return changed || propagated;
     }
 
     propagatesInteract() {
@@ -296,5 +303,6 @@ export class Goal extends GameObject {
     }
 
     interact(level) {
+        return false;
     }
 }

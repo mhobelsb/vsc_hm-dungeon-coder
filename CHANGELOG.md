@@ -4,6 +4,29 @@ All notable changes to the "dungeon-coder" extension will be documented in this 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [Unreleased]
+
+### Added
+
+- Keyboard moves (WASD) are counted separately and shown on the "Level Complete" screen as "Keyboard moves".
+- A level can switch keyboard control off with the bool map property `keyboard: false` (set in Tiled under Map Properties).
+- The dev server's HTTP port can be changed with `DC_PORT`, so it can run next to an installed Dungeon Coder extension.
+
+### Fixed
+
+- `pickup()` and `drop()` returned `False` even when they succeeded.
+- `interact()` always returned `False`. It now returns `True` if an object reacted, and `False` if there is nothing to interact with, or nothing changed (e.g. a jug that is already broken).
+- `configure()` returned `1` instead of `True`, and rejected hero type `0` although 0–15 are documented.
+- Loading a level was always reported as failed to the Python client (`Game.loadLevel()` returned nothing).
+- The last `move()` onto the goal could time out and return `False` at some pace values: the goal check compared positions while the hero was still mid-step (floating-point rounding), so the game froze the hero in its walking state.
+- A `move()` whose step never finished was polled forever by the extension host and the dev server. The poll now gives up after the step time plus 5 s, or on an error, and returns an error. The dev server also fails pending requests when the browser tab closes.
+- `move()` and `turn_left()` timed out in the Python client below pace ~0.5. Their timeout now follows the pace.
+- After a script changed the pace, the next loaded level kept the old turn delay on the host side while the hero itself was back at normal pace.
+- `set_pace()` accepted 0 or negative values, which froze the hero.
+- A turn was counted in the statistics even when it was refused.
+- A missing level file raised `FileExistsError` and was hidden behind a generic message. `Game()` now names the file and the current folder, reports invalid JSON separately, and says when Dungeon Coder isn't running.
+- Docstring errors in `is_torch_in_front()` and `is_abyss_in_front()`.
+
 ## [0.1.0] - 2026-09-02
 
 ### Added

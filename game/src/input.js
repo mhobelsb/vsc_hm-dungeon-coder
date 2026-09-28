@@ -12,11 +12,23 @@ export class KeyBoardInput {
         this.isInteracting = false;
 
         this.character = null;
+        this.statistics = null;
+        this.enabled = true;
         this.setupEventListeners();
     }
 
     setCharacter(character) {
         this.character = character;
+    }
+
+    /** Keyboard moves are always counted, separately from scripted ones. */
+    setStatistics(statistics) {
+        this.statistics = statistics;
+    }
+
+    /** A level can switch keyboard control off (map property `keyboard: false`). */
+    setEnabled(enabled) {
+        this.enabled = enabled;
     }
 
     reset() {
@@ -89,7 +101,7 @@ export class KeyBoardInput {
     }
 
     update(deltaTime, level) {
-        if (!this.character) {
+        if (!this.character || !this.enabled) {
             return;
         }
 
@@ -124,7 +136,9 @@ export class KeyBoardInput {
             // or if a direction key is held down but it's a new press since last frame
             // AND we're not currently moving
             if (directionToMove && currentPressedKey !== this.lastMoveAttemptKey) {
-                this.character.move(directionToMove, level);
+                if (this.character.move(directionToMove, level) && this.statistics) {
+                    this.statistics.addKeyboardMove();
+                }
             }
             this.lastMoveAttemptKey = currentPressedKey; // Remember which key was active
         } else {

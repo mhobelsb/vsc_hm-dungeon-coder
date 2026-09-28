@@ -85,6 +85,9 @@ export class HudRenderer {
 
         let text = `\nMoves: ${statistics.number_of_moves}\n`;
         text += `Turns: ${statistics.number_of_turns}\n`;
+        if (statistics.number_of_keyboard_moves > 0) {
+            text += `Keyboard moves: ${statistics.number_of_keyboard_moves}\n`;
+        }
         text += `Continue in ${Math.ceil(remainingTime / 1000)}s.`;
 
         this.drawMultilineText(text, this.canvasWidth / 2, this.canvasHeight / 2, FONT_SIZE * 1.2);
