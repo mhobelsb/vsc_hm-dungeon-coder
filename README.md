@@ -63,7 +63,7 @@ Relaunching the Extension Development Host on every change is slow. To iterate o
 npm run dev:browser
 ```
 
-Then open `http://127.0.0.1:3000/index.html` in a regular browser tab. This serves the same REST API and game page as the real extension, and can be driven by any Python script pointed at `http://127.0.0.1:3000`.
+Then open `http://127.0.0.1:3000/index.html` in a regular browser tab. If an installed Dungeon Coder extension already holds port 3000, start it with `DC_PORT=3100 npm run dev:browser` instead and set `Game.BASE_URL = "http://127.0.0.1:3100"` in the Python script. This serves the same REST API and game page as the real extension, and can be driven by any Python script pointed at `http://127.0.0.1:3000`.
 
 ## Tests
 

@@ -19,7 +19,10 @@ import { API_HOST, API_PORT } from '../game/src/api-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOST = API_HOST;
-const HTTP_PORT = API_PORT;
+// DC_PORT lets the dev server run next to an installed Dungeon Coder
+// extension, which already occupies API_PORT while its game tab is open.
+// Python clients then need Game.BASE_URL pointed at the same port.
+const HTTP_PORT = Number(process.env.DC_PORT ?? API_PORT);
 const WS_PORT = 8000;
 const TURN_DELAY_MS = 200;
 
