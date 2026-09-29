@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Fog of war**: the map property `fog` (`"explored"`, `"dark"` or `"none"`; `true` means `"explored"`) hides what the hero hasn't seen. `explored` keeps fields the hero stood on or sensed visible (dimmed); `dark` shows only the hero's field and fields sensed in the last 1.5 s. Every sensor call (`is_*_in_front()`) and every step light the field in front; burning torches light the fields within 2 cells. In fog levels the keyboard is off unless the level sets `keyboard` explicitly.
 - Keyboard moves (WASD) are counted separately and shown on the "Level Complete" screen as "Keyboard moves".
 - A level can switch keyboard control off with the bool map property `keyboard: false` (set in Tiled under Map Properties).
 - The dev server's HTTP port can be changed with `DC_PORT`, so it can run next to an installed Dungeon Coder extension.

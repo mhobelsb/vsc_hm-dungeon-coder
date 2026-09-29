@@ -11,7 +11,7 @@ import { GAME_STATE } from '../game-state.js';
  * create-renderer.js again.
  */
 export class GameRenderer {
-    constructor({ ctx, canvasWidth, canvasHeight, tileRenderer, characterRenderer, gameObjectRenderer, layerRenderer, levelRenderer, hudRenderer }) {
+    constructor({ ctx, canvasWidth, canvasHeight, tileRenderer, characterRenderer, gameObjectRenderer, layerRenderer, levelRenderer, hudRenderer, fogRenderer }) {
         this.ctx = ctx;
         this.canvasWidth = canvasWidth;
         this.canvasHeight = canvasHeight;
@@ -21,16 +21,18 @@ export class GameRenderer {
         this.layerRenderer = layerRenderer;
         this.levelRenderer = levelRenderer;
         this.hudRenderer = hudRenderer;
+        this.fogRenderer = fogRenderer;
     }
 
     drawWaitingScreen() {
         this.hudRenderer.drawWaitingScreen();
     }
 
-    /** Clears the canvas, draws the level's world content, then the HUD's darkness overlay on top. */
-    drawPlayingScreen(level) {
+    /** Clears the canvas, draws the level's world content, the fog of war, then the HUD's darkness overlay on top. */
+    drawPlayingScreen(level, fog, character) {
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         this.levelRenderer.drawLevel(level);
+        this.fogRenderer.draw(fog, level, character);
         this.hudRenderer.drawDarkOverlay(level);
     }
 
@@ -51,16 +53,16 @@ export class GameRenderer {
      * already distinguishes GAME_OVER from LEVEL_COMPLETE, so this never
      * needs the character itself to decide what to draw.
      * @param {string} gameState One of GAME_STATE (game-state.js).
-     * @param {{level, statistics, remainingTime}} scene
+     * @param {{level, statistics, remainingTime, fog, character}} scene
      *   Only the fields relevant to the current gameState need to be set.
      */
-    draw(gameState, { level, statistics, remainingTime }) {
+    draw(gameState, { level, statistics, remainingTime, fog, character }) {
         switch (gameState) {
             case GAME_STATE.WAITING_FOR_LEVEL:
                 this.drawWaitingScreen();
                 break;
             case GAME_STATE.PLAYING:
-                this.drawPlayingScreen(level);
+                this.drawPlayingScreen(level, fog, character);
                 break;
             case GAME_STATE.GAME_OVER:
                 this.drawGameOverScreen(remainingTime);

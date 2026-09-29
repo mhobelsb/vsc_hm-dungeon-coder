@@ -4,6 +4,7 @@ import { CharacterInterface } from './character.js';
 import { Statistics } from './statistics.js';
 import { createRenderer } from './rendering/create-renderer.js';
 import { GAME_STATE } from './game-state.js';
+import { Fog } from './fog.js';
 
 export const GAME_WIDTH = 480;
 export const GAME_HEIGHT = 320;
@@ -32,6 +33,7 @@ export class Game {
         this.pathPrefix = pathPrefix;
         this.statistics = new Statistics();
         this.lastLevelData = null;
+        this.fog = null;
     }
 
     async loadLevel(levelData) {
@@ -41,7 +43,11 @@ export class Game {
         this.characterInterface = new CharacterInterface(this, this.level, this.character, this.statistics);
         this.inputManager.setCharacter(this.character);
         this.inputManager.setStatistics(this.statistics);
-        this.inputManager.setEnabled(this.level.isKeyboardEnabled());
+        this.fog = Fog.fromLevel(this.level);
+        // With fog, walking around by hand would uncover the level, so the keyboard is
+        // off unless the level explicitly sets `keyboard`.
+        const keyboard = this.level.getProperty('keyboard');
+        this.inputManager.setEnabled(keyboard === undefined ? !this.fog.isActive() : keyboard !== false);
         this.lastLevelData = levelData;
         console.log("Level successfully loaded.");
         this.currentGameState = GAME_STATE.PLAYING;
@@ -87,6 +93,8 @@ export class Game {
             if (this.currentGameState === GAME_STATE.PLAYING)  {
                 if (this.level) {
                     this.level.update(this.FIXED_TIME_STEP);
+                    this.fog.update(this.FIXED_TIME_STEP);
+                    this.fog.markPresent(...this.character.currentCell());
                 }
             }
             this.updatesThisSecond++;
@@ -97,6 +105,8 @@ export class Game {
             level: this.level,
             statistics: this.statistics,
             remainingTime: this.remainingTime,
+            fog: this.fog,
+            character: this.character,
         });
 
         // State transitions are game logic, not rendering, so they stay

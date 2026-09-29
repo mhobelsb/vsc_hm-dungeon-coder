@@ -95,6 +95,12 @@ export class Level {
         return prop && prop.type === 'bool' ? prop.value : defaultValue;
     }
 
+    /** Value of a custom map property of any type, or undefined if it isn't set. */
+    getProperty(name) {
+        const prop = this.properties.find(p => p.name === name);
+        return prop ? prop.value : undefined;
+    }
+
     /** Levels can forbid moving the hero by hand with `keyboard: false`. */
     isKeyboardEnabled() {
         return this.getBooleanProperty('keyboard', true);

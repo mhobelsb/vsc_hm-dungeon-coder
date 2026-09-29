@@ -196,6 +196,18 @@ export class Character extends GameObject {
         return [current_x, current_y];
     }
 
+    /** [col, row] of the cell the hero's centre is in (changes halfway through a step). */
+    currentCell() {
+        const [x, y] = this.getCurrentPosition(true);
+        return [Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE)];
+    }
+
+    /** [col, row] of the cell in front of the hero. */
+    frontCell() {
+        const [x, y] = this.getPositionInDirection(this.getDirection(), true);
+        return [Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE)];
+    }
+
     getItemsAtCurrentPosition(level) {
         let item_names = []
         const current_position = this.getCurrentPosition();
@@ -363,10 +375,21 @@ export class CharacterInterface {
         this.statistics = statistics;
     }
 
+    /** Lights the cell in front of the hero in the fog (a sensor looked there). */
+    senseFront() {
+        if (this.game.fog) {
+            this.game.fog.markSensed(...this.character.frontCell());
+        }
+    }
+
     move() {
+        const target = this.character.frontCell();
         const ret = this.character.move(this.character.getDirection(), this.level);
         if (ret) {
             this.statistics.addMove();
+            if (this.game.fog) {
+                this.game.fog.markSensed(...target);   // stays lit while the hero walks in
+            }
         }
         return ret;
     }
@@ -394,18 +417,22 @@ export class CharacterInterface {
     }
 
     isCollisionInFront() {
+        this.senseFront();
         return this.character.isCollisionInFront(this.level);
     }
 
     isAbyssInFront() {
+        this.senseFront();
         return this.character.isInFront(this.level, "Abyss");
     }
 
     isTorchInFront() {
+        this.senseFront();
         return this.character.isInFront(this.level, "Torch");
     }
 
     isSwitchInFront() {
+        this.senseFront();
         return this.character.isInFront(this.level, "Switch");
     }
 
