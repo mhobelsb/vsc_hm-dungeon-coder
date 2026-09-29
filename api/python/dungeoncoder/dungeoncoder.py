@@ -1,15 +1,17 @@
 import json
 import os
 import sys
+import tempfile
 
 import httpx
 
-from . import asciimap
+from . import asciimap, generator
 from ._api_config import BASE_URL as DEFAULT_BASE_URL, HOST
 from ._generated import Client
 from ._generated.errors import UnexpectedStatus
 from ._generated.models.api_error_response import ApiErrorResponse
 from ._generated.models.configure_params import ConfigureParams
+from ._generated.models.distance_param import DistanceParam
 from ._generated.models.name_param import NameParam
 from ._generated.models.pace_params import PaceParams
 from ._generated.models.tiled_level import TiledLevel
@@ -26,7 +28,9 @@ from ._generated.api.hero import (
     is_switch_in_front as _is_switch_in_front_api,
     is_torch_in_front as _is_torch_in_front_api,
     move as _move_api,
+    peek_item_value as _peek_item_value_api,
     pickup as _pickup_api,
+    read_item_value as _read_item_value_api,
     set_pace as _set_pace_api,
     turn_left as _turn_left_api,
 )
@@ -50,7 +54,7 @@ def _extract_message(response) -> str:
         return ""
 
 
-def _call(client: Client, sync_detailed_fn, *, default, **kwargs):
+def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, **kwargs):
     """
     Runs a generated API call, translating transport/validation failures and
     ordinary negative business outcomes (e.g. "move blocked by a wall") into
@@ -75,6 +79,9 @@ def _call(client: Client, sync_detailed_fn, *, default, **kwargs):
 
     parsed = response.parsed
     if isinstance(parsed, ApiErrorResponse):
+        # explain_refusal: True prints every refusal, a string only those starting with it
+        if explain_refusal is True or (explain_refusal and str(parsed.message).startswith(explain_refusal)):
+            print(parsed.message)
         return default
     if parsed is None:
         message = _extract_message(response) or f"Unexpected response (HTTP {response.status_code})."
@@ -150,13 +157,29 @@ class Hero:
         """Returns the list of items in the hero's inventory."""
         return _call(self._client, _get_inventory_api.sync_detailed, default=[])
 
+    def read_item_value(self) -> int | None:
+        """Returns the value of the item on the hero's field, e.g. a crystal's weight,
+           or None if no item with a value lies there. Values are never shown on screen."""
+        return _call(self._client, _read_item_value_api.sync_detailed, default=None)
+
+    def peek_item_value(self, distance: int) -> int | None:
+        """Returns the value of the item `distance` fields ahead in the direction the
+           hero faces (1 = the field in front), or None if there is none. Only works in
+           levels that have a Fernrohr (telescope)."""
+        if type(distance) != int or distance < 1:
+            print("Error: distance must be a whole number of at least 1.")
+            return None
+        return _call(self._client, _peek_item_value_api.sync_detailed, default=None,
+                     explain_refusal=True, body=DistanceParam(distance=distance))
+
     def pickup(self, name: str) -> bool:
         """Picks up the item with provided name. Use get_items_at_position()
            to check what can be picked up at the current location."""
         if type(name) != str:
             print("Error: You have to pass a single string with the item to pickup.")
             return False
-        return _call(self._client, _pickup_api.sync_detailed, default=False, body=NameParam(name=name))
+        return _call(self._client, _pickup_api.sync_detailed, default=False, body=NameParam(name=name),
+                     explain_refusal="The inventory is full")
 
     def drop(self, name: str) -> bool:
         """Drops the item with provided name. Use get_inventory()
@@ -213,6 +236,24 @@ class Game:
             sys.exit(1)
 
         self.__hero = Hero(self.BASE_URL)
+
+    @classmethod
+    def generate(cls, seed: int, kind: str = "maze", **options) -> "Game":
+        """Loads a generated level; the same seed always gives the same level.
+
+        Example: Game.generate(seed=7, width=21, height=15, loops=3, fog="dark")
+        kind "maze": width and height odd (default 15x11), loops = extra openings
+        (cycles and free-standing walls); other keywords become map properties.
+        The map text is available as generator.maze_text(seed, ...)."""
+        try:
+            text = generator.generate_text(seed, kind, **options)
+        except asciimap.MapError as err:
+            print(f"Error: Game.generate: {err}")
+            sys.exit(1)
+        path = os.path.join(tempfile.mkdtemp(prefix="dungeoncoder-"), f"{kind}_{seed}.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+        return cls(path)
 
     def get_hero(self):
         return self.__hero

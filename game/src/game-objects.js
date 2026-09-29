@@ -254,6 +254,23 @@ export class Door extends OpenableGameObject {
  * `torches` (the torch object ids in pattern order, e.g. "12,13,14").
  * It can't be opened by hand; Level.update() calls evaluate() every frame.
  */
+/**
+ * A thing the hero can pick up and carry, e.g. a crystal or a pebble.
+ * The integer property `value` (a crystal's weight) is never drawn:
+ * only read_item_value() / peek_item_value() reveal it.
+ */
+export class Item extends GameObject {
+    constructor(objectDescription, tileFactory, name = "Item") {
+        super(objectDescription, tileFactory, name);
+        const value = (objectDescription.properties || []).find(p => p.name === 'value')?.value;
+        this.value = Number.isInteger(value) ? value : null;
+    }
+
+    isCollision() {
+        return false;
+    }
+}
+
 export class PatternDoor extends Door {
     constructor(objectDescription, tileFactory) {
         // look like the door tile it was placed with (horizontal or vertical door)

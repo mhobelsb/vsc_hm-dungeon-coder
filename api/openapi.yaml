@@ -144,6 +144,34 @@ paths:
         '500':
           $ref: '#/components/responses/Error'
 
+  /hero/read_item_value:
+    get:
+      operationId: read_item_value
+      summary: Value of the item on the hero's field (e.g. a crystal's weight); null if there is none.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/NullableIntegerSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/peek_item_value:
+    post:
+      operationId: peek_item_value
+      summary: Value of the item `distance` fields ahead (1 = the field in front); null if there is none. Needs the map property `fernrohr`.
+      tags: [Hero]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DistanceParam'
+      responses:
+        '200':
+          $ref: '#/components/responses/NullableIntegerSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
   /hero/inventory:
     get:
       operationId: get_inventory
@@ -274,6 +302,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/StringArrayResult'
+    NullableIntegerSuccess:
+      description: Operation completed; result carries an integer, or null if there is nothing to read.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NullableIntegerResult'
     StatisticsSuccess:
       description: Operation completed; result carries the level's counters.
       content:
@@ -326,6 +360,19 @@ components:
           items:
             type: string
 
+    NullableIntegerResult:
+      type: object
+      required: [status, message, result]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        result:
+          type: integer
+          nullable: true
+
     StatisticsResult:
       type: object
       required: [status, message, result]
@@ -341,7 +388,7 @@ components:
     Statistics:
       type: object
       description: Counters since the level was (re)loaded.
-      required: [moves, turns, bumps, keyboard_moves, interactions, pickups, drops, sensor_calls, at_goal, level_complete, missing]
+      required: [moves, turns, bumps, keyboard_moves, interactions, pickups, drops, sensor_calls, reads, at_goal, level_complete, missing]
       properties:
         moves:
           type: integer
@@ -367,6 +414,9 @@ components:
         sensor_calls:
           type: integer
           description: calls of is_*_in_front, is_facing_north, is_at_goal and get_items_at_position
+        reads:
+          type: integer
+          description: calls of read_item_value and peek_item_value
         at_goal:
           type: boolean
           description: the hero stands on the goal field
@@ -386,6 +436,15 @@ components:
         name:
           type: string
           description: Item name, as returned by get_items_at_position/get_inventory.
+
+    DistanceParam:
+      type: object
+      required: [distance]
+      properties:
+        distance:
+          type: integer
+          minimum: 1
+          description: How many fields ahead, in the direction the hero faces (1 = the field in front).
 
     ConfigureParams:
       type: object

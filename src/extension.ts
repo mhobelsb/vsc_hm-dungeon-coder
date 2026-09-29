@@ -244,6 +244,8 @@ export class DungeonCoderServer {
         // --- Queries ---
         this.registerRoute(app, 'get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITION);
         this.registerRoute(app, 'get', '/hero/inventory', COMMANDS.GET_INVENTORY);
+        this.registerRoute(app, 'get', '/hero/read_item_value', COMMANDS.READ_ITEM_VALUE);
+        this.registerRoute(app, 'post', '/hero/peek_item_value', COMMANDS.PEEK_ITEM_VALUE, { includeBody: true });
         this.registerRoute(app, 'get', '/game/statistics', COMMANDS.GET_STATISTICS);
 
         // --- Level ---

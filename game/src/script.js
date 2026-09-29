@@ -165,7 +165,26 @@ function loadFileAsync(file) {
             return { success: true, message: "Statistics of the current level.", result: character.getStatistics() };
         },
 
+        [COMMANDS.READ_ITEM_VALUE]: (game, character) => {
+            const result = character.readItemValue();
+            return { success: true, message: result === null ? "There is no item with a value here." : `The item here has the value ${result}.`, result };
+        },
+
+        [COMMANDS.PEEK_ITEM_VALUE]: (game, character, params) => {
+            if (!character.hasFernrohr()) {
+                return { success: false, message: "This level has no Fernrohr (map property fernrohr), so values can only be read on the hero's own field.", result: null };
+            }
+            if (!Number.isInteger(params?.distance) || params.distance < 1) {
+                return { success: false, message: `distance must be a whole number of at least 1, not ${JSON.stringify(params?.distance)}.`, result: null };
+            }
+            const result = character.peekItemValue(params.distance);
+            return { success: true, message: result === null ? `There is no item with a value ${params.distance} field(s) ahead.` : `The item ${params.distance} field(s) ahead has the value ${result}.`, result };
+        },
+
         [COMMANDS.PICKUP]: (game, character, params) => {
+            if (character.isInventoryFull()) {
+                return { success: false, message: `The inventory is full (the level allows ${game.level?.getProperty?.('inventory_size')} item(s)). Drop something first.`, result: false };
+            }
             const result = character.pickup(params.name);
             return { success: result, message: result ? `Picked up item "${params.name}".` : `Item "${params.name}" not found at current location.`, result };
         },

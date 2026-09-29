@@ -7,6 +7,8 @@ A map file has an optional header, a line "---", and the map:
     style: dungeon           # tile style: dungeon (default), corridor, arena, bridge
     controls: 8,8 -> 25,10   # switch/torch at (8,8) toggles the object at (25,10); repeatable
     pattern: 5,2 = 101 @ 2,0 3,0 4,0   # door at (5,2) is open exactly while these torches show 101
+    values: 5 3 8            # weights of the crystals K, in reading order (never drawn)
+    colors: weiss orange weiss  # optional: colour of each crystal (weiss or orange)
     fog: dark                # any other key becomes a map property (bool/int/str)
     ---
     ##########
@@ -17,6 +19,7 @@ A map file has an optional header, a line "---", and the map:
 Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
          H  hero      Z  goal      T/t  torch (burning/off, on a wall)
          s  switch    D  door      G  grille    C  chest    J  jug    *  sweets
+         K  crystal   o  pebble
 
 Coordinates are 0-based (column, row) in the map as written. The map is placed
 centred on the 30x20 game field.
@@ -37,7 +40,12 @@ OBJECT_CLASSES = {"s": "Switch", "C": "Chest", "J": "Jug", "Z": "Goal", "*": "Sw
 NEIGHBOURS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 WEIGHTS = [1, 2, 1, 2, 2, 1, 2, 1]     # orthogonal neighbours matter more than diagonal ones
 DIRECTIONS = ("north", "east", "south", "west")
-HEADER_KEYS = ("start", "hero", "style", "controls", "pattern")   # everything else: map properties
+HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors")
+# items that aren't learned from the levels: tiles from the icon sheet (the engine's ITEM_TILES)
+ICON_SHEET = "../tilesets/Icon sheet (16x16).json"
+ITEM_TILESETS = {ICON_SHEET: {"count": 420, "tile_w": 16, "tile_h": 16, "classes": {}}}
+CRYSTAL_TILES = {"weiss": 109, "orange": 106}
+PEBBLE_TILE = 155   # everything else: map properties
 PACK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "packs")
 PACK_VERSION = 1
 
@@ -297,6 +305,10 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 tile = pack.object_tile(cls, FLOOR) or pack.object_tile(base, FLOOR)
             elif ch == "*":
                 cls, tile = "Sweets", pack.sweets
+            elif ch == "K":
+                cls, tile = "Crystal", (ICON_SHEET, CRYSTAL_TILES["weiss"])
+            elif ch == "o":
+                cls, tile = "Pebble", (ICON_SHEET, PEBBLE_TILE)
             elif ch in OBJECT_CLASSES:
                 cls = OBJECT_CLASSES[ch]
                 tile = pack.object_tile(cls, context)
@@ -308,6 +320,27 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 raise MapError(f"no tile known for {ch!r} at ({c - ox},{r - oy})")
             objects.append({"cell": (c, r), "tile": tile, "name": name, "cls": cls})
 
+    crystals = [o for o in objects if o["cls"] == "Crystal"]
+    values = " ".join(header.get("values", [])).replace(",", " ").split()
+    colors = " ".join(header.get("colors", [])).replace(",", " ").split()
+    if crystals or values:
+        if len(values) != len(crystals):
+            raise MapError(f"values: {len(values)} value(s) for {len(crystals)} crystal(s) K")
+        try:
+            values = [int(v) for v in values]
+        except ValueError:
+            raise MapError(f"values: whole numbers expected, got {' '.join(values)!r}") from None
+    if colors:
+        if len(colors) != len(crystals) or set(colors) - set(CRYSTAL_TILES):
+            raise MapError(f"colors: one of {', '.join(CRYSTAL_TILES)} per crystal K")
+        for o, color in zip(crystals, colors):
+            o["tile"] = (ICON_SHEET, CRYSTAL_TILES[color])
+    for o, value in zip(crystals, values):
+        o["properties"] = [{"name": "value", "type": "int", "value": value}]
+
+    def tileset_info(source):
+        return pack.tilesets.get(source) or ITEM_TILESETS[source]
+
     # tilesets: every source used, in a stable order
     used = sorted({t[0] for layer in layers.values() for t in layer.values()} | {o["tile"][0] for o in objects})
     firstgid, tilesets = {}, []
@@ -315,7 +348,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
     for source in used:
         firstgid[source] = next_gid
         tilesets.append({"firstgid": next_gid, "source": source})
-        next_gid += pack.tilesets[source]["count"]
+        next_gid += tileset_info(source)["count"]
 
     def gid(tile):
         return firstgid[tile[0]] + tile[1]
@@ -330,17 +363,20 @@ def build(header, rows, pack, seed=0, variety=0.0):
 
     tiled_objects = []
     for i, o in enumerate(objects, start=1):
-        info = pack.tilesets[o["tile"][0]]
+        info = tileset_info(o["tile"][0])
         c, r = o["cell"]
         # the engine takes the class from the object's `type`, else from its tile;
         # some tiles (e.g. goals) carry no class, so set it explicitly then
-        obj_type = "" if pack.tile_class(o["tile"]) == o["cls"] or o["cls"] == "Character" else o["cls"]
+        tile_cls = info["classes"].get(o["tile"][1], "")
+        obj_type = "" if tile_cls == o["cls"] or o["cls"] == "Character" else o["cls"]
         # where the style draws its goal as decoration (e.g. stairs), the goal object is
         # an invisible marker; the engine only needs its position
         visible = not (o["cls"] == "Goal" and pack.goal_decor)
         tiled_objects.append({"gid": gid(o["tile"]), "height": info["tile_h"], "id": i, "name": o["name"],
                               "rotation": 0, "type": obj_type, "visible": visible, "width": info["tile_w"],
                               "x": c * 16, "y": (r + 1) * 16})
+        if o.get("properties"):
+            tiled_objects[-1]["properties"] = o["properties"]
         cell_to_id[(c - ox, r - oy)] = i
     # pattern doors: "pattern: X,Y = 101 @ x1,y1 x2,y2 x3,y3" (door, bits, torches in bit order)
     for spec in header.get("pattern", []):

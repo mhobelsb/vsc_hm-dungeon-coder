@@ -4,6 +4,23 @@ import { GameObjectFactory } from './game-object-factory.js';
 import { Torch, PatternDoor } from './game-objects.js';
 
 /**
+ * Tiles for items the engine creates itself (the start inventory, map property
+ * `hero_inventory`, e.g. "Pebble*20"). Their tileset is added to a level that lacks it.
+ */
+export const ITEM_TILES = {
+    Pebble: { source: "../tilesets/Icon sheet (16x16).json", local: 155 },
+    Crystal: { source: "../tilesets/Icon sheet (16x16).json", local: 109 },
+};
+
+/** [[type, count], ...] from a start inventory like "Pebble*20, Crystal". */
+export function parseStartInventory(text) {
+    return String(text ?? "").split(",").map(s => s.trim()).filter(s => s).map(entry => {
+        const [type, count = "1"] = entry.split("*").map(s => s.trim());
+        return [type, Math.max(0, parseInt(count, 10) || 0)];
+    });
+}
+
+/**
  * Represents a complete Tiled level, containing multiple layers.
  */
 export class Level {
@@ -74,10 +91,66 @@ export class Level {
         this.tileFactory = tileFactory;
         this.character = this.getObjectByName("MainCharacter");
         this.goal = this.getObjectByType("Goal");
+        this.slots = this.findSlots();
+        this.giveStartInventory();
+    }
+
+    /**
+     * The fields where valued items (crystals) lie at the start, in reading order
+     * (north to south, west to east). Each item remembers its start rank for "stable".
+     */
+    findSlots() {
+        const cellOf = o => [Math.floor(o.x / this.tileWidth), Math.floor((o.y - 1) / this.tileHeight)];
+        const items = this.objectFactory.gameObjects.filter(o => Number.isInteger(o.value));
+        items.sort((a, b) => {
+            const [ac, ar] = cellOf(a), [bc, br] = cellOf(b);
+            return ar - br || ac - bc;
+        });
+        items.forEach((item, rank) => { item.startRank = rank; });
+        return items.map(cellOf);
+    }
+
+    /** Items in the hero's inventory from the start (map property `hero_inventory`). */
+    giveStartInventory() {
+        if (!this.character) {
+            return;
+        }
+        const layer = this.layers.find(l => l instanceof ObjectLayer);
+        let nextId = 1 + Math.max(0, ...this.objectFactory.gameObjects.map(o => o.id || 0));
+        for (const [type, count] of parseStartInventory(this.getProperty('hero_inventory'))) {
+            const spec = ITEM_TILES[type];
+            const tileset = spec && this.tileFactory.getTilesetBySource(spec.source);
+            if (!tileset) {
+                console.warn(`Start inventory: no tile for item type "${type}".`);
+                continue;
+            }
+            for (let i = 0; i < count; i++) {
+                const item = this.objectFactory.create({
+                    gid: tileset.firstgid + spec.local, id: nextId++, name: "", type, visible: false,
+                    x: -100, y: -100, width: this.tileWidth, height: this.tileHeight, properties: [],
+                }, this.tileFactory);
+                layer?.objects.push(item);
+                this.character.inventory.push(item);
+            }
+        }
     }
 
     static async create(levelData, pathPrefix = "") {
         if (!levelData) return;
+
+        // the start inventory needs its item tiles, even if the level doesn't use them
+        const tilesets = [...(levelData.tilesets || [])];
+        const properties = levelData.properties || [];
+        const inventory = properties.find(p => p.name === 'hero_inventory')?.value;
+        let nextGid = Math.max(1, ...tilesets.map(t => t.firstgid)) + 10000;
+        for (const [type] of parseStartInventory(inventory)) {
+            const spec = ITEM_TILES[type];
+            if (spec && !tilesets.some(t => t.source === spec.source)) {
+                tilesets.push({ firstgid: nextGid, source: spec.source });
+                nextGid += 10000;
+            }
+        }
+        levelData = { ...levelData, tilesets };
 
         const tileFactory = await TileFactory.create(levelData.tilesets, pathPrefix);
         const level = new Level(levelData, tileFactory);
@@ -197,7 +270,9 @@ export class Level {
     /**
      * Win conditions besides reaching the goal, from the map property `win`
      * (comma-separated): "all_sweets" (no sweets left lying around),
-     * "all_switches" (every switch flipped away from its start position).
+     * "all_switches" (every switch flipped away from its start position),
+     * "sorted" (one valued item per slot, values rising in reading order),
+     * "stable" (sorted, and equal values keep their start order).
      * @returns {string[]} descriptions of the unmet ones, e.g. ["3 sweets"]
      */
     unmetWinConditions() {
@@ -216,7 +291,43 @@ export class Level {
                 missing.push(`${unflipped} switches`);
             }
         }
+        if (wanted.includes("sorted") && !this.isRowSorted()) {
+            missing.push("sorted row");
+        }
+        if (wanted.includes("stable") && !this.isRowStable()) {
+            missing.push("equal values in start order");
+        }
         return missing;
+    }
+
+    /**
+     * The valued items lying on the slots, one list per slot (visible items only).
+     * @returns {Array<Array<Object>>}
+     */
+    itemsOnSlots() {
+        return this.slots.map(([col, row]) => this.getObjectsAtPosition(
+            col * this.tileWidth + this.tileWidth / 2, row * this.tileHeight + this.tileHeight / 2)
+            .filter(o => Number.isInteger(o.value) && o.visible !== false));
+    }
+
+    /** Every slot holds exactly one valued item and the values rise from slot to slot. */
+    isRowSorted() {
+        const slots = this.itemsOnSlots();
+        if (slots.some(items => items.length !== 1)) {
+            return false;
+        }
+        const values = slots.map(items => items[0].value);
+        return values.every((v, i) => i === 0 || values[i - 1] <= v);
+    }
+
+    /** Sorted, and items with equal values are still in the order they started in. */
+    isRowStable() {
+        if (!this.isRowSorted()) {
+            return false;
+        }
+        const items = this.itemsOnSlots().map(list => list[0]);
+        return items.every((item, i) => i === 0 || items[i - 1].value < item.value
+            || items[i - 1].startRank < item.startRank);
     }
 
     /** The goal is reached and every win condition is met. */

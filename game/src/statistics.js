@@ -12,6 +12,7 @@ export class Statistics {
         this.number_of_pickups = 0;
         this.number_of_drops = 0;
         this.number_of_sensor_calls = 0;
+        this.number_of_reads = 0;
     }
 
     addMove() {
@@ -49,6 +50,11 @@ export class Statistics {
         this.number_of_sensor_calls += 1;
     }
 
+    /** A read of an item's value: read_item_value() or peek_item_value(). */
+    addRead() {
+        this.number_of_reads += 1;
+    }
+
     /** The counters as sent to Python (see Statistics in api/openapi.yaml). */
     snapshot() {
         return {
@@ -60,6 +66,7 @@ export class Statistics {
             pickups: this.number_of_pickups,
             drops: this.number_of_drops,
             sensor_calls: this.number_of_sensor_calls,
+            reads: this.number_of_reads,
         };
     }
 }

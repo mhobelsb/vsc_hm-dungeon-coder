@@ -208,6 +208,24 @@ export class Character extends GameObject {
         return [Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE)];
     }
 
+    /** The value of the first valued item (e.g. a crystal's weight) on a cell, or null. */
+    itemValueAt(level, col, row) {
+        const objects = level.getObjectsAtPosition(col * TILE_SIZE + TILE_SIZE / 2, row * TILE_SIZE + TILE_SIZE / 2);
+        for (const object of objects) {
+            if (object.type !== "Character" && object.visible !== false && Number.isInteger(object.value)) {
+                return object.value;
+            }
+        }
+        return null;
+    }
+
+    /** [col, row] of the cell `distance` cells ahead in the facing direction. */
+    cellAhead(distance) {
+        const [col, row] = this.currentCell();
+        const [dx, dy] = { north: [0, -1], south: [0, 1], west: [-1, 0], east: [1, 0] }[this.getDirection()];
+        return [col + dx * distance, row + dy * distance];
+    }
+
     getItemsAtCurrentPosition(level) {
         let item_names = []
         const current_position = this.getCurrentPosition();
@@ -449,7 +467,40 @@ export class CharacterInterface {
         return this.character.getItemsAtCurrentPosition(this.level);
     }
 
+    /** Value of the item on the hero's field (e.g. a crystal's weight), or null. */
+    readItemValue() {
+        this.statistics.addRead();
+        return this.character.itemValueAt(this.level, ...this.character.currentCell());
+    }
+
+    /** Levels with the map property `fernrohr: true` let the hero read values from afar. */
+    hasFernrohr() {
+        return this.level.getBooleanProperty('fernrohr', false);
+    }
+
+    /** Value of the item `distance` fields ahead (1 = the field in front), or null. */
+    peekItemValue(distance) {
+        this.statistics.addRead();
+        const [col, row] = this.character.cellAhead(distance);
+        if (this.game.fog) {
+            this.game.fog.markSensed(col, row);
+        }
+        if (col < 0 || row < 0 || col >= this.level.width || row >= this.level.height) {
+            return null;
+        }
+        return this.character.itemValueAt(this.level, col, row);
+    }
+
+    /** The map property `inventory_size` limits how many items the hero can carry. */
+    isInventoryFull() {
+        const size = this.level.getProperty('inventory_size');
+        return Number.isInteger(size) && this.character.inventory.length >= size;
+    }
+
     pickup(name) {
+        if (this.isInventoryFull()) {
+            return false;
+        }
         const ret = this.character.pickup(this.level, name);
         if (ret) {
             this.statistics.addPickup();

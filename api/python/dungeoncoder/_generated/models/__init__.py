@@ -5,7 +5,10 @@ from .api_error_response_status import ApiErrorResponseStatus
 from .boolean_result import BooleanResult
 from .boolean_result_status import BooleanResultStatus
 from .configure_params import ConfigureParams
+from .distance_param import DistanceParam
 from .name_param import NameParam
+from .nullable_integer_result import NullableIntegerResult
+from .nullable_integer_result_status import NullableIntegerResultStatus
 from .pace_params import PaceParams
 from .statistics import Statistics
 from .statistics_result import StatisticsResult
@@ -20,7 +23,10 @@ __all__ = (
     "BooleanResult",
     "BooleanResultStatus",
     "ConfigureParams",
+    "DistanceParam",
     "NameParam",
+    "NullableIntegerResult",
+    "NullableIntegerResultStatus",
     "PaceParams",
     "Statistics",
     "StatisticsResult",

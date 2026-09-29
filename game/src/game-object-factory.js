@@ -1,4 +1,4 @@
-import { GameObject, Torch, TwoWaySwitch, Door, VerticalDoor, PatternDoor, Grille, VerticalGrille, Chest, Jug, Goal } from './game-objects.js';
+import { GameObject, Torch, TwoWaySwitch, Door, VerticalDoor, PatternDoor, Grille, VerticalGrille, Chest, Jug, Goal, Item } from './game-objects.js';
 import { Character } from './character.js';
 
 export class GameObjectFactory {
@@ -13,7 +13,9 @@ export class GameObjectFactory {
         ["Character", Character],
         ["Chest", Chest],
         ["Jug", Jug],
-        ["Goal", Goal]
+        ["Goal", Goal],
+        ["Crystal", Item],
+        ["Pebble", Item]
     ]);
 
     constructor() {

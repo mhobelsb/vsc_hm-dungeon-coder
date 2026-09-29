@@ -32,6 +32,7 @@ class Statistics:
             pickups (int): successful pickup() calls
             drops (int): successful drop() calls
             sensor_calls (int): calls of is_*_in_front, is_facing_north, is_at_goal and get_items_at_position
+            reads (int): calls of read_item_value and peek_item_value
             at_goal (bool): the hero stands on the goal field
             level_complete (bool): goal reached and every win condition of the level met
             missing (list[str]): unmet win conditions, e.g. "3 sweets"
@@ -45,6 +46,7 @@ class Statistics:
     pickups: int
     drops: int
     sensor_calls: int
+    reads: int
     at_goal: bool
     level_complete: bool
     missing: list[str]
@@ -71,6 +73,8 @@ class Statistics:
 
         sensor_calls = self.sensor_calls
 
+        reads = self.reads
+
         at_goal = self.at_goal
 
         level_complete = self.level_complete
@@ -91,6 +95,7 @@ class Statistics:
             "pickups": pickups,
             "drops": drops,
             "sensor_calls": sensor_calls,
+            "reads": reads,
             "at_goal": at_goal,
             "level_complete": level_complete,
             "missing": missing,
@@ -119,6 +124,8 @@ class Statistics:
 
         sensor_calls = d.pop("sensor_calls")
 
+        reads = d.pop("reads")
+
         at_goal = d.pop("at_goal")
 
         level_complete = d.pop("level_complete")
@@ -135,6 +142,7 @@ class Statistics:
             pickups=pickups,
             drops=drops,
             sensor_calls=sensor_calls,
+            reads=reads,
             at_goal=at_goal,
             level_complete=level_complete,
             missing=missing,
