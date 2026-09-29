@@ -1,4 +1,4 @@
-import { Game, GAME_WIDTH, GAME_HEIGHT } from './game.js';
+import { Game, GAME_WIDTH, GAME_HEIGHT, RENDER_SCALE } from './game.js';
 import { COMMANDS } from './commands.js';
 
 let vscode = null;
@@ -66,14 +66,16 @@ function loadFileAsync(file) {
 
 (async function () {
  
+    // Fit the game into the panel: any scale, not only whole numbers, so a panel of
+    // e.g. 700 px shows the game at 1.4x instead of 1x (tile-size step A, docs/tile-size.md).
+    // The picture stays pixel-sharp (image-rendering: pixelated, drawn at RENDER_SCALE).
     function resizeCanvas() {
-        const scaleX = Math.floor(window.innerWidth / GAME_WIDTH); 
-        const scaleY = Math.floor(window.innerHeight / GAME_HEIGHT); 
-        const scale = Math.max(1, Math.min(scaleX, scaleY)); // keep at least 1x 
-        const displayWidth = GAME_WIDTH * scale; 
-        const displayHeight = GAME_HEIGHT * scale; 
-        canvas.style.width = displayWidth + "px"; 
-        canvas.style.height = displayHeight + "px"; 
+        const picker = document.getElementById('json-file-input');     // only shown in the browser
+        const reserved = picker && picker.style.display !== 'none' ? picker.offsetHeight + 16 : 0;
+        const scale = Math.max(0.5, 0.97 * Math.min(window.innerWidth / GAME_WIDTH,
+                                                     (window.innerHeight - reserved) / GAME_HEIGHT));
+        canvas.style.width = Math.floor(GAME_WIDTH * scale) + "px";
+        canvas.style.height = Math.floor(GAME_HEIGHT * scale) + "px";
     }
 
     // One handler per RPC method, keyed by the shared COMMANDS registry
@@ -245,9 +247,12 @@ function loadFileAsync(file) {
 
     const fileInput = document.getElementById('json-file-input');
     const canvas = document.getElementById('gameCanvas');
-    canvas.width = GAME_WIDTH; 
-    canvas.height = GAME_HEIGHT; 
-    const ctx = canvas.getContext('2d');;
+    // Draw into a buffer RENDER_SCALE times as large: tiles look the same, text gets crisp.
+    // Everything draws in game pixels (480 x 320); the transform does the scaling.
+    canvas.width = GAME_WIDTH * RENDER_SCALE;
+    canvas.height = GAME_HEIGHT * RENDER_SCALE;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
     ctx.imageSmoothingEnabled = false;
 
     if(isRunningInVSCodeWebview()) {

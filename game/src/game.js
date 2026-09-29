@@ -7,6 +7,8 @@ import { GAME_STATE } from './game-state.js';
 import { Fog } from './fog.js';
 
 export const GAME_WIDTH = 480;
+/** The canvas buffer is this many times larger than the game (sharp text); drawing uses game pixels. */
+export const RENDER_SCALE = 2;
 export const GAME_HEIGHT = 320;
 
 export class Game {
@@ -24,7 +26,7 @@ export class Game {
         this.level = null;
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.renderer = createRenderer(this.ctx, canvas.width, canvas.height, pathPrefix);
+        this.renderer = createRenderer(this.ctx, GAME_WIDTH, GAME_HEIGHT, pathPrefix);
         this.inputManager = new KeyBoardInput();
         this.currentGameState = GAME_STATE.WAITING_FOR_LEVEL;
         this.remainingTime = 5000;
