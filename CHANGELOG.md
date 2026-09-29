@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Levels from ASCII maps**: `Game("karte.txt")` builds the level from a text map (`#` wall, `.` floor, `~` abyss, `H` hero, `Z` goal, `*` sweets, `s` switch, `D` door, `T`/`t` torch, ...) with an optional header (`start`, `hero`, `style`, `controls`, `pattern`, and any map property such as `fog: dark`). The tiles come from style packs (`dungeoncoder/packs/*.json`: `dungeon`, `corridor`, `arena`, `bridge`) learned from the levels that ship with the game, so no tileset is needed on the Python side. Mistakes in a map give a message with the position, e.g. `unknown symbol 'X' at (3,1)`.
 - **Statistics in Python**: `game.get_statistics()` (REST `GET /game/statistics`) returns the level's counters (moves, turns, bumps, keyboard moves, interactions, pickups, drops, sensor calls) plus `at_goal`, `level_complete` and `missing`.
 - **Win conditions**: the map property `win` (comma-separated `all_sweets`, `all_switches`) must be met besides reaching the goal. While the hero stands on the goal with conditions unmet, the level keeps running and a banner names what is missing. `is_at_goal()` now means "stands on the goal field".
 - **Pattern door**: an object of type `PatternDoor` with the properties `pattern` (e.g. `"101"`) and `torches` (torch object ids in bit order) is open exactly while those torches show the pattern (burning = 1). It can't be opened by hand.

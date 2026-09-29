@@ -4,6 +4,7 @@ import sys
 
 import httpx
 
+from . import asciimap
 from ._api_config import BASE_URL as DEFAULT_BASE_URL, HOST
 from ._generated import Client
 from ._generated.errors import UnexpectedStatus
@@ -203,6 +204,9 @@ class Game:
         except json.JSONDecodeError as err:
             print(f"Error: Level file '{level_file}' is not valid JSON: {err}")
             sys.exit(1)
+        except asciimap.MapError as err:
+            print(f"Error: Map file '{level_file}': {err}")
+            sys.exit(1)
         if not loaded:
             print(f"Error: Level '{level_file}' could not be loaded. Did you start Dungeon Coder "
                   f"(\"Dungeon Coder: Enter the dungeon\")?")
@@ -231,16 +235,20 @@ class Game:
 
         def load(self, filename):
             """
-            Loads a level from a JSON file.
+            Loads a level from a Tiled JSON file, or builds it from an ASCII map
+            (a file ending in .txt, see asciimap.py for the format).
 
             Args:
-                filename (str): The path to the JSON file containing the level data.
+                filename (str): The path to the level file.
             """
             if not os.path.exists(filename):
                 raise FileNotFoundError(filename)
 
-            with open(filename, 'r') as f:
-                level_data = json.load(f)
+            if filename.endswith(".txt"):
+                level_data = asciimap.level_from_file(filename)
+            else:
+                with open(filename, 'r') as f:
+                    level_data = json.load(f)
 
             return _call(self._client, _load_level_api.sync_detailed, default=False,
                          body=TiledLevel.from_dict(level_data))
