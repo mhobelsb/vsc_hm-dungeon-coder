@@ -174,6 +174,10 @@ function loadFileAsync(file) {
         },
     };
 
+    const ACTIONS_NEEDING_RUNNING_LEVEL = new Set([
+        COMMANDS.MOVE, COMMANDS.TURN_LEFT, COMMANDS.INTERACT, COMMANDS.PICKUP, COMMANDS.DROP,
+    ]);
+
     async function process_message(game, message, send_response = send_response_websocket) {
         const character = game.getCharacterInterface();
         console.log(`Received command "${message.method}"`);
@@ -181,6 +185,13 @@ function loadFileAsync(file) {
         const handler = HANDLERS[message.method];
         if (!handler) {
             send_response(message.id, { error: { message: `Unknown method: "${message.method}"` } });
+            return;
+        }
+
+        // Once a level is complete or lost, the world no longer updates, so
+        // an action would start and never finish. Refuse it right away.
+        if (ACTIONS_NEEDING_RUNNING_LEVEL.has(message.method) && !game.isRunning()) {
+            send_response(message.id, { result: { success: false, message: "The level is over (goal reached or game over). Load a level to continue.", result: false } });
             return;
         }
 

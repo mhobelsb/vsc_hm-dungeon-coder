@@ -65,6 +65,11 @@ export class Game {
         }
     }
 
+    /** true while a level is being played (not waiting, complete or game over). */
+    isRunning() {
+        return this.currentGameState === GAME_STATE.PLAYING;
+    }
+
     getCharacterInterface() {
         return this.characterInterface;
     }

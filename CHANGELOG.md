@@ -23,6 +23,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - `move()` and `turn_left()` timed out in the Python client below pace ~0.5. Their timeout now follows the pace.
 - After a script changed the pace, the next loaded level kept the old turn delay on the host side while the hero itself was back at normal pace.
 - `set_pace()` accepted 0 or negative values, which froze the hero.
+- Actions (`move`, `turn_left`, `interact`, `pickup`, `drop`) after the level had ended (goal reached, game over, or no level loaded) started but never finished. They now fail at once with "The level is over".
 - A turn was counted in the statistics even when it was refused.
 - A missing level file raised `FileExistsError` and was hidden behind a generic message. `Game()` now names the file and the current folder, reports invalid JSON separately, and says when Dungeon Coder isn't running.
 - Docstring errors in `is_torch_in_front()` and `is_abyss_in_front()`.
