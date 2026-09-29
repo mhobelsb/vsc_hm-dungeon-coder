@@ -30,6 +30,7 @@ from ._generated.api.hero import (
     turn_left as _turn_left_api,
 )
 from ._generated.api.level import load_level as _load_level_api, reset_level as _reset_level_api
+from ._generated.api.game import get_statistics as _get_statistics_api
 
 os.environ["NO_PROXY"] = HOST
 
@@ -136,7 +137,8 @@ class Hero:
         return _call(self._client, _is_torch_in_front_api.sync_detailed, default=False)
 
     def is_at_goal(self) -> bool:
-        """Checks if the hero is at the goal."""
+        """Checks if the hero stands on the goal field. Some levels also need
+           win conditions (e.g. all sweets collected): see Game.get_statistics()."""
         return _call(self._client, _is_at_goal_api.sync_detailed, default=False)
 
     def get_items_at_position(self) -> list[str]:
@@ -210,6 +212,15 @@ class Game:
 
     def get_hero(self):
         return self.__hero
+
+    def get_statistics(self) -> dict:
+        """Counters of the current level since it was loaded, e.g.
+        {"moves": 12, "turns": 5, "bumps": 1, "keyboard_moves": 0, "interactions": 2,
+         "pickups": 0, "drops": 0, "sensor_calls": 30, "at_goal": False,
+         "level_complete": False, "missing": ["3 sweets"]}.
+        "missing" lists the level's win conditions that are not met yet."""
+        result = _call(self.__level._client, _get_statistics_api.sync_detailed, default=None)
+        return result.to_dict() if result is not None else {}
 
     class Level:
         """

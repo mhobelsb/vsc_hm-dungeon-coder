@@ -59,6 +59,18 @@ export class HudRenderer {
         ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
     }
 
+    /** Banner shown while the hero stands on the goal but win conditions are still unmet. */
+    drawGoalHint(missing) {
+        const ctx = this.ctx;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(10, 8, this.canvasWidth - 20, 22);
+        ctx.fillStyle = '#ffcc00';
+        ctx.font = `${FONT_SIZE}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`Goal reached, but still missing: ${missing.join(', ')}`, this.canvasWidth / 2, 19);
+    }
+
     /** Draws the "Game Over" screen shown when the character has died. */
     drawGameOverScreen(remainingTime) {
         const ctx = this.ctx;

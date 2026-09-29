@@ -9,7 +9,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.api_error_response import ApiErrorResponse
-from ...models.boolean_result import BooleanResult
+from ...models.statistics_result import StatisticsResult
 from typing import cast
 
 
@@ -25,7 +25,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/hero/is_at_goal",
+        "url": "/game/statistics",
     }
 
 
@@ -33,9 +33,9 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ApiErrorResponse | BooleanResult | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ApiErrorResponse | StatisticsResult | None:
     if response.status_code == 200:
-        response_200 = BooleanResult.from_dict(response.json())
+        response_200 = StatisticsResult.from_dict(response.json())
 
 
 
@@ -54,7 +54,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ApiErrorResponse | BooleanResult]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ApiErrorResponse | StatisticsResult]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -67,16 +67,15 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
 
-) -> Response[ApiErrorResponse | BooleanResult]:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> Response[ApiErrorResponse | StatisticsResult]:
+    """ Counters of the current level (moves, turns, bumps, ...) and whether it is complete.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ApiErrorResponse | BooleanResult]
+        Response[ApiErrorResponse | StatisticsResult]
      """
 
 
@@ -94,16 +93,15 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
 
-) -> ApiErrorResponse | BooleanResult | None:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> ApiErrorResponse | StatisticsResult | None:
+    """ Counters of the current level (moves, turns, bumps, ...) and whether it is complete.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ApiErrorResponse | BooleanResult
+        ApiErrorResponse | StatisticsResult
      """
 
 
@@ -116,16 +114,15 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
 
-) -> Response[ApiErrorResponse | BooleanResult]:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> Response[ApiErrorResponse | StatisticsResult]:
+    """ Counters of the current level (moves, turns, bumps, ...) and whether it is complete.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ApiErrorResponse | BooleanResult]
+        Response[ApiErrorResponse | StatisticsResult]
      """
 
 
@@ -143,16 +140,15 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
 
-) -> ApiErrorResponse | BooleanResult | None:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> ApiErrorResponse | StatisticsResult | None:
+    """ Counters of the current level (moves, turns, bumps, ...) and whether it is complete.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ApiErrorResponse | BooleanResult
+        ApiErrorResponse | StatisticsResult
      """
 
 

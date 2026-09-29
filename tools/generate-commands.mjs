@@ -58,4 +58,32 @@ export const COMMAND_LIST = Object.freeze(Object.values(COMMANDS));
 `;
 
 fs.writeFileSync(outPath, output);
+
+// Ambient TypeScript declaration for the same registry, so extension.ts can
+// import game/src/commands.js without allowJs. Generated from the same list,
+// so it can't drift out of sync with the spec.
+const dtsPath = path.join(__dirname, '..', 'src', 'commands.d.ts');
+const dtsEntries = allCommands
+    .map(id => `        readonly ${toKey(id)}: ${JSON.stringify(id).replace(/"/g, "'")};`)
+    .join('\n');
+fs.writeFileSync(dtsPath, `// GENERATED FILE - do not edit by hand.
+// Source: api/openapi.yaml, via tools/generate-commands.mjs (npm run generate).
+//
+// Ambient typing for the plain-JS, generated config modules under game/src/
+// (commands.js, api-config.js), so extension.ts can import them without
+// pulling the untyped game/ tree into TypeScript's compilation graph (no
+// \`allowJs\`).
+declare module '*commands.js' {
+    export const COMMANDS: {
+${dtsEntries}
+    };
+    export const COMMAND_LIST: readonly string[];
+}
+
+declare module '*api-config.js' {
+    export const API_HOST: string;
+    export const API_PORT: number;
+    export const API_BASE_URL: string;
+}
+`);
 console.log(`Generated ${path.relative(process.cwd(), outPath)} from ${allCommands.length} command(s) in api/openapi.yaml.`);

@@ -34,6 +34,12 @@ export class GameRenderer {
         this.levelRenderer.drawLevel(level);
         this.fogRenderer.draw(fog, level, character);
         this.hudRenderer.drawDarkOverlay(level);
+        if (level.isHeroOnGoal()) {
+            const missing = level.unmetWinConditions();
+            if (missing.length > 0) {
+                this.hudRenderer.drawGoalHint(missing);
+            }
+        }
     }
 
     /** Draws the "Game Over" screen shown when the character has died. */

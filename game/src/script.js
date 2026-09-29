@@ -158,6 +158,13 @@ function loadFileAsync(file) {
             return { success: true, message: result.length > 0 ? "There are items in the inventory." : "There are no items in the inventory.", result };
         },
 
+        [COMMANDS.GET_STATISTICS]: (game, character) => {
+            if (!character) {
+                return { success: false, message: "No level loaded.", result: null };
+            }
+            return { success: true, message: "Statistics of the current level.", result: character.getStatistics() };
+        },
+
         [COMMANDS.PICKUP]: (game, character, params) => {
             const result = character.pickup(params.name);
             return { success: result, message: result ? `Picked up item "${params.name}".` : `Item "${params.name}" not found at current location.`, result };

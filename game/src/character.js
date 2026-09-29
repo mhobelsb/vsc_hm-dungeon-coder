@@ -375,8 +375,9 @@ export class CharacterInterface {
         this.statistics = statistics;
     }
 
-    /** Lights the cell in front of the hero in the fog (a sensor looked there). */
+    /** A sensor looked at the cell in front: count it and light it in the fog. */
     senseFront() {
+        this.statistics.addSensorCall();
         if (this.game.fog) {
             this.game.fog.markSensed(...this.character.frontCell());
         }
@@ -390,6 +391,8 @@ export class CharacterInterface {
             if (this.game.fog) {
                 this.game.fog.markSensed(...target);   // stays lit while the hero walks in
             }
+        } else {
+            this.statistics.addBump();
         }
         return ret;
     }
@@ -413,6 +416,7 @@ export class CharacterInterface {
     }
 
     isFacingNorth() {
+        this.statistics.addSensorCall();
         return this.character.isFacingNorth();
     }
 
@@ -441,16 +445,24 @@ export class CharacterInterface {
     }
 
     getItemsAtHeroPosition() {
-
+        this.statistics.addSensorCall();
         return this.character.getItemsAtCurrentPosition(this.level);
     }
 
     pickup(name) {
-        return this.character.pickup(this.level, name);
+        const ret = this.character.pickup(this.level, name);
+        if (ret) {
+            this.statistics.addPickup();
+        }
+        return ret;
     }
 
     drop(name) {
-        return this.character.drop(this.level, name);
+        const ret = this.character.drop(this.level, name);
+        if (ret) {
+            this.statistics.addDrop();
+        }
+        return ret;
     }
 
     isMoving() {
@@ -458,10 +470,23 @@ export class CharacterInterface {
     }
 
     interact() {
+        this.statistics.addInteraction();
         return this.character.interact(this.level);
     }
 
+    /** The hero stands on the goal field (the level may still need its win conditions). */
     isAtGoal() {
-        return this.level.isComplete();
+        this.statistics.addSensorCall();
+        return this.level.isHeroOnGoal();
+    }
+
+    /** Counters plus completion state, as described by Statistics in api/openapi.yaml. */
+    getStatistics() {
+        return {
+            ...this.statistics.snapshot(),
+            at_goal: this.level.isHeroOnGoal(),
+            level_complete: this.level.isComplete(),
+            missing: this.level.unmetWinConditions(),
+        };
     }
 }

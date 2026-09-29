@@ -8,6 +8,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Statistics in Python**: `game.get_statistics()` (REST `GET /game/statistics`) returns the level's counters (moves, turns, bumps, keyboard moves, interactions, pickups, drops, sensor calls) plus `at_goal`, `level_complete` and `missing`.
+- **Win conditions**: the map property `win` (comma-separated `all_sweets`, `all_switches`) must be met besides reaching the goal. While the hero stands on the goal with conditions unmet, the level keeps running and a banner names what is missing. `is_at_goal()` now means "stands on the goal field".
+- **Pattern door**: an object of type `PatternDoor` with the properties `pattern` (e.g. `"101"`) and `torches` (torch object ids in bit order) is open exactly while those torches show the pattern (burning = 1). It can't be opened by hand.
+- `src/commands.d.ts` is now generated from `api/openapi.yaml` together with `game/src/commands.js`.
 - **Fog of war**: the map property `fog` (`"explored"`, `"dark"` or `"none"`; `true` means `"explored"`) hides what the hero hasn't seen. `explored` keeps fields the hero stood on or sensed visible (dimmed); `dark` shows only the hero's field and fields sensed in the last 1.5 s. Every sensor call (`is_*_in_front()`) and every step light the field in front; burning torches light the fields within 2 cells. In fog levels the keyboard is off unless the level sets `keyboard` explicitly.
 - Keyboard moves (WASD) are counted separately and shown on the "Level Complete" screen as "Keyboard moves".
 - A level can switch keyboard control off with the bool map property `keyboard: false` (set in Tiled under Map Properties).

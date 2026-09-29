@@ -1,7 +1,7 @@
 import { AnimatedTile, TileFactory } from './tiles.js';
 import { TileLayer, ObjectLayer } from './layers.js';
 import { GameObjectFactory } from './game-object-factory.js';
-import { Torch } from './game-objects.js';
+import { Torch, PatternDoor } from './game-objects.js';
 
 /**
  * Represents a complete Tiled level, containing multiple layers.
@@ -116,6 +116,12 @@ export class Level {
                 layer.update(deltaTime);
             }
         });
+
+        for (const object of this.objectFactory.gameObjects) {
+            if (object instanceof PatternDoor) {
+                object.evaluate(this);
+            }
+        }
     }
 
     getObjectByName(name) {
@@ -170,7 +176,8 @@ export class Level {
         return brightness;
     }
 
-    isComplete() {
+    /** The hero stands on the goal field (and has finished its step). */
+    isHeroOnGoal() {
         if (this.character && this.goal) {
             // Only a hero that has finished its step counts. Mid-step, the
             // interpolated position can round to exactly the goal
@@ -185,6 +192,36 @@ export class Level {
         }
 
         return false;
+    }
+
+    /**
+     * Win conditions besides reaching the goal, from the map property `win`
+     * (comma-separated): "all_sweets" (no sweets left lying around),
+     * "all_switches" (every switch flipped away from its start position).
+     * @returns {string[]} descriptions of the unmet ones, e.g. ["3 sweets"]
+     */
+    unmetWinConditions() {
+        const wanted = String(this.getProperty('win') ?? "").split(",").map(s => s.trim()).filter(s => s);
+        const missing = [];
+        const objects = this.objectFactory.gameObjects;
+        if (wanted.includes("all_sweets")) {
+            const left = objects.filter(o => o.type === "Sweets" && o.visible !== false).length;
+            if (left > 0) {
+                missing.push(`${left} sweets`);
+            }
+        }
+        if (wanted.includes("all_switches")) {
+            const unflipped = objects.filter(o => o.type === "Switch" && o.getState() === o.initialState).length;
+            if (unflipped > 0) {
+                missing.push(`${unflipped} switches`);
+            }
+        }
+        return missing;
+    }
+
+    /** The goal is reached and every win condition is met. */
+    isComplete() {
+        return this.isHeroOnGoal() && this.unmetWinConditions().length === 0;
     }
 
     isAbyss(x, y) {

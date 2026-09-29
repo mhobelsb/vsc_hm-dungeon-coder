@@ -197,6 +197,7 @@ export class TwoWaySwitch extends TwoStateGameObject {
 
     constructor(objectDescription, tileFactory) {
         super(objectDescription, tileFactory, "Switch", TwoWaySwitch.STATES);
+        this.initialState = this.getState();   // for the win condition "all_switches"
     }
 
     isLeft() {
@@ -244,6 +245,43 @@ export class OpenableGameObject extends TwoStateGameObject {
 export class Door extends OpenableGameObject {
     constructor(objectDescription, tileFactory, name=Door.name) {
         super(objectDescription, tileFactory, name, OpenableGameObject.STATES);
+    }
+}
+
+/**
+ * A door that opens exactly while a row of torches shows its bit pattern
+ * (burning = 1, off = 0). Object properties: `pattern` (e.g. "101") and
+ * `torches` (the torch object ids in pattern order, e.g. "12,13,14").
+ * It can't be opened by hand; Level.update() calls evaluate() every frame.
+ */
+export class PatternDoor extends Door {
+    constructor(objectDescription, tileFactory) {
+        // look like the door tile it was placed with (horizontal or vertical door)
+        const tile = tileFactory.getTileByGlobalTileId(objectDescription.gid);
+        super(objectDescription, tileFactory, (tile && tile.type) || Door.name);
+        const property = name => (objectDescription.properties || []).find(p => p.name === name)?.value;
+        this.pattern = String(property('pattern') ?? '');
+        this.torchIds = String(property('torches') ?? '')
+            .split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+    }
+
+    /** The torches' current bits, e.g. "101". */
+    currentBits(level) {
+        return this.torchIds.map(id => {
+            const torch = level.getObjectById(id);
+            return torch && typeof torch.isBurning === 'function' && torch.isBurning() ? '1' : '0';
+        }).join('');
+    }
+
+    evaluate(level) {
+        const shouldOpen = this.pattern !== '' && this.currentBits(level) === this.pattern;
+        if (shouldOpen !== this.isOpen()) {
+            this.setState(shouldOpen ? 'open' : 'closed');
+        }
+    }
+
+    interact(level) {
+        return false;
     }
 }
 

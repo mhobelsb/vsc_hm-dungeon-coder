@@ -244,6 +244,7 @@ export class DungeonCoderServer {
         // --- Queries ---
         this.registerRoute(app, 'get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITION);
         this.registerRoute(app, 'get', '/hero/inventory', COMMANDS.GET_INVENTORY);
+        this.registerRoute(app, 'get', '/game/statistics', COMMANDS.GET_STATISTICS);
 
         // --- Level ---
         // A (re)loaded level has a fresh hero at pace 1, so the host's copy of

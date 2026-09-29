@@ -180,7 +180,7 @@ paths:
   /hero/is_at_goal:
     get:
       operationId: is_at_goal
-      summary: Whether the hero has reached the level's goal tile.
+      summary: Whether the hero stands on the level's goal field (the level may still need its win conditions, see /game/statistics).
       tags: [Hero]
       responses:
         '200':
@@ -218,6 +218,17 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /game/statistics:
+    get:
+      operationId: get_statistics
+      summary: Counters of the current level (moves, turns, bumps, ...) and whether it is complete.
+      tags: [Game]
+      responses:
+        '200':
+          $ref: '#/components/responses/StatisticsSuccess'
         '500':
           $ref: '#/components/responses/Error'
 
@@ -263,6 +274,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/StringArrayResult'
+    StatisticsSuccess:
+      description: Operation completed; result carries the level's counters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StatisticsResult'
     Error:
       description: RPC-level failure, or an ordinary negative business outcome (see info.description).
       content:
@@ -308,6 +325,59 @@ components:
           type: array
           items:
             type: string
+
+    StatisticsResult:
+      type: object
+      required: [status, message, result]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        result:
+          $ref: '#/components/schemas/Statistics'
+
+    Statistics:
+      type: object
+      description: Counters since the level was (re)loaded.
+      required: [moves, turns, bumps, keyboard_moves, interactions, pickups, drops, sensor_calls, at_goal, level_complete, missing]
+      properties:
+        moves:
+          type: integer
+          description: successful move() steps
+        turns:
+          type: integer
+          description: turn_left() turns
+        bumps:
+          type: integer
+          description: move() calls that were blocked
+        keyboard_moves:
+          type: integer
+          description: steps made by hand (WASD)
+        interactions:
+          type: integer
+          description: interact() calls
+        pickups:
+          type: integer
+          description: successful pickup() calls
+        drops:
+          type: integer
+          description: successful drop() calls
+        sensor_calls:
+          type: integer
+          description: calls of is_*_in_front, is_facing_north, is_at_goal and get_items_at_position
+        at_goal:
+          type: boolean
+          description: the hero stands on the goal field
+        level_complete:
+          type: boolean
+          description: goal reached and every win condition of the level met
+        missing:
+          type: array
+          items:
+            type: string
+          description: unmet win conditions, e.g. "3 sweets"
 
     NameParam:
       type: object
