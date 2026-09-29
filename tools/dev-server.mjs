@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 // Standalone counterpart to DungeonCoderServer (src/extension.ts) for running
 // and testing the game in a plain browser, without VS Code. Serves the same
 // REST API on the same port so an unmodified `dungeoncoder` Python client
@@ -96,6 +97,15 @@ async function pollUntilStopped(pollInterval = 10) {
 
 const app = express();
 app.use(express.json());
+// Asset packs (D8a): DC_ASSET_PACKS lists pack folders (separated by the path delimiter).
+// Each is served under /packs/<i>/ and named in index.html before the bundled assets.
+const ASSET_PACKS = (process.env.DC_ASSET_PACKS || '').split(path.delimiter).filter(p => p);
+ASSET_PACKS.forEach((folder, i) => app.use(`/packs/${i}`, express.static(path.resolve(folder))));
+app.get(['/', '/index.html'], (req, res) => {
+    const html = readFileSync(path.join(__dirname, '..', 'game', 'index.html'), 'utf8')
+        .replace(/\$\{assetPackUris\}/g, JSON.stringify(ASSET_PACKS.map((_, i) => `/packs/${i}/`)));
+    res.type('html').send(html);
+});
 app.use(express.static(path.join(__dirname, '..', 'game')));
 app.use(OpenApiValidator.middleware({
     apiSpec: path.join(__dirname, '..', 'api', 'openapi.yaml'),

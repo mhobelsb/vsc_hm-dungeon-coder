@@ -2,13 +2,15 @@
   "name": "vscode-dungeon-coder",
   "displayName": "Dungeon Coder",
   "description": "Code to escape the dungeon",
-  "extensionKind": ["ui"],
+  "extensionKind": [
+    "ui"
+  ],
   "publisher": "hm-benidiet",
-	"author": {
-		"name": "Munich University of Applied Sciences",
-		"email": "benedikt.dietrich@hm.edu"
-	},
-	"license": "MIT",
+  "author": {
+    "name": "Munich University of Applied Sciences",
+    "email": "benedikt.dietrich@hm.edu"
+  },
+  "license": "MIT",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.102.0"
@@ -18,13 +20,13 @@
     "Other"
   ],
   "private": true,
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/hm-benidiet/vscode-dungeon-coder"
-	},
-	"bugs": {
-		"url": "https://github.com/hm-benidiet/vscode-dungeon-coder/issues"
-	},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hm-benidiet/vscode-dungeon-coder"
+  },
+  "bugs": {
+    "url": "https://github.com/hm-benidiet/vscode-dungeon-coder/issues"
+  },
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
@@ -37,7 +39,20 @@
         "command": "vscode-dungeon-coder.copyPythonAPI",
         "title": "Dungeon Coder: Copy Python API to workspace"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Dungeon Coder",
+      "properties": {
+        "dungeonCoder.assetPacks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Folders with asset packs (tilesets, images). They are searched before the pictures that come with the extension. Relative paths start at the workspace folder."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

@@ -31,11 +31,35 @@ ITEM_TILES = {    # the engine's ITEM_TILES (game/src/level.js)
 _rules_cache = None
 
 
+def _rules_from_folder(folder):
+    """Tile rules read directly from a pack's tilesets/*.json (like the game reads them)."""
+    rules = {}
+    tilesets = os.path.join(folder, "tilesets")
+    for name in sorted(os.listdir(tilesets)) if os.path.isdir(tilesets) else []:
+        if name.endswith(".json"):
+            with open(os.path.join(tilesets, name), encoding="utf-8") as f:
+                data = json.load(f)
+            tiles = {}
+            for tile in data.get("tiles", []):
+                entry = {"type": tile["type"]} if tile.get("type") else {}
+                props = {p["name"]: p["value"] for p in tile.get("properties", [])}
+                if props:
+                    entry["props"] = props
+                if entry:
+                    tiles[str(tile["id"])] = entry
+            rules["../tilesets/" + name] = {"count": data["tilecount"], "tiles": tiles}
+    return rules
+
+
 def _rules():
+    """packs/tilesets.json, overridden by the asset packs in DC_ASSET_PACKS (first pack wins,
+    as in the game): so a private course pack works without its rules in this package."""
     global _rules_cache
     if _rules_cache is None:
         with open(os.path.join(PACK_DIR, "tilesets.json"), encoding="utf-8") as f:
             _rules_cache = json.load(f)
+        for folder in reversed([p for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]):
+            _rules_cache.update(_rules_from_folder(folder))
     return _rules_cache
 
 
@@ -284,8 +308,12 @@ class Level:
         px, py = col * self.tw + self.tw / 2, row * self.th + self.th / 2
         if self.is_collision(px, py):
             return False
-        return not (any(t.type == "Abyss" for t in self.tiles_at(px, py))
-                    or any(o.type == "Abyss" for o in self.objects_at(px, py)))
+        return not self.abyss_at(px, py)
+
+    def abyss_at(self, px, py):
+        """An Abyss object, or an Abyss tile as the topmost tile of the field (engine: Level.isAbyssAt)."""
+        tiles = self.tiles_at(px, py)
+        return (bool(tiles) and tiles[-1].type == "Abyss") or any(o.type == "Abyss" for o in self.objects_at(px, py))
 
     def step_guards(self, hero_from, hero_to):
         guards = [o for o in self.objects if o.kind == "Guard"]
@@ -499,7 +527,7 @@ class Simulator:
         target = (int(px // self.level.tw), int(py // self.level.th))
         if self.level.step_guards(start, target):
             self.level.caught = True
-        abyss = self._in_front("Abyss")
+        abyss = self.level.abyss_at(px, py)
         dx, dy = OFFSETS[self.direction()]
         self.hero.x += dx * TILE
         self.hero.y += dy * TILE
@@ -547,7 +575,7 @@ class Simulator:
         return self._sensor(self.level.is_collision(*self._front()))
 
     def cmd_is_abyss_in_front(self, _):
-        return self._sensor(self._in_front("Abyss"))
+        return self._sensor(self.level.abyss_at(*self._front()))
 
     def cmd_is_torch_in_front(self, _):
         return self._sensor(self._in_front("Torch"))

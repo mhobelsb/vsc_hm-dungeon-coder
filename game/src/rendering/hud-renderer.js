@@ -1,4 +1,5 @@
 import { FONT_SIZE } from './constants.js';
+import { imageFromPacks } from '../assets.js';
 
 /**
  * Screen-level overlays: the entry screen, the level-darkness overlay, and
@@ -18,23 +19,11 @@ export class HudRenderer {
         // Fire-and-forget, same as the original Game.start(): the game
         // loop doesn't wait for these to load - drawImage() on an
         // incomplete Image is a silent no-op in every browser.
-        this.entryScreenImage = new Image();
-        this.entryScreenImage.src = pathPrefix + 'assets/images/dungeon_coder.png';
-        this.entryScreenImage.onerror = () => {
-            console.error("Error loading image.");
-        };
+        this.entryScreenImage = imageFromPacks('images/dungeon_coder.png', pathPrefix);
 
-        this.gameOverImage = new Image();
-        this.gameOverImage.src = pathPrefix + 'assets/images/game_over.jpeg';
-        this.gameOverImage.onerror = () => {
-            console.error("Error loading image.");
-        };
+        this.gameOverImage = imageFromPacks('images/game_over.jpeg', pathPrefix);
 
-        this.dungeonCompleteImage = new Image();
-        this.dungeonCompleteImage.src = pathPrefix + 'assets/images/dungeon_complete.jpeg';
-        this.dungeonCompleteImage.onerror = () => {
-            console.error("Error loading image.");
-        };
+        this.dungeonCompleteImage = imageFromPacks('images/dungeon_complete.jpeg', pathPrefix);
     }
 
     /** Draws the "waiting for a level to be loaded" entry screen. */

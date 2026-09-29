@@ -336,7 +336,7 @@ export class DungeonCoderServer {
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'game')],
+                localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'game'), ...this.assetPackUris()],
             }
         );
 
@@ -372,6 +372,13 @@ export class DungeonCoderServer {
         return true;
     }
 
+    /** Folders of the asset packs from the setting dungeonCoder.assetPacks (D8a). */
+    private assetPackUris(): vscode.Uri[] {
+        const folders = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks', []);
+        const base = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+        return folders.map(folder => vscode.Uri.file(path.isAbsolute(folder) ? folder : path.join(base, folder)));
+    }
+
     /** Load HTML with CSP */
     private async getWebviewContent(webview: vscode.Webview, extensionPath: string): Promise<string> {
         const nonce = this.getNonce();
@@ -400,7 +407,8 @@ export class DungeonCoderServer {
             .replace('<!-- CSP -->', csp)
             .replace(/\$\{webview.cspSource\}/g, webview.cspSource)
             .replace(/\$\{nonce\}/g, nonce)
-            .replace(/\$\{gameFolderUri\}/g, mediaFolderUri.toString());
+            .replace(/\$\{gameFolderUri\}/g, mediaFolderUri.toString())
+            .replace(/\$\{assetPackUris\}/g, JSON.stringify(this.assetPackUris().map(uri => webview.asWebviewUri(uri).toString())));
     }
 
     private getNonce() {

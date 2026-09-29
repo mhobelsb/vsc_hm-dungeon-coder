@@ -61,7 +61,14 @@
             FINAL_GAME_URI = rawGameFolderUri + "/";
             console.log("Using VS Code URI:", FINAL_GAME_URI);
         }
-        window.VscodeGameMediaUri = FINAL_GAME_URI;    
+        window.VscodeGameMediaUri = FINAL_GAME_URI;
+        // asset packs (setting dungeonCoder.assetPacks / DC_ASSET_PACKS), searched before the bundled assets
+        const rawAssetPackUris = '${assetPackUris}';
+        try {
+            window.DcAssetPackUris = rawAssetPackUris.includes('assetPackUris') ? [] : JSON.parse(rawAssetPackUris);
+        } catch (e) {
+            window.DcAssetPackUris = [];
+        }
         const script = document.createElement('script');
         script.type = 'module';
         script.src = FINAL_GAME_URI + "src/script.js";

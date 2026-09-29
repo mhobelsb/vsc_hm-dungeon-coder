@@ -1,17 +1,6 @@
-export const TILE_SIZE = 16;
+import { loadFromPacks, packPath } from './assets.js';
 
-async function loadJson(filePath) {
-  try {
-    const response = await fetch(filePath);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
-  } catch (e) {
-    console.error(`Could not load JSON from ${filePath}: ${e}`);
-    return null;
-  }
-}
+export const TILE_SIZE = 16;
 
 export class Tile {
     constructor(setTileId, image, imageHeight, imageWidth, x, y, width, height, tileDescription) {
@@ -241,13 +230,14 @@ export class Tileset {
     }
 
     static async create(jsonPath, firstgid = 1, pathPrefix = "") {
-        const correctedPath = pathPrefix + jsonPath.replace('..', 'assets');
-        const tileset_data = await loadJson(correctedPath);
-        if (!tileset_data) {
+        // the tileset and its image come from the first asset pack that has the tileset
+        const found = await loadFromPacks(packPath(jsonPath), pathPrefix);
+        if (!found) {
             return null;
         }
+        const tileset_data = found.data;
 
-        const imageSource = pathPrefix + tileset_data.image.replace('..', 'assets');
+        const imageSource = found.base + packPath(tileset_data.image);
         if (!imageSource) {
             console.error('Tileset data is missing the image path.');
             return null;

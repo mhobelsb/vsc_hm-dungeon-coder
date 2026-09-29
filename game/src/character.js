@@ -289,7 +289,8 @@ export class Character extends GameObject {
         } else {
             const newTargetXY = this.getPositionInDirection(newDirection);
 
-            if (this.isInDirection(level, newDirection, "Abyss")) {
+            const front = this.getPositionInDirection(newDirection, true);
+            if (level.isAbyssAt(front[0], front[1])) {
                 this.isCharacterFalling = true;
                 this.x = newTargetXY[0];
                 this.y = newTargetXY[1];
@@ -461,7 +462,8 @@ export class CharacterInterface {
 
     isAbyssInFront() {
         this.senseFront();
-        return this.character.isInFront(this.level, "Abyss");
+        const front = this.character.getPositionInDirection(this.character.getDirection(), true);
+        return this.level.isAbyssAt(front[0], front[1]);
     }
 
     isTorchInFront() {

@@ -337,6 +337,18 @@ export class Level {
         return [Math.floor(object.x / this.tileWidth), Math.floor((object.y - 1) / this.tileHeight)];
     }
 
+    /**
+     * Is there an abyss at the point (x, y)? An Abyss object, or an Abyss tile that is the
+     * **topmost** tile of the field: a floor or wall drawn over an abyss background is solid
+     * ground (many levels fill their background layer with abyss tiles, B20/B21).
+     */
+    isAbyssAt(x, y) {
+        const tiles = this.getTilesAtPosition(x, y);
+        const top = tiles[tiles.length - 1];
+        return (top !== undefined && top.type === "Abyss")
+            || this.getObjectsAtPosition(x, y).some(o => o.type === "Abyss");
+    }
+
     /** A field anyone can walk on: inside, no collision, no abyss tile. */
     isWalkable(col, row) {
         if (col < 0 || row < 0 || col >= this.width || row >= this.height) {
@@ -346,8 +358,7 @@ export class Level {
         if (this.isCollision(x, y)) {
             return false;
         }
-        return !this.getTilesAtPosition(x, y).some(t => t.type === "Abyss")
-            && !this.getObjectsAtPosition(x, y).some(o => o.type === "Abyss");
+        return !this.isAbyssAt(x, y);
     }
 
     /**

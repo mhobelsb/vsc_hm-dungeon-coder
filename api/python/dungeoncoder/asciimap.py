@@ -111,6 +111,7 @@ class Pack:
         self.hero = {}          # "north_7" -> (source, local)
         self.torch_off = {}     # source -> [local ids of "off" torches]
         self.sweets = None      # (source, local)
+        self.abyss_tiles = []   # [(source, local)] tiles of class Abyss; the first is the plain fallback
 
     # --- choosing tiles ----------------------------------------------------
     def candidates(self, key):
@@ -196,6 +197,7 @@ class Pack:
             "hero": {k: list(v) for k, v in self.hero.items()},
             "torch_off": self.torch_off,
             "sweets": list(self.sweets) if self.sweets else None,
+            "abyss_tiles": [list(t) for t in self.abyss_tiles],
         }
 
     @classmethod
@@ -220,6 +222,7 @@ class Pack:
         pack.hero = {k: tuple(v) for k, v in data["hero"].items()}
         pack.torch_off = data["torch_off"]
         pack.sweets = tuple(data["sweets"]) if data["sweets"] else None
+        pack.abyss_tiles = [tuple(t) for t in data.get("abyss_tiles", [])]
         return pack
 
     @classmethod
@@ -255,6 +258,11 @@ def build(header, rows, pack, seed=0, variety=0.0):
             else:
                 left = up = None      # no constraint: the most frequent stack for the pattern
             stack = pack.choose(pattern(terrain, c, r), left, up, rng, variety)
+            if terrain[r][c] == ABYSS and pack.abyss_tiles and not (
+                    stack and (stack[-1][1], stack[-1][2]) in {tuple(t) for t in pack.abyss_tiles}):
+                # the game only sees an abyss where an Abyss tile is the topmost tile
+                source, local = pack.abyss_tiles[0]
+                stack = (("floor", source, local),)
             chosen[(c, r)] = stack
             floors = 0
             for role, source, local in stack:

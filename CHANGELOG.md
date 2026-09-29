@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Asset packs**: tilesets, images and screens are looked up in the asset packs named by the setting `dungeonCoder.assetPacks` (or `DC_ASSET_PACKS` for the dev server) before the extension's own assets. A free **demo pack** (`packs/demo`, every picture drawn by `tools/make_demo_pack.py`, CC0) with two demo levels shows the format.
 - **Guards and the oracle** (turn-based): objects of type `Guard` with the property `behaviour` = `patrol` (walks in `direction` and turns back at obstacles) or `chase` (steps towards the hero) take one step each time the hero tries `move()` (also a blocked one; turning takes no time). A guard on the hero's field, the hero walking into one, or swapping fields ends the game. `hero.is_enemy_in_front()` senses them. In levels with `orakel: true`, `hero.ask_oracle()` answers the first step of a shortest way to the exit. Statistics: `questions`, and `game_over` (fallen or caught). Text maps: `W` with a `guards:` header line. The simulator does all of it.
 - **Simulator**: `dungeoncoder.use_simulator()` (or the environment variable `DUNGEONCODER_SIM=1`) runs any script without VS Code: a pure-Python port of the game's rules (`dungeoncoder/sim.py`). Same classes, same return values, no picture, no waiting. `DUNGEONCODER_LEVEL=<file>` makes every level load play that file instead (for grading). `dungeoncoder.testing.spiel(map_text)` gives `(game, hero)` for pytest. Tile rules come from `dungeoncoder/packs/tilesets.json`.
 - **Items with values**: objects of type `Crystal` (and `Pebble`) can carry an integer property `value`, e.g. a crystal's weight. It is never drawn; `hero.read_item_value()` returns the value on the hero's field (or `None`). In levels with the bool map property `fernrohr`, `hero.peek_item_value(k)` reads the value k fields ahead without walking. Both count as `reads` in the statistics.
@@ -27,6 +28,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- A floor drawn over an abyss background counted as abyss: walking through e.g. `playground.json`'s door made the hero fall, and `is_abyss_in_front()` was `True` in front of most walls. Now only an Abyss tile with nothing drawn over it is an abyss.
 - While the hero was falling into an abyss (the 3 s before "Game over"), actions were still accepted; a `move()` could start a step that never finished. Actions are now refused from the moment the hero falls.
 - `pickup()` and `drop()` returned `False` even when they succeeded.
 - `interact()` always returned `False`. It now returns `True` if an object reacted, and `False` if there is nothing to interact with, or nothing changed (e.g. a jug that is already broken).
