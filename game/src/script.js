@@ -165,6 +165,19 @@ function loadFileAsync(file) {
             return { success: true, message: "Statistics of the current level.", result: character.getStatistics() };
         },
 
+        [COMMANDS.IS_ENEMY_IN_FRONT]: (game, character) => {
+            const result = character.isEnemyInFront();
+            return { success: true, message: result ? "There is a guard in front." : "There is no guard in front.", result };
+        },
+
+        [COMMANDS.ASK_ORACLE]: (game, character) => {
+            if (!character.hasOracle()) {
+                return { success: false, message: "There is no oracle in this level (map property orakel).", result: null };
+            }
+            const result = character.askOracle();
+            return { success: true, message: result === null ? "The oracle is silent." : `The oracle says: ${result}.`, result };
+        },
+
         [COMMANDS.READ_ITEM_VALUE]: (game, character) => {
             const result = character.readItemValue();
             return { success: true, message: result === null ? "There is no item with a value here." : `The item here has the value ${result}.`, result };

@@ -15,6 +15,8 @@ declare module '*commands.js' {
         readonly PICKUP: 'pickup';
         readonly DROP: 'drop';
         readonly GET_ITEMS_AT_POSITION: 'get_items_at_position';
+        readonly IS_ENEMY_IN_FRONT: 'is_enemy_in_front';
+        readonly ASK_ORACLE: 'ask_oracle';
         readonly READ_ITEM_VALUE: 'read_item_value';
         readonly PEEK_ITEM_VALUE: 'peek_item_value';
         readonly GET_INVENTORY: 'get_inventory';

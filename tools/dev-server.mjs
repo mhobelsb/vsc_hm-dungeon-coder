@@ -159,6 +159,7 @@ registerRoute('post', '/hero/drop', COMMANDS.DROP, { includeBody: true });
 registerRoute('get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITION);
 registerRoute('get', '/hero/inventory', COMMANDS.GET_INVENTORY);
 registerRoute('get', '/hero/read_item_value', COMMANDS.READ_ITEM_VALUE);
+registerRoute('get', '/hero/ask_oracle', COMMANDS.ASK_ORACLE);
 registerRoute('post', '/hero/peek_item_value', COMMANDS.PEEK_ITEM_VALUE, { includeBody: true });
 registerRoute('get', '/game/statistics', COMMANDS.GET_STATISTICS);
 
@@ -171,7 +172,7 @@ registerRoute('post', '/level/reset', COMMANDS.RESET_LEVEL, { onSuccess: resetPa
 const registeredCommands = new Set([
     COMMANDS.MOVE, COMMANDS.TURN_LEFT, COMMANDS.CONFIGURE, COMMANDS.SET_PACE,
     COMMANDS.INTERACT, COMMANDS.PICKUP, COMMANDS.DROP, COMMANDS.GET_ITEMS_AT_POSITION,
-    COMMANDS.GET_INVENTORY, COMMANDS.READ_ITEM_VALUE, COMMANDS.PEEK_ITEM_VALUE, COMMANDS.GET_STATISTICS, COMMANDS.LOAD_LEVEL, COMMANDS.RESET_LEVEL,
+    COMMANDS.GET_INVENTORY, COMMANDS.READ_ITEM_VALUE, COMMANDS.PEEK_ITEM_VALUE, COMMANDS.ASK_ORACLE, COMMANDS.GET_STATISTICS, COMMANDS.LOAD_LEVEL, COMMANDS.RESET_LEVEL,
     // Used only internally by pollUntilStopped(), not exposed as an HTTP route.
     COMMANDS.IS_MOVING,
 ]);
@@ -183,6 +184,7 @@ const registeredCommands = new Set([
     COMMANDS.IS_TORCH_IN_FRONT,
     COMMANDS.IS_SWITCH_IN_FRONT,
     COMMANDS.IS_ABYSS_IN_FRONT,
+    COMMANDS.IS_ENEMY_IN_FRONT,
 ].forEach(command => {
     registerRoute('get', `/hero/${command}`, command);
     registeredCommands.add(command);

@@ -9,6 +9,8 @@ A map file has an optional header, a line "---", and the map:
     pattern: 5,2 = 101 @ 2,0 3,0 4,0   # door at (5,2) is open exactly while these torches show 101
     values: 5 3 8            # weights of the crystals K, in reading order (never drawn)
     colors: weiss orange weiss  # optional: colour of each crystal (weiss or orange)
+    guards: 5,2 patrol east  # guard W at (5,2) walks east and back; "x,y chase" follows the hero
+    orakel: true             # the level has an oracle (hero.ask_oracle())
     fog: dark                # any other key becomes a map property (bool/int/str)
     ---
     ##########
@@ -19,7 +21,7 @@ A map file has an optional header, a line "---", and the map:
 Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
          H  hero      Z  goal      T/t  torch (burning/off, on a wall)
          s  switch    D  door      G  grille    C  chest    J  jug    *  sweets
-         K  crystal   o  pebble
+         K  crystal   o  pebble    W  guard (see guards:)
 
 Coordinates are 0-based (column, row) in the map as written. The map is placed
 centred on the 30x20 game field.
@@ -40,7 +42,8 @@ OBJECT_CLASSES = {"s": "Switch", "C": "Chest", "J": "Jug", "Z": "Goal", "*": "Sw
 NEIGHBOURS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 WEIGHTS = [1, 2, 1, 2, 2, 1, 2, 1]     # orthogonal neighbours matter more than diagonal ones
 DIRECTIONS = ("north", "east", "south", "west")
-HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors")
+HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards")
+GUARD_SPRITE = 3            # the characters tileset's sprite number used for guards
 # items that aren't learned from the levels: tiles from the icon sheet (the engine's ITEM_TILES)
 ICON_SHEET = "../tilesets/Icon sheet (16x16).json"
 ITEM_TILESETS = {ICON_SHEET: {"count": 420, "tile_w": 16, "tile_h": 16, "classes": {}}}
@@ -309,6 +312,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 cls, tile = "Crystal", (ICON_SHEET, CRYSTAL_TILES["weiss"])
             elif ch == "o":
                 cls, tile = "Pebble", (ICON_SHEET, PEBBLE_TILE)
+            elif ch == "W":
+                cls, tile = "Guard", pack.hero.get(f"south_{GUARD_SPRITE}")
             elif ch in OBJECT_CLASSES:
                 cls = OBJECT_CLASSES[ch]
                 tile = pack.object_tile(cls, context)
@@ -340,6 +345,27 @@ def build(header, rows, pack, seed=0, variety=0.0):
 
     def tileset_info(source):
         return pack.tilesets.get(source) or ITEM_TILESETS[source]
+
+    guard_specs = {}
+    for spec in header.get("guards", []):
+        parts = spec.replace(",", " ").split()
+        try:
+            x, y, behaviour = int(parts[0]), int(parts[1]), parts[2]
+        except (ValueError, IndexError):
+            raise MapError(f"guards: expected 'x,y patrol east' or 'x,y chase', got {spec!r}") from None
+        direction = parts[3] if len(parts) > 3 else "east"
+        if behaviour not in ("patrol", "chase") or direction not in DIRECTIONS:
+            raise MapError(f"guards {spec!r}: behaviour patrol or chase, direction one of {', '.join(DIRECTIONS)}")
+        guard_specs[(x + ox, y + oy)] = (behaviour, direction)
+    for o in objects:
+        if o["cls"] == "Guard":
+            behaviour, direction = guard_specs.pop(o["cell"], ("patrol", "east"))
+            o["properties"] = [{"name": "behaviour", "type": "string", "value": behaviour},
+                               {"name": "direction", "type": "string", "value": direction}]
+            o["tile"] = pack.hero.get(f"{direction if behaviour == 'patrol' else 'south'}_{GUARD_SPRITE}") or o["tile"]
+    if guard_specs:
+        x, y = next(iter(guard_specs))
+        raise MapError(f"guards: no guard W at ({x - ox},{y - oy})")
 
     # tilesets: every source used, in a stable order
     used = sorted({t[0] for layer in layers.values() for t in layer.values()} | {o["tile"][0] for o in objects})

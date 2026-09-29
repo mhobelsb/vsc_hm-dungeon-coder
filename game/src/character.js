@@ -378,6 +378,11 @@ export class Character extends GameObject {
                 // Reset start position for the *next* potential move
                 this.currentMoveStartX = this.x;
                 this.currentMoveStartY = this.y;
+
+                if (this.deathAfterStep) {          // caught by a guard during this step
+                    this.deathAfterStep = false;
+                    this.isCharacterDead = true;
+                }
             }
         }
 
@@ -403,7 +408,18 @@ export class CharacterInterface {
 
     move() {
         const target = this.character.frontCell();
+        const from = this.character.currentCell();
         const ret = this.character.move(this.character.getDirection(), this.level);
+        // guards take their step on every move, also a blocked one (DC-12)
+        if (this.level.stepGuards(from, ret ? target : from)) {
+            if (this.character.isMoving()) {
+                // end the game once this step is done; ending it now would freeze the
+                // hero mid-step (the level stops updating) and move() would time out
+                this.character.deathAfterStep = true;
+            } else {
+                this.character.isCharacterDead = true;
+            }
+        }
         if (ret) {
             this.statistics.addMove();
             if (this.game.fog) {
@@ -465,6 +481,23 @@ export class CharacterInterface {
     getItemsAtHeroPosition() {
         this.statistics.addSensorCall();
         return this.character.getItemsAtCurrentPosition(this.level);
+    }
+
+    /** A guard on the field in front (sensor). */
+    isEnemyInFront() {
+        this.senseFront();
+        return this.character.isInFront(this.level, "Guard");
+    }
+
+    /** Levels with the map property `orakel: true` have an oracle that knows the way. */
+    hasOracle() {
+        return this.level.getBooleanProperty('orakel', false);
+    }
+
+    /** The first step of a shortest way to the exit ("north", ...), or null. */
+    askOracle() {
+        this.statistics.addQuestion();
+        return this.level.oracleDirection(...this.character.currentCell());
     }
 
     /** Value of the item on the hero's field (e.g. a crystal's weight), or null. */
@@ -536,6 +569,7 @@ export class CharacterInterface {
         return {
             ...this.statistics.snapshot(),
             at_goal: this.level.isHeroOnGoal(),
+            game_over: this.character.isFalling() || this.character.isDead(),
             level_complete: this.level.isComplete(),
             missing: this.level.unmetWinConditions(),
         };

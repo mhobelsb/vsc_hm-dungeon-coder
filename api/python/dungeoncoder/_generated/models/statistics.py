@@ -33,7 +33,9 @@ class Statistics:
             drops (int): successful drop() calls
             sensor_calls (int): calls of is_*_in_front, is_facing_north, is_at_goal and get_items_at_position
             reads (int): calls of read_item_value and peek_item_value
+            questions (int): calls of ask_oracle
             at_goal (bool): the hero stands on the goal field
+            game_over (bool): the hero fell into an abyss or was caught by a guard
             level_complete (bool): goal reached and every win condition of the level met
             missing (list[str]): unmet win conditions, e.g. "3 sweets"
      """
@@ -47,7 +49,9 @@ class Statistics:
     drops: int
     sensor_calls: int
     reads: int
+    questions: int
     at_goal: bool
+    game_over: bool
     level_complete: bool
     missing: list[str]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -75,7 +79,11 @@ class Statistics:
 
         reads = self.reads
 
+        questions = self.questions
+
         at_goal = self.at_goal
+
+        game_over = self.game_over
 
         level_complete = self.level_complete
 
@@ -96,7 +104,9 @@ class Statistics:
             "drops": drops,
             "sensor_calls": sensor_calls,
             "reads": reads,
+            "questions": questions,
             "at_goal": at_goal,
+            "game_over": game_over,
             "level_complete": level_complete,
             "missing": missing,
         })
@@ -126,7 +136,11 @@ class Statistics:
 
         reads = d.pop("reads")
 
+        questions = d.pop("questions")
+
         at_goal = d.pop("at_goal")
+
+        game_over = d.pop("game_over")
 
         level_complete = d.pop("level_complete")
 
@@ -143,7 +157,9 @@ class Statistics:
             drops=drops,
             sensor_calls=sensor_calls,
             reads=reads,
+            questions=questions,
             at_goal=at_goal,
+            game_over=game_over,
             level_complete=level_complete,
             missing=missing,
         )

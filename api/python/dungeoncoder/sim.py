@@ -124,6 +124,9 @@ class Obj:
         self.initial_state = self.state                    # switches: for "all_switches"
         value = self.props.get("value", {}).get("value") if self.kind in ("Crystal", "Pebble") else None
         self.value = value if isinstance(value, int) and not isinstance(value, bool) else None
+        if self.kind == "Guard":
+            self.behaviour = str(self.props.get("behaviour", {}).get("value", "patrol") or "patrol")
+            self.direction = str(self.props.get("direction", {}).get("value", "east") or "east")
         if self.kind == "PatternDoor":
             self.pattern = str(self.props.get("pattern", {}).get("value", "") or "")
             self.torch_ids = [int(s) for s in str(self.props.get("torches", {}).get("value", "") or "").split(",")
@@ -135,7 +138,7 @@ class Obj:
             self.state = state
 
     def is_collision(self):
-        if self.kind in ("Crystal", "Pebble"):
+        if self.kind in ("Crystal", "Pebble", "Guard"):
             return False
         return bool(self.tile.get("collision"))
 
@@ -197,6 +200,7 @@ class Level:
         self.goal = next((o for o in self.objects if o.type == "Goal"), None)
         self.slots = self._find_slots()
         self.inventory = []
+        self.caught = False
         self._give_start_inventory(inventory)
         self.update()
 
@@ -270,6 +274,66 @@ class Level:
                 if should_open != (o.state == "open"):
                     o.set_state("open" if should_open else "closed")
 
+    # -- guards and the oracle (engine: Level.stepGuards, Level.oracleDirection)
+    def cell_of(self, o):
+        return (int(o.x // self.tw), int((o.y - 1) // self.th))
+
+    def walkable(self, col, row):
+        if not (0 <= col < self.width and 0 <= row < self.height):
+            return False
+        px, py = col * self.tw + self.tw / 2, row * self.th + self.th / 2
+        if self.is_collision(px, py):
+            return False
+        return not (any(t.type == "Abyss" for t in self.tiles_at(px, py))
+                    or any(o.type == "Abyss" for o in self.objects_at(px, py)))
+
+    def step_guards(self, hero_from, hero_to):
+        guards = [o for o in self.objects if o.kind == "Guard"]
+        caught = any(self.cell_of(g) == hero_to for g in guards)
+        for guard in guards:
+            col, row = self.cell_of(guard)
+            def free(c, r, guard=guard):
+                return self.walkable(c, r) and not any(o is not guard and self.cell_of(o) == (c, r) for o in guards)
+            if guard.behaviour == "chase":
+                dx, dy = hero_to[0] - col, hero_to[1] - row
+                h = "east" if dx > 0 else "west" if dx < 0 else None
+                v = "south" if dy > 0 else "north" if dy < 0 else None
+                options = [d for d in ((h, v) if abs(dx) >= abs(dy) else (v, h)) if d]
+            else:
+                options = [guard.direction, OPPOSITE[guard.direction]]
+            for d in options:
+                nc, nr = col + OFFSETS[d][0], row + OFFSETS[d][1]
+                if free(nc, nr):
+                    guard.x += OFFSETS[d][0] * self.tw
+                    guard.y += OFFSETS[d][1] * self.th
+                    if guard.behaviour != "chase":
+                        guard.direction = d
+                    swapped = (col, row) == hero_to and (nc, nr) == hero_from
+                    caught = caught or (nc, nr) == hero_to or swapped
+                    break
+        return caught
+
+    def oracle_direction(self, col, row):
+        if not self.goal:
+            return None
+        goal = self.cell_of(self.goal)
+        if (col, row) == goal:
+            return None
+        first = {(col, row): None}
+        queue = [(col, row)]
+        while queue:
+            c, r = queue.pop(0)
+            for d, dx, dy in (("north", 0, -1), ("east", 1, 0), ("south", 0, 1), ("west", -1, 0)):
+                n = (c + dx, r + dy)
+                if n in first or not self.walkable(*n):
+                    continue
+                step = first[(c, r)] or d
+                if n == goal:
+                    return step
+                first[n] = step
+                queue.append(n)
+        return None
+
     # -- win conditions
     def hero_on_goal(self):
         return bool(self.character and self.goal and self.character.x == self.goal.x
@@ -311,6 +375,8 @@ class Level:
         return missing
 
     def complete(self):
+        if self.caught:
+            return False                    # caught by a guard on the goal field
         return self.hero_on_goal() and not self.unmet()
 
 
@@ -330,6 +396,7 @@ def parse_start_inventory(text):
 
 # --- the hero and the commands ------------------------------------------------------------
 OFFSETS = {"north": (0, -1), "south": (0, 1), "west": (-1, 0), "east": (1, 0)}
+OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
 
 
 class Simulator:
@@ -371,9 +438,9 @@ class Simulator:
                 or any(t.type == name for t in self.level.tiles_at(px, py)))
 
     def _tick(self):
-        """After every command: pattern doors, then falling or completion end the level."""
+        """After every command: pattern doors, then falling, being caught or completion end the level."""
         self.level.update()
-        if self.falling or self.level.complete():
+        if self.falling or self.level.caught or self.level.complete():
             self.running = False
 
     def _count(self, name):
@@ -390,7 +457,7 @@ class Simulator:
             raise RuntimeError(f"Parsing level failed: {err}") from err
         self.last_level_data = data
         self.stats = dict.fromkeys(["moves", "turns", "bumps", "keyboard_moves", "interactions", "pickups",
-                                    "drops", "sensor_calls", "reads"], 0)
+                                    "drops", "sensor_calls", "reads", "questions"], 0)
         self.falling = False
         self.running = True
         self._tick()
@@ -423,9 +490,15 @@ class Simulator:
 
     def cmd_move(self, _):
         px, py = self._front()
+        start = self.level.cell_of(self.hero)
         if self.level.is_collision(px, py):
+            if self.level.step_guards(start, start):
+                self.level.caught = True
             self._count("bumps")
             return (False, "Moving failed. Way is blocked.", False)
+        target = (int(px // self.level.tw), int(py // self.level.th))
+        if self.level.step_guards(start, target):
+            self.level.caught = True
         abyss = self._in_front("Abyss")
         dx, dy = OFFSETS[self.direction()]
         self.hero.x += dx * TILE
@@ -482,6 +555,15 @@ class Simulator:
     def cmd_is_switch_in_front(self, _):
         return self._sensor(self._in_front("Switch"))
 
+    def cmd_is_enemy_in_front(self, _):
+        return self._sensor(self._in_front("Guard"))
+
+    def cmd_ask_oracle(self, _):
+        if not self.level.bool_prop("orakel"):
+            return (False, "There is no oracle in this level (map property orakel).", None)
+        self._count("questions")
+        return (True, "", self.level.oracle_direction(*self.level.cell_of(self.hero)))
+
     def cmd_get_items_at_position(self, _):
         self._count("sensor_calls")
         return (True, "", [o.type for o in self.level.objects_at(*self._centre()) if o.type != "Character"])
@@ -491,7 +573,8 @@ class Simulator:
 
     def cmd_get_statistics(self, _):
         return (True, "Statistics of the current level.",
-                {**self.stats, "at_goal": self.level.hero_on_goal(), "level_complete": self.level.complete(),
+                {**self.stats, "at_goal": self.level.hero_on_goal(), "game_over": self.falling or self.level.caught,
+                 "level_complete": self.level.complete(),
                  "missing": self.level.unmet()})
 
     def _inventory_full(self):

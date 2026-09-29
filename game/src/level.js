@@ -1,7 +1,7 @@
 import { AnimatedTile, TileFactory } from './tiles.js';
 import { TileLayer, ObjectLayer } from './layers.js';
 import { GameObjectFactory } from './game-object-factory.js';
-import { Torch, PatternDoor } from './game-objects.js';
+import { Torch, PatternDoor, Guard } from './game-objects.js';
 
 /**
  * Tiles for items the engine creates itself (the start inventory, map property
@@ -330,8 +330,106 @@ export class Level {
             || items[i - 1].startRank < item.startRank);
     }
 
+    // --- guards and the oracle (DC-12), turn-based: the same rules run in dungeoncoder/sim.py ---
+
+    /** [col, row] of an object (bottom-left anchored). */
+    cellOf(object) {
+        return [Math.floor(object.x / this.tileWidth), Math.floor((object.y - 1) / this.tileHeight)];
+    }
+
+    /** A field anyone can walk on: inside, no collision, no abyss tile. */
+    isWalkable(col, row) {
+        if (col < 0 || row < 0 || col >= this.width || row >= this.height) {
+            return false;
+        }
+        const x = col * this.tileWidth + this.tileWidth / 2, y = row * this.tileHeight + this.tileHeight / 2;
+        if (this.isCollision(x, y)) {
+            return false;
+        }
+        return !this.getTilesAtPosition(x, y).some(t => t.type === "Abyss")
+            && !this.getObjectsAtPosition(x, y).some(o => o.type === "Abyss");
+    }
+
+    /**
+     * One step of every guard, after the hero tried a move from `heroFrom` to `heroTo`
+     * ([col, row]; equal if the move was blocked). Returns true if a guard caught the hero:
+     * it stands on the hero's field, or hero and guard swapped fields.
+     */
+    stepGuards(heroFrom, heroTo) {
+        const OFFSETS = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+        const OPPOSITE = { north: "south", south: "north", east: "west", west: "east" };
+        const guards = this.objectFactory.gameObjects.filter(o => o instanceof Guard);
+        let caught = guards.some(g => { const [c, r] = this.cellOf(g); return c === heroTo[0] && r === heroTo[1]; });
+        for (const guard of guards) {
+            const [col, row] = this.cellOf(guard);
+            const free = (c, r) => this.isWalkable(c, r)
+                && !guards.some(o => o !== guard && this.cellOf(o)[0] === c && this.cellOf(o)[1] === r);
+            let options;
+            if (guard.behaviour === "chase") {
+                const dx = heroTo[0] - col, dy = heroTo[1] - row;
+                const h = dx > 0 ? "east" : dx < 0 ? "west" : null, v = dy > 0 ? "south" : dy < 0 ? "north" : null;
+                options = (Math.abs(dx) >= Math.abs(dy) ? [h, v] : [v, h]).filter(d => d);
+            } else {
+                options = [guard.direction, OPPOSITE[guard.direction]];
+            }
+            for (const d of options) {
+                const [nc, nr] = [col + OFFSETS[d][0], row + OFFSETS[d][1]];
+                if (free(nc, nr)) {
+                    guard.x += OFFSETS[d][0] * this.tileWidth;
+                    guard.y += OFFSETS[d][1] * this.tileHeight;
+                    if (guard.behaviour !== "chase") {
+                        guard.direction = d;
+                    }
+                    const onHero = nc === heroTo[0] && nr === heroTo[1];
+                    const swapped = col === heroTo[0] && row === heroTo[1] && nc === heroFrom[0] && nr === heroFrom[1];
+                    caught = caught || onHero || swapped;
+                    break;
+                }
+            }
+        }
+        return caught;
+    }
+
+    /**
+     * The oracle's answer: the direction of the first step of a shortest way from
+     * [col, row] to the goal (breadth-first, neighbours in the order north, east, south,
+     * west), or null if the hero stands on the goal or there is no way.
+     */
+    oracleDirection(col, row) {
+        if (!this.goal) {
+            return null;
+        }
+        const [gc, gr] = this.cellOf(this.goal);
+        if (col === gc && row === gr) {
+            return null;
+        }
+        const OFFSETS = [["north", 0, -1], ["east", 1, 0], ["south", 0, 1], ["west", -1, 0]];
+        const first = new Map([[`${col},${row}`, null]]);
+        const queue = [[col, row]];
+        while (queue.length > 0) {
+            const [c, r] = queue.shift();
+            for (const [d, dx, dy] of OFFSETS) {
+                const [nc, nr] = [c + dx, r + dy];
+                const key = `${nc},${nr}`;
+                if (first.has(key) || !this.isWalkable(nc, nr)) {
+                    continue;
+                }
+                const step = first.get(`${c},${r}`) ?? d;
+                if (nc === gc && nr === gr) {
+                    return step;
+                }
+                first.set(key, step);
+                queue.push([nc, nr]);
+            }
+        }
+        return null;
+    }
+
     /** The goal is reached and every win condition is met. */
     isComplete() {
+        if (this.character && this.character.isDead()) {
+            return false;                  // caught by a guard on the goal field
+        }
         return this.isHeroOnGoal() && this.unmetWinConditions().length === 0;
     }
 

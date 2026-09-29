@@ -245,6 +245,7 @@ export class DungeonCoderServer {
         this.registerRoute(app, 'get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITION);
         this.registerRoute(app, 'get', '/hero/inventory', COMMANDS.GET_INVENTORY);
         this.registerRoute(app, 'get', '/hero/read_item_value', COMMANDS.READ_ITEM_VALUE);
+        this.registerRoute(app, 'get', '/hero/ask_oracle', COMMANDS.ASK_ORACLE);
         this.registerRoute(app, 'post', '/hero/peek_item_value', COMMANDS.PEEK_ITEM_VALUE, { includeBody: true });
         this.registerRoute(app, 'get', '/game/statistics', COMMANDS.GET_STATISTICS);
 
@@ -262,6 +263,7 @@ export class DungeonCoderServer {
             COMMANDS.IS_TORCH_IN_FRONT,
             COMMANDS.IS_SWITCH_IN_FRONT,
             COMMANDS.IS_ABYSS_IN_FRONT,
+            COMMANDS.IS_ENEMY_IN_FRONT,
         ].forEach(command =>
             this.registerRoute(app, 'get', `/hero/${command}`, command)
         );

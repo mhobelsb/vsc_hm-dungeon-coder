@@ -77,7 +77,8 @@ export class Game {
      * animation, but actions are refused from the first moment (B19).
      */
     isRunning() {
-        return this.currentGameState === GAME_STATE.PLAYING && !(this.character && this.character.isFalling());
+        return this.currentGameState === GAME_STATE.PLAYING
+            && !(this.character && (this.character.isFalling() || this.character.isDead()));
     }
 
     getCharacterInterface() {

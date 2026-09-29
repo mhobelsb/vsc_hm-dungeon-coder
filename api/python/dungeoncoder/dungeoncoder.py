@@ -22,7 +22,9 @@ from ._generated.api.hero import (
     get_items_at_position as _get_items_at_position_api,
     interact as _interact_api,
     is_abyss_in_front as _is_abyss_in_front_api,
+    ask_oracle as _ask_oracle_api,
     is_at_goal as _is_at_goal_api,
+    is_enemy_in_front as _is_enemy_in_front_api,
     is_collision_in_front as _is_collision_in_front_api,
     is_facing_north as _is_facing_north_api,
     is_switch_in_front as _is_switch_in_front_api,
@@ -180,6 +182,16 @@ class Hero:
     def get_inventory(self) -> list[str]:
         """Returns the list of items in the hero's inventory."""
         return _call(self._client, _get_inventory_api.sync_detailed, default=[])
+
+    def is_enemy_in_front(self) -> bool:
+        """Checks if a guard stands on the field in front of the hero."""
+        return _call(self._client, _is_enemy_in_front_api.sync_detailed, default=False)
+
+    def ask_oracle(self) -> str | None:
+        """Asks the oracle the way to the exit: the direction of the first step of a
+           shortest way ("north", "east", "south" or "west"), or None if the hero stands
+           on the exit or there is no way. Only levels with an oracle answer."""
+        return _call(self._client, _ask_oracle_api.sync_detailed, default=None, explain_refusal=True)
 
     def read_item_value(self) -> int | None:
         """Returns the value of the item on the hero's field, e.g. a crystal's weight,

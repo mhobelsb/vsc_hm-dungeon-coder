@@ -9,6 +9,8 @@ from .distance_param import DistanceParam
 from .name_param import NameParam
 from .nullable_integer_result import NullableIntegerResult
 from .nullable_integer_result_status import NullableIntegerResultStatus
+from .nullable_string_result import NullableStringResult
+from .nullable_string_result_status import NullableStringResultStatus
 from .pace_params import PaceParams
 from .statistics import Statistics
 from .statistics_result import StatisticsResult
@@ -27,6 +29,8 @@ __all__ = (
     "NameParam",
     "NullableIntegerResult",
     "NullableIntegerResultStatus",
+    "NullableStringResult",
+    "NullableStringResultStatus",
     "PaceParams",
     "Statistics",
     "StatisticsResult",

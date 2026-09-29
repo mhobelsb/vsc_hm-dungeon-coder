@@ -144,6 +144,28 @@ paths:
         '500':
           $ref: '#/components/responses/Error'
 
+  /hero/is_enemy_in_front:
+    get:
+      operationId: is_enemy_in_front
+      summary: Whether a guard stands on the tile in front of the hero.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/BooleanSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /hero/ask_oracle:
+    get:
+      operationId: ask_oracle
+      summary: The oracle's advice, the first step of a shortest way to the exit ("north", "east", "south" or "west"); null on the goal or without a way. Needs the map property `orakel`.
+      tags: [Hero]
+      responses:
+        '200':
+          $ref: '#/components/responses/NullableStringSuccess'
+        '500':
+          $ref: '#/components/responses/Error'
+
   /hero/read_item_value:
     get:
       operationId: read_item_value
@@ -308,6 +330,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/NullableIntegerResult'
+    NullableStringSuccess:
+      description: Operation completed; result carries a string, or null.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NullableStringResult'
     StatisticsSuccess:
       description: Operation completed; result carries the level's counters.
       content:
@@ -373,6 +401,19 @@ components:
           type: integer
           nullable: true
 
+    NullableStringResult:
+      type: object
+      required: [status, message, result]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        result:
+          type: string
+          nullable: true
+
     StatisticsResult:
       type: object
       required: [status, message, result]
@@ -388,7 +429,7 @@ components:
     Statistics:
       type: object
       description: Counters since the level was (re)loaded.
-      required: [moves, turns, bumps, keyboard_moves, interactions, pickups, drops, sensor_calls, reads, at_goal, level_complete, missing]
+      required: [moves, turns, bumps, keyboard_moves, interactions, pickups, drops, sensor_calls, reads, questions, at_goal, game_over, level_complete, missing]
       properties:
         moves:
           type: integer
@@ -417,9 +458,15 @@ components:
         reads:
           type: integer
           description: calls of read_item_value and peek_item_value
+        questions:
+          type: integer
+          description: calls of ask_oracle
         at_goal:
           type: boolean
           description: the hero stands on the goal field
+        game_over:
+          type: boolean
+          description: the hero fell into an abyss or was caught by a guard
         level_complete:
           type: boolean
           description: goal reached and every win condition of the level met

@@ -271,6 +271,25 @@ export class Item extends GameObject {
     }
 }
 
+/**
+ * A guard (DC-12). Object properties: `behaviour` = "patrol" (walks in `direction`
+ * and turns back at an obstacle) or "chase" (steps towards the hero). Guards take
+ * one step each time the hero tries a move (Level.stepGuards). They don't block
+ * like a wall: walking into one, or being stepped on, ends the game.
+ */
+export class Guard extends GameObject {
+    constructor(objectDescription, tileFactory, name = "Guard") {
+        super(objectDescription, tileFactory, name);
+        const property = n => (objectDescription.properties || []).find(p => p.name === n)?.value;
+        this.behaviour = String(property('behaviour') ?? 'patrol');
+        this.direction = String(property('direction') ?? 'east');
+    }
+
+    isCollision() {
+        return false;
+    }
+}
+
 export class PatternDoor extends Door {
     constructor(objectDescription, tileFactory) {
         // look like the door tile it was placed with (horizontal or vertical door)
