@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Simulator**: `dungeoncoder.use_simulator()` (or the environment variable `DUNGEONCODER_SIM=1`) runs any script without VS Code: a pure-Python port of the game's rules (`dungeoncoder/sim.py`). Same classes, same return values, no picture, no waiting. `DUNGEONCODER_LEVEL=<file>` makes every level load play that file instead (for grading). `dungeoncoder.testing.spiel(map_text)` gives `(game, hero)` for pytest. Tile rules come from `dungeoncoder/packs/tilesets.json`.
 - **Items with values**: objects of type `Crystal` (and `Pebble`) can carry an integer property `value`, e.g. a crystal's weight. It is never drawn; `hero.read_item_value()` returns the value on the hero's field (or `None`). In levels with the bool map property `fernrohr`, `hero.peek_item_value(k)` reads the value k fields ahead without walking. Both count as `reads` in the statistics.
 - **Inventory size**: the map property `inventory_size` limits how many items the hero can carry; `pickup()` then refuses with a message.
 - **Win conditions `sorted` and `stable`**: the fields where valued items lie at the start are slots (reading order). `sorted`: one item per slot, values rising; `stable`: also equal values in their start order.
@@ -25,6 +26,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- While the hero was falling into an abyss (the 3 s before "Game over"), actions were still accepted; a `move()` could start a step that never finished. Actions are now refused from the moment the hero falls.
 - `pickup()` and `drop()` returned `False` even when they succeeded.
 - `interact()` always returned `False`. It now returns `True` if an object reacted, and `False` if there is nothing to interact with, or nothing changed (e.g. a jug that is already broken).
 - `configure()` returned `1` instead of `True`, and rejected hero type `0` although 0–15 are documented.

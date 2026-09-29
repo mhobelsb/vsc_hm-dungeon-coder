@@ -71,9 +71,13 @@ export class Game {
         }
     }
 
-    /** true while a level is being played (not waiting, complete or game over). */
+    /**
+     * true while a level is being played (not waiting, complete or game over).
+     * A falling hero is already lost: the game-over screen follows after the fall
+     * animation, but actions are refused from the first moment (B19).
+     */
     isRunning() {
-        return this.currentGameState === GAME_STATE.PLAYING;
+        return this.currentGameState === GAME_STATE.PLAYING && !(this.character && this.character.isFalling());
     }
 
     getCharacterInterface() {

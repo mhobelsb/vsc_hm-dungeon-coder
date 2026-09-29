@@ -54,6 +54,27 @@ def _extract_message(response) -> str:
         return ""
 
 
+_simulator = None      # a sim.Simulator while scripts run without the game (use_simulator)
+
+
+def use_simulator(on: bool = True) -> None:
+    """Runs everything in the pure-Python simulator (dungeoncoder/sim.py) instead of the
+    game in VS Code: same classes, same answers, no picture, steps take no time.
+    Also switched on by the environment variable DUNGEONCODER_SIM=1."""
+    global _simulator
+    from .sim import Simulator
+    _simulator = Simulator() if on else None
+
+
+def _simulated(client, sync_detailed_fn, body=None):
+    """What the generated call would return if the extension host had answered."""
+    module = sys.modules[sync_detailed_fn.__module__]
+    method = sync_detailed_fn.__module__.rsplit(".", 1)[1]
+    params = body.to_dict() if body is not None else {}
+    status, payload = _simulator.request(method, params)
+    return module._build_response(client=client, response=httpx.Response(status, json=payload))
+
+
 def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, **kwargs):
     """
     Runs a generated API call, translating transport/validation failures and
@@ -63,7 +84,10 @@ def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, *
     student can see *why* a call failed (e.g. a bad argument type).
     """
     try:
-        response = sync_detailed_fn(client=client, **kwargs)
+        if _simulator is not None:
+            response = _simulated(client, sync_detailed_fn, **kwargs)
+        else:
+            response = sync_detailed_fn(client=client, **kwargs)
     except UnexpectedStatus as err:
         print(f"API error: {_extract_message(err) or err}")
         return default
@@ -297,3 +321,7 @@ class Game:
         def reset(self):
             """Resets the current level."""
             return _call(self._client, _reset_level_api.sync_detailed, default=False)
+
+
+if os.environ.get("DUNGEONCODER_SIM", "").strip() not in ("", "0", "false", "False"):
+    use_simulator()

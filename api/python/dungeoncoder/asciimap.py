@@ -223,7 +223,7 @@ class Pack:
     def load(cls, style):
         path = os.path.join(PACK_DIR, f"{style}.json")
         if not os.path.exists(path):
-            styles = sorted(f[:-5] for f in os.listdir(PACK_DIR) if f.endswith(".json"))
+            styles = sorted(f[:-5] for f in os.listdir(PACK_DIR) if f.endswith(".json") and f != "tilesets.json")
             raise MapError(f"unknown style {style!r}; available: {', '.join(styles)}")
         with open(path, encoding="utf-8") as f:
             return cls.from_json(json.load(f))
