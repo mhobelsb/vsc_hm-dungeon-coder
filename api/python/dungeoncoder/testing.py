@@ -22,7 +22,10 @@ import tempfile
 import textwrap
 
 from . import dungeoncoder as _core
+from .asciimap import GRID_H, GRID_W, parse_text
 from .dungeoncoder import Game, Hero
+
+_versatz = (0, 0)       # where the last map text was placed on the 30x20 field
 
 
 def spiel(level: str) -> tuple[Game, Hero]:
@@ -35,8 +38,26 @@ def spiel(level: str) -> tuple[Game, Hero]:
             f.write(textwrap.dedent(level).strip("\n") + "\n")
     else:
         path = level
+    global _versatz
+    if path.endswith(".txt"):
+        with open(path, encoding="utf-8") as f:
+            _, rows = parse_text(f.read())
+        _versatz = ((GRID_W - max((len(r) for r in rows), default=0)) // 2, (GRID_H - len(rows)) // 2)
+    else:
+        _versatz = (0, 0)
     game = Game(path)
     return game, game.get_hero()
+
+
+def wachen() -> list[tuple[int, int]]:
+    """Nur für Tests im Simulator: wo die Wächter gerade stehen, (x, y) in den Koordinaten
+    der Karte, wie sie geschrieben ist. Im echten Spiel gibt es das nicht: dort sieht die
+    Heldin einen Wächter nur mit is_enemy_in_front()."""
+    if _core._simulator is None or _core._simulator.level is None:
+        raise RuntimeError("wachen() gibt es nur im Simulator, nach spiel(...)")
+    level = _core._simulator.level
+    ox, oy = _versatz
+    return [(c - ox, r - oy) for c, r in (level.cell_of(o) for o in level.objects if o.kind == "Guard")]
 
 
 game_for = spiel     # English name
