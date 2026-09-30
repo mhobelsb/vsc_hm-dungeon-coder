@@ -40,12 +40,13 @@ Type-check and lint separately with:
 
 ```bash
 npm run compile-tests   # tsc, no emit beyond out/
-npm run lint             # eslint src
+npm run lint             # eslint src game/src game/test tools
+npm run test:engine      # unit tests of the game's rules (Node, no browser, demo pack)
 ```
 
 ## Run & Debug
 
-Press **F5** in VS Code (or Run → Start Debugging). This runs the default build task (`npm: watch`) and opens a new **Extension Development Host** window with the extension loaded.
+Press **F5** in VS Code (or Run → Start Debugging). The build task's problem matcher comes from the recommended VS Code extension `amodio.tsl-problem-matcher`; install it first (without it the new window may report "Extension host did not start in 10 seconds"). Without a debugger, `code --extensionDevelopmentPath="$PWD" <folder>` after `npm run compile` opens the same window. This runs the default build task (`npm: watch`) and opens a new **Extension Development Host** window with the extension loaded.
 
 In that new window:
 

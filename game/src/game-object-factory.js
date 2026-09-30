@@ -31,8 +31,8 @@ export class GameObjectFactory {
         } = objectDescription;
 
         let objectType = type;
+        const tile = tileFactory.getTileByGlobalTileId(gid);
         if (objectType === "") {
-            const tile = tileFactory.getTileByGlobalTileId(gid);
             if (!tile) {
                 console.warn(`Object with invalid tile id "${gid}" found.`);
                 objectType = "Unknown Object";
@@ -43,6 +43,10 @@ export class GameObjectFactory {
 
         if (GameObjectFactory.OBJECT_MAP.has(objectType)) {
             classConstructor = GameObjectFactory.OBJECT_MAP.get(objectType);
+        } else if (tile && tile.getProperty('item')) {
+            // an asset pack's own item class (tile property `item`): lies on the floor,
+            // can carry a value, keeps its class name (e.g. "Bett", "Probe")
+            classConstructor = Item;
         } else {
             console.warn(`Object with type "${objectType}" not defined in Object Map. Check object layer in your level.`);
         }

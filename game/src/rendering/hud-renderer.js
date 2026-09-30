@@ -23,6 +23,25 @@ export class HudRenderer {
         this.gameOverImage = imageFromPacks('images/game_over.jpeg', pathPrefix);
 
         this.dungeonCompleteImage = imageFromPacks('images/dungeon_complete.jpeg', pathPrefix);
+        this.pathPrefix = pathPrefix;
+        this.worldImages = new Map();
+    }
+
+    /**
+     * The end-screen picture of a level's world (map property `world`, e.g. "station"):
+     * images/welt_<world>_<kind>.png from the asset packs. Falls back to `fallback`
+     * while it isn't loaded, or when the world has no such picture.
+     */
+    worldImage(world, kind, fallback) {
+        if (!world) {
+            return fallback;
+        }
+        const key = `${world}_${kind}`;
+        if (!this.worldImages.has(key)) {
+            this.worldImages.set(key, imageFromPacks(`images/welt_${key}.png`, this.pathPrefix));
+        }
+        const image = this.worldImages.get(key);
+        return image.complete && image.naturalWidth > 0 ? image : fallback;
     }
 
     /**
@@ -87,9 +106,9 @@ export class HudRenderer {
     }
 
     /** Draws the "Game Over" screen shown when the character has died. */
-    drawGameOverScreen(remainingTime) {
+    drawGameOverScreen(remainingTime, world) {
         const ctx = this.ctx;
-        this.drawScreenImage(this.gameOverImage);
+        this.drawScreenImage(this.worldImage(world, 'halt', this.gameOverImage));
 
         ctx.fillStyle = 'red';
         ctx.font = this.font();
@@ -101,9 +120,9 @@ export class HudRenderer {
     }
 
     /** Draws the "Level Complete" summary screen shown when a level is finished successfully. */
-    drawLevelCompleteScreen(statistics, remainingTime) {
+    drawLevelCompleteScreen(statistics, remainingTime, world) {
         const ctx = this.ctx;
-        this.drawScreenImage(this.dungeonCompleteImage);
+        this.drawScreenImage(this.worldImage(world, 'geschafft', this.dungeonCompleteImage));
 
         ctx.fillStyle = 'green';
         ctx.font = this.font();

@@ -4,7 +4,8 @@ A map file has an optional header, a line "---", and the map:
 
     start: north             # hero's start direction (default south)
     hero: 7                  # hero sprite 0-15 (default 7)
-    style: dungeon           # tile style: dungeon (default), corridor, arena, bridge
+    style: dungeon           # tile style: dungeon (default), corridor, arena, bridge, maze;
+                             # other worlds: station (a hospital ward), studio (a light studio)
     controls: 8,8 -> 25,10   # switch/torch at (8,8) toggles the object at (25,10); repeatable
     pattern: 5,2 = 101 @ 2,0 3,0 4,0   # door at (5,2) is open exactly while these torches show 101
     values: 5 3 8            # weights of the crystals K, in reading order (never drawn)
@@ -23,6 +24,10 @@ Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
          H  hero      Z  goal      T/t  torch (burning/off, on a wall)
          s  switch    D  door      G  grille    C  chest    J  jug    *  sweets
          K  crystal   o  pebble    W  guard (see guards:)
+In another world the same symbols mean that world's things: in `station`, K is a bed
+(class "Bett"), * a sample ("Probe"), o a floor mark ("Markierung"), T a lamp, ~ stairs;
+in `studio`, K is a sketch ("Entwurf"), * a colour gel ("Farbfolie"), o a tape mark
+("Klebepunkt"), T one lamp of the display, ~ the edge of the stage.
 
 Coordinates are 0-based (column, row) in the map as written. The map is placed
 centred on the 30x20 game field; with "view: fit" the level is then cut to the map
@@ -116,6 +121,8 @@ class Pack:
         self.sweets = None      # (source, local)
         self.abyss_tiles = []   # [(source, local)] tiles of class Abyss; the first is the plain fallback
         self.tile_size = 16     # pixels per field in the style's levels (their tilewidth)
+        self.items = {}         # symbol -> (source, local, class): a world's own items for K, * and o
+        self.world = None       # name of the world (not the dungeon): the game shows its end screens
 
     # --- choosing tiles ----------------------------------------------------
     def candidates(self, key):
@@ -203,6 +210,8 @@ class Pack:
             "sweets": list(self.sweets) if self.sweets else None,
             "abyss_tiles": [list(t) for t in self.abyss_tiles],
             **({"tile_size": self.tile_size} if self.tile_size != 16 else {}),
+            **({"items": {k: list(v) for k, v in self.items.items()}} if self.items else {}),
+            **({"world": self.world} if self.world else {}),
         }
 
     @classmethod
@@ -229,6 +238,8 @@ class Pack:
         pack.sweets = tuple(data["sweets"]) if data["sweets"] else None
         pack.abyss_tiles = [tuple(t) for t in data.get("abyss_tiles", [])]
         pack.tile_size = data.get("tile_size", 16)
+        pack.items = {k: tuple(v) for k, v in data.get("items", {}).items()}
+        pack.world = data.get("world")
         return pack
 
     @classmethod
@@ -306,6 +317,9 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 tile = pack.hero.get(f"{direction}_{number}")
                 if not tile:
                     raise MapError(f"no hero sprite {number!r} (hero: 0 to 15)")
+            elif ch in pack.items:
+                source, local, cls = pack.items[ch]       # the world's own item for this symbol
+                tile = (source, local)
             elif ch in ("T", "t"):
                 cls, tile = "Torch", pack.object_tile("Torch", context)
                 if tile and ch == "t":
@@ -337,9 +351,9 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 raise MapError(f"unknown symbol {ch!r} at ({c - ox},{r - oy})")
             if not tile:
                 raise MapError(f"no tile known for {ch!r} at ({c - ox},{r - oy})")
-            objects.append({"cell": (c, r), "tile": tile, "name": name, "cls": cls})
+            objects.append({"cell": (c, r), "tile": tile, "name": name, "cls": cls, "symbol": ch})
 
-    crystals = [o for o in objects if o["cls"] == "Crystal"]
+    crystals = [o for o in objects if o["symbol"] == "K"]        # the items that carry a value
     values = " ".join(header.get("values", [])).replace(",", " ").split()
     colors = " ".join(header.get("colors", [])).replace(",", " ").split()
     if crystals or values:
@@ -449,7 +463,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
         obj = tiled_objects[cell_to_id[src] - 1]
         obj["properties"] = [{"name": "controls", "type": "object", "value": cell_to_id[dst]}]
 
-    properties = []
+    properties = [{"name": "world", "type": "string", "value": pack.world}] if pack.world else []
     for key, values in header.items():
         if key in HEADER_KEYS:
             continue

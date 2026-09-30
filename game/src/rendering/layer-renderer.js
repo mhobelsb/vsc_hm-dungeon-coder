@@ -34,7 +34,13 @@ export class LayerRenderer {
      */
     drawObjectLayer(layer) {
         if (layer.visible) {
-            layer.objects.forEach((object) => {
+            // figures (the hero, guards) are drawn last, so an item on their field
+            // (a bed, a crystal) doesn't hide them
+            const isFigure = object => object.type === "Character" || object.type === "Guard";
+            layer.objects.filter(object => !isFigure(object)).forEach((object) => {
+                this.gameObjectRenderer.drawGameObject(object);
+            });
+            layer.objects.filter(isFigure).forEach((object) => {
                 this.gameObjectRenderer.drawGameObject(object);
             });
         }

@@ -50,13 +50,13 @@ export class GameRenderer {
     }
 
     /** Draws the "Game Over" screen shown when the character has died. */
-    drawGameOverScreen(remainingTime) {
-        this.hudRenderer.drawGameOverScreen(remainingTime);
+    drawGameOverScreen(remainingTime, world) {
+        this.hudRenderer.drawGameOverScreen(remainingTime, world);
     }
 
     /** Draws the "Level Complete" summary screen shown when a level is finished successfully. */
-    drawLevelCompleteScreen(statistics, remainingTime) {
-        this.hudRenderer.drawLevelCompleteScreen(statistics, remainingTime);
+    drawLevelCompleteScreen(statistics, remainingTime, world) {
+        this.hudRenderer.drawLevelCompleteScreen(statistics, remainingTime, world);
     }
 
     /**
@@ -78,10 +78,10 @@ export class GameRenderer {
                 this.drawPlayingScreen(level, fog, character);
                 break;
             case GAME_STATE.GAME_OVER:
-                this.drawGameOverScreen(remainingTime);
+                this.drawGameOverScreen(remainingTime, level?.getProperty('world'));
                 break;
             case GAME_STATE.LEVEL_COMPLETE:
-                this.drawLevelCompleteScreen(statistics, remainingTime);
+                this.drawLevelCompleteScreen(statistics, remainingTime, level?.getProperty('world'));
                 break;
         }
     }

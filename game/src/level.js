@@ -233,6 +233,11 @@ export class Level {
     }
 
     getBrightness() {
+        // `torch_light: false` (map property): lamps that are off don't darken the level,
+        // e.g. when the torches are the pixels of a display
+        if (this.getBooleanProperty('torch_light', true) === false) {
+            return 1.0;
+        }
         let totalNumberOfTorches = 0;
         let burningNumberOfTorches = 0;
         let brightness = 1.0;

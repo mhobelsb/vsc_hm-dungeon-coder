@@ -74,7 +74,8 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "eslint src game/src tools",
+    "lint": "eslint src game/src game/test tools",
+    "test:engine": "node --test game/test/engine.test.mjs",
     "test": "vscode-test",
     "dev:browser": "npm run generate:commands && node tools/dev-server.mjs"
   },

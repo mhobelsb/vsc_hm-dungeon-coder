@@ -146,7 +146,9 @@ class Obj:
             if t:
                 self.tiles[state] = t
         self.initial_state = self.state                    # switches: for "all_switches"
-        value = self.props.get("value", {}).get("value") if self.kind in ("Crystal", "Pebble") else None
+        # items: Crystal, Pebble, and a pack's own item classes (tile property `item`)
+        self.is_item = self.kind in ("Crystal", "Pebble") or bool(self.tile.get("item"))
+        value = self.props.get("value", {}).get("value") if self.is_item else None
         self.value = value if isinstance(value, int) and not isinstance(value, bool) else None
         if self.kind == "Guard":
             self.behaviour = str(self.props.get("behaviour", {}).get("value", "patrol") or "patrol")
@@ -162,7 +164,7 @@ class Obj:
             self.state = state
 
     def is_collision(self):
-        if self.kind in ("Crystal", "Pebble", "Guard"):
+        if self.is_item or self.kind == "Guard":
             return False
         return bool(self.tile.get("collision"))
 
