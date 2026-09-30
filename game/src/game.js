@@ -6,10 +6,20 @@ import { createRenderer } from './rendering/create-renderer.js';
 import { GAME_STATE } from './game-state.js';
 import { Fog } from './fog.js';
 
+/** The view before a level is loaded, in game pixels: 30 x 20 cells of 16 px. */
 export const GAME_WIDTH = 480;
-/** The canvas buffer is this many times larger than the game (sharp text); drawing uses game pixels. */
-export const RENDER_SCALE = 2;
 export const GAME_HEIGHT = 320;
+/**
+ * The canvas buffer is larger than the view (sharp text); drawing uses game pixels.
+ * At the default view the factor is RENDER_SCALE; other views get the whole factor
+ * that brings them to about the same buffer size (see bufferScale).
+ */
+export const RENDER_SCALE = 2;
+
+/** Whole number of buffer pixels per game pixel for a view of this size. */
+export function bufferScale(viewWidth, viewHeight) {
+    return Math.max(1, Math.ceil(Math.min(GAME_WIDTH * RENDER_SCALE / viewWidth, GAME_HEIGHT * RENDER_SCALE / viewHeight)));
+}
 
 export class Game {
     static GAME_STATE = GAME_STATE;
@@ -27,6 +37,9 @@ export class Game {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.renderer = createRenderer(this.ctx, GAME_WIDTH, GAME_HEIGHT, pathPrefix);
+        /** Called after the view size changed, so the page can fit the canvas again. */
+        this.onViewChange = null;
+        this.setViewSize(GAME_WIDTH, GAME_HEIGHT);
         this.inputManager = new KeyBoardInput();
         this.currentGameState = GAME_STATE.WAITING_FOR_LEVEL;
         this.remainingTime = 5000;
@@ -38,9 +51,33 @@ export class Game {
         this.fog = null;
     }
 
+    /**
+     * The view is as large as the level (in game pixels). Sets the canvas buffer,
+     * the drawing transform and the renderers' size.
+     */
+    setViewSize(width, height) {
+        this.viewWidth = width;
+        this.viewHeight = height;
+        const scale = bufferScale(width, height);
+        this.canvas.width = width * scale;          // also resets the context's state
+        this.canvas.height = height * scale;
+        this.canvas.dataset.viewWidth = width;
+        this.canvas.dataset.viewHeight = height;
+        this.ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        this.ctx.imageSmoothingEnabled = false;
+        this.renderer.setViewSize(width, height);
+        if (this.onViewChange) {
+            this.onViewChange();
+        }
+    }
+
     async loadLevel(levelData) {
         this.statistics.reset();
         this.level = await Level.create(levelData, this.pathPrefix);
+        const width = this.level.width * this.level.tileWidth, height = this.level.height * this.level.tileHeight;
+        if (width > 0 && height > 0 && (width !== this.viewWidth || height !== this.viewHeight)) {
+            this.setViewSize(width, height);
+        }
         this.character = this.level.getObjectByName("MainCharacter");
         this.characterInterface = new CharacterInterface(this, this.level, this.character, this.statistics);
         this.inputManager.setCharacter(this.character);

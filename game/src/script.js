@@ -1,4 +1,4 @@
-import { Game, GAME_WIDTH, GAME_HEIGHT, RENDER_SCALE } from './game.js';
+import { Game, GAME_WIDTH, GAME_HEIGHT } from './game.js';
 import { COMMANDS } from './commands.js';
 
 let vscode = null;
@@ -72,10 +72,11 @@ function loadFileAsync(file) {
     function resizeCanvas() {
         const picker = document.getElementById('json-file-input');     // only shown in the browser
         const reserved = picker && picker.style.display !== 'none' ? picker.offsetHeight + 16 : 0;
-        const scale = Math.max(0.5, 0.97 * Math.min(window.innerWidth / GAME_WIDTH,
-                                                     (window.innerHeight - reserved) / GAME_HEIGHT));
-        canvas.style.width = Math.floor(GAME_WIDTH * scale) + "px";
-        canvas.style.height = Math.floor(GAME_HEIGHT * scale) + "px";
+        const width = game.viewWidth, height = game.viewHeight;     // the level's size in game pixels
+        const fit = 0.97 * Math.min(window.innerWidth / width, (window.innerHeight - reserved) / height);
+        const scale = Math.max(0.5 * Math.min(GAME_WIDTH / width, GAME_HEIGHT / height), fit);
+        canvas.style.width = Math.floor(width * scale) + "px";
+        canvas.style.height = Math.floor(height * scale) + "px";
     }
 
     // One handler per RPC method, keyed by the shared COMMANDS registry
@@ -247,19 +248,14 @@ function loadFileAsync(file) {
 
     const fileInput = document.getElementById('json-file-input');
     const canvas = document.getElementById('gameCanvas');
-    // Draw into a buffer RENDER_SCALE times as large: tiles look the same, text gets crisp.
-    // Everything draws in game pixels (480 x 320); the transform does the scaling.
-    canvas.width = GAME_WIDTH * RENDER_SCALE;
-    canvas.height = GAME_HEIGHT * RENDER_SCALE;
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-
     if(isRunningInVSCodeWebview()) {
         fileInput.style.display = 'none';
     }
 
+    // The game sizes the canvas buffer itself (Game.setViewSize): larger than the view, so
+    // text gets crisp. Everything draws in game pixels; the transform does the scaling.
     const game = new Game(canvas, getAssetPath(""));
+    game.onViewChange = resizeCanvas;
     game.start();
 
     fileInput.addEventListener('change', async (event) => {

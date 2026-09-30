@@ -165,7 +165,7 @@ def screen(text, colour, path):
     img = Image.new("RGB", (480, 320), (20, 18, 28))
     d = ImageDraw.Draw(img)
     d.rectangle([20, 20, 459, 299], outline=colour, width=4)
-    d.text((240, 150), text, fill=colour, anchor="mm")
+    d.text((240, 90), text, fill=colour, anchor="mm")     # above the centre: the game writes its texts there
     img.save(path)
 
 

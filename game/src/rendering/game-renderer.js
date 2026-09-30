@@ -24,6 +24,13 @@ export class GameRenderer {
         this.fogRenderer = fogRenderer;
     }
 
+    /** The view's size in game pixels (the level's size; Game.setViewSize). */
+    setViewSize(width, height) {
+        this.canvasWidth = width;
+        this.canvasHeight = height;
+        this.hudRenderer.setViewSize(width, height);
+    }
+
     drawWaitingScreen() {
         this.hudRenderer.drawWaitingScreen();
     }
