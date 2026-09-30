@@ -11,6 +11,7 @@ A map file has an optional header, a line "---", and the map:
     colors: weiss orange weiss  # optional: colour of each crystal (weiss or orange)
     guards: 5,2 patrol east  # guard W at (5,2) walks east and back; "x,y chase" follows the hero
     orakel: true             # the level has an oracle (hero.ask_oracle())
+    view: fit                # show only the map, with larger fields (default: full, the 30x20 field)
     fog: dark                # any other key becomes a map property (bool/int/str)
     ---
     ##########
@@ -24,7 +25,8 @@ Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
          K  crystal   o  pebble    W  guard (see guards:)
 
 Coordinates are 0-based (column, row) in the map as written. The map is placed
-centred on the 30x20 game field.
+centred on the 30x20 game field; with "view: fit" the level is then cut to the map
+and one field around it, so the game shows it larger.
 
 Which tile goes where is decided by a *style pack* (packs/<style>.json): for every
 3x3 neighbourhood of terrain it lists the tile stacks that good levels use there,
@@ -42,7 +44,8 @@ OBJECT_CLASSES = {"s": "Switch", "C": "Chest", "J": "Jug", "Z": "Goal", "*": "Sw
 NEIGHBOURS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 WEIGHTS = [1, 2, 1, 2, 2, 1, 2, 1]     # orthogonal neighbours matter more than diagonal ones
 DIRECTIONS = ("north", "east", "south", "west")
-HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards")
+HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards", "view")
+VIEWS = ("full", "fit")
 GUARD_SPRITE = 3            # the characters tileset's sprite number used for guards
 # items that aren't learned from the levels: tiles from the icon sheet (the engine's ITEM_TILES)
 ICON_SHEET = "../tilesets/Icon sheet (16x16).json"
@@ -471,7 +474,36 @@ def build(header, rows, pack, seed=0, variety=0.0):
     }
     if properties:
         level["properties"] = properties
+    view = header.get("view", ["full"])[0]
+    if view not in VIEWS:
+        raise MapError(f"view must be one of {', '.join(VIEWS)}, not {view!r}")
+    if view == "fit":
+        return fit_view(level, terrain)
     return level, terrain
+
+
+def fit_view(level, terrain):
+    """(level, terrain) cut to the map and one field around it (where the styles draw the
+    fronts and edges of the outer walls). The game's view is as large as the level, so
+    a smaller level has larger fields."""
+    width, height, tw, th = level["width"], level["height"], level["tilewidth"], level["tileheight"]
+    cells = {(c + dx, r + dy) for r, row in enumerate(terrain) for c, t in enumerate(row) if t != VOID
+             for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
+    cells = {(c, r) for c, r in cells if 0 <= c < width and 0 <= r < height}
+    if not cells:
+        return level, terrain
+    x0, x1 = min(c for c, _ in cells), max(c for c, _ in cells)
+    y0, y1 = min(r for _, r in cells), max(r for _, r in cells)
+    new_width, new_height = x1 - x0 + 1, y1 - y0 + 1
+    for layer in level["layers"]:
+        if "data" in layer:
+            layer["data"] = [layer["data"][r * width + c] for r in range(y0, y1 + 1) for c in range(x0, x1 + 1)]
+            layer["width"], layer["height"] = new_width, new_height
+        for o in layer.get("objects", []):
+            o["x"] -= x0 * tw
+            o["y"] -= y0 * th
+    level["width"], level["height"] = new_width, new_height
+    return level, [row[x0:x1 + 1] for row in terrain[y0:y1 + 1]]
 
 
 def level_from_text(text, style=None):
