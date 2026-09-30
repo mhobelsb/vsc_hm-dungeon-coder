@@ -16,6 +16,7 @@ const spec = loadYaml(fs.readFileSync(specPath, 'utf8'));
 
 const httpMethods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'];
 const operationIds = [];
+const routes = [];      // the HTTP surface, shared by src/extension.ts and tools/dev-server.mjs
 
 for (const [route, pathItem] of Object.entries(spec.paths ?? {})) {
     for (const method of httpMethods) {
@@ -25,6 +26,7 @@ for (const [route, pathItem] of Object.entries(spec.paths ?? {})) {
             throw new Error(`Missing operationId for ${method.toUpperCase()} ${route} in api/openapi.yaml`);
         }
         operationIds.push(operation.operationId);
+        routes.push({ method, path: route, command: operation.operationId, body: Boolean(operation.requestBody) });
     }
 }
 
@@ -55,6 +57,10 @@ ${entries}
 });
 
 export const COMMAND_LIST = Object.freeze(Object.values(COMMANDS));
+
+// Every HTTP route: method, path, RPC command, and whether the request has a JSON body.
+// Both servers register exactly these; special behaviour (e.g. waiting for a step) is added per command.
+export const ROUTES = Object.freeze(${JSON.stringify(routes, null, 4).replace(/\n/g, '\n')});
 `;
 
 fs.writeFileSync(outPath, output);
@@ -78,6 +84,7 @@ declare module '*commands.js' {
 ${dtsEntries}
     };
     export const COMMAND_LIST: readonly string[];
+    export const ROUTES: readonly { method: 'get' | 'post'; path: string; command: string; body: boolean }[];
 }
 
 declare module '*api-config.js' {

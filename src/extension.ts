@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { readFileSync, constants as fsConstants } from 'fs';
+import { readFileSync, writeFileSync, constants as fsConstants } from 'fs';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import * as OpenApiValidator from 'express-openapi-validator';
 import { Server } from 'http';
-import { COMMANDS, COMMAND_LIST } from '../game/src/commands.js';
+import { COMMANDS, COMMAND_LIST, ROUTES } from '../game/src/commands.js';
 import { API_HOST, API_PORT } from '../game/src/api-config.js';
 import type { components } from './generated/api-types.js';
 
@@ -60,7 +60,8 @@ export class DungeonCoderServer {
     private currentPaceFactor = 1.0;
     private turnDelay = 200;
     private readonly url = API_HOST;
-    private readonly port = API_PORT;
+    /** The setting dungeonCoder.port (default from api/openapi.yaml), read when the server starts. */
+    private port = API_PORT;
     private readonly pendingWebviewRequests = new Map<string, (response: WebviewRpcResponse) => void>();
     private readonly registeredCommands = new Set<string>();
 
@@ -138,15 +139,6 @@ export class DungeonCoderServer {
         });
     }
 
-    /** Specialized delayed command (like turn_left) */
-    private registerDelayedCommandRoute(app: Application, route: string, command: string, baseDelay: number) {
-        this.registerRoute(app, 'post', route, command, {
-            onSuccess: async () => {
-                await this.delay(baseDelay / this.currentPaceFactor);
-            },
-        });
-    }
-
     /**
      * Polls until the hero has finished its step. Gives up when the webview
      * reports an error or the step takes far longer than the animation
@@ -216,57 +208,27 @@ export class DungeonCoderServer {
             validateResponses: false,
         }));
 
-        // --- Hero Movement ---
-        this.registerRoute(app, 'post', '/hero/move', COMMANDS.MOVE, {
-            onSuccess: async () => this.pollUntilStopped(10),
-        });
-
-        this.registerDelayedCommandRoute(app, '/hero/turn_left', COMMANDS.TURN_LEFT, this.turnDelay);
-
-        // --- Configuration ---
-        this.registerRoute(app, 'post', '/hero/configure', COMMANDS.CONFIGURE, { includeBody: true });
-        this.registerRoute(app, 'post', '/hero/pace', COMMANDS.SET_PACE, {
-            includeBody: true,
-            onSuccess: async (_, req) => {
+        // --- Routes: all from api/openapi.yaml (ROUTES, generated), plus special behaviour per command ---
+        // A (re)loaded level has a fresh hero at pace 1, so the host's copy of
+        // the pace must be reset too, or turns keep the old script's delay.
+        const resetPace = () => { this.currentPaceFactor = 1.0; };
+        const afterSuccess: Record<string, (response: WebviewResponse, req: Request) => void | WebviewResponse | Promise<void | WebviewResponse>> = {
+            [COMMANDS.MOVE]: async () => this.pollUntilStopped(10),
+            [COMMANDS.TURN_LEFT]: async () => { await this.delay(this.turnDelay / this.currentPaceFactor); },
+            [COMMANDS.SET_PACE]: async (_, req) => {
                 // req.body is shaped per api/openapi.yaml's PaceParams schema and
                 // has already passed the OpenAPI validator by the time we get here.
                 const body: components['schemas']['PaceParams'] = req.body;
                 this.currentPaceFactor = body.factor;
                 console.log(`Updated current pace factor: ${body.factor}`);
             },
-        });
-
-        // --- Interaction ---
-        this.registerRoute(app, 'post', '/hero/interact', COMMANDS.INTERACT);
-        this.registerRoute(app, 'post', '/hero/pickup', COMMANDS.PICKUP, { includeBody: true });
-        this.registerRoute(app, 'post', '/hero/drop', COMMANDS.DROP, { includeBody: true });
-
-        // --- Queries ---
-        this.registerRoute(app, 'get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITION);
-        this.registerRoute(app, 'get', '/hero/inventory', COMMANDS.GET_INVENTORY);
-        this.registerRoute(app, 'get', '/hero/read_item_value', COMMANDS.READ_ITEM_VALUE);
-        this.registerRoute(app, 'get', '/hero/ask_oracle', COMMANDS.ASK_ORACLE);
-        this.registerRoute(app, 'post', '/hero/peek_item_value', COMMANDS.PEEK_ITEM_VALUE, { includeBody: true });
-        this.registerRoute(app, 'get', '/game/statistics', COMMANDS.GET_STATISTICS);
-
-        // --- Level ---
-        // A (re)loaded level has a fresh hero at pace 1, so the host's copy of
-        // the pace must be reset too, or turns keep the old script's delay.
-        const resetPace = () => { this.currentPaceFactor = 1.0; };
-        this.registerRoute(app, 'post', '/level/load', COMMANDS.LOAD_LEVEL, { includeBody: true, onSuccess: resetPace });
-        this.registerRoute(app, 'post', '/level/reset', COMMANDS.RESET_LEVEL, { onSuccess: resetPace });
-
-        [
-            COMMANDS.IS_COLLISION_IN_FRONT,
-            COMMANDS.IS_FACING_NORTH,
-            COMMANDS.IS_AT_GOAL,
-            COMMANDS.IS_TORCH_IN_FRONT,
-            COMMANDS.IS_SWITCH_IN_FRONT,
-            COMMANDS.IS_ABYSS_IN_FRONT,
-            COMMANDS.IS_ENEMY_IN_FRONT,
-        ].forEach(command =>
-            this.registerRoute(app, 'get', `/hero/${command}`, command)
-        );
+            [COMMANDS.LOAD_LEVEL]: resetPace,
+            [COMMANDS.RESET_LEVEL]: resetPace,
+        };
+        for (const route of ROUTES) {
+            this.registerRoute(app, route.method, route.path, route.command,
+                { includeBody: route.body, onSuccess: afterSuccess[route.command] });
+        }
 
         // IS_MOVING is used only internally by pollUntilStopped(), not exposed as an HTTP route.
         this.registeredCommands.add(COMMANDS.IS_MOVING);
@@ -288,13 +250,17 @@ export class DungeonCoderServer {
             });
         });
 
-        this.serverInstance = app.listen(this.port, this.url, () =>
-            console.log(`API running on ${this.url}:${this.port}`)
-        );
+        this.port = vscode.workspace.getConfiguration('dungeonCoder').get<number>('port', API_PORT);
+        this.serverInstance = app.listen(this.port, this.url, () => {
+            console.log(`API running on ${this.url}:${this.port}`);
+            this.writePortFile();
+        });
 
         this.serverInstance.on('error', err => {
             if ((err as any).code === 'EADDRINUSE') {
-                const message = `Error: Port ${this.port} is already in use. Is another instance running?`;
+                const message = `Dungeon Coder: port ${this.port} is already in use. Probably another Dungeon Coder `
+                    + `is running (the older extension "hm-benidiet.vscode-dungeon-coder", or a game tab in another `
+                    + `VS Code window). Close it, or choose another port in the setting "dungeonCoder.port" (e.g. 3001).`;
                 vscode.window.showErrorMessage(message);
                 this.stopServer();
                 this.webviewPanel?.dispose();
@@ -306,6 +272,22 @@ export class DungeonCoderServer {
         });
 
         return true;
+    }
+
+    /**
+     * Tells Python scripts in this workspace which port the game listens on: the dungeoncoder
+     * package reads .dungeoncoder-port from the working folder or a folder above it (DC-T1l).
+     */
+    private writePortFile() {
+        const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!folder) {
+            return;
+        }
+        try {
+            writeFileSync(path.join(folder, '.dungeoncoder-port'), `${this.port}\n`);
+        } catch (error: any) {
+            console.error(`Could not write .dungeoncoder-port: ${error.message}`);
+        }
     }
 
     /** Stop server */

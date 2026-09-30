@@ -32,6 +32,7 @@ declare module '*commands.js' {
         readonly IS_MOVING: 'is_moving';
     };
     export const COMMAND_LIST: readonly string[];
+    export const ROUTES: readonly { method: 'get' | 'post'; path: string; command: string; body: boolean }[];
 }
 
 declare module '*api-config.js' {

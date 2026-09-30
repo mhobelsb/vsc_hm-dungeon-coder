@@ -50,6 +50,13 @@
           },
           "default": [],
           "description": "Folders with asset packs (tilesets, images). They are searched before the pictures that come with the extension. Relative paths start at the workspace folder."
+        },
+        "dungeonCoder.port": {
+          "type": "number",
+          "default": 3000,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Port of the game's local API. Change it (e.g. to 3001) to run next to another Dungeon Coder; Python scripts in the workspace find it automatically (.dungeoncoder-port)."
         }
       }
     }

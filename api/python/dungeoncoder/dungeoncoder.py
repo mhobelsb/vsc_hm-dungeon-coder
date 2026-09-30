@@ -6,7 +6,7 @@ import tempfile
 import httpx
 
 from . import asciimap, generator
-from ._api_config import BASE_URL as DEFAULT_BASE_URL, HOST
+from ._api_config import BASE_URL as _CONFIGURED_BASE_URL, HOST
 from ._generated import Client
 from ._generated.errors import UnexpectedStatus
 from ._generated.models.api_error_response import ApiErrorResponse
@@ -40,6 +40,30 @@ from ._generated.api.level import load_level as _load_level_api, reset_level as 
 from ._generated.api.game import get_statistics as _get_statistics_api
 
 os.environ["NO_PROXY"] = HOST
+
+
+def _discover_base_url() -> str:
+    """Where the game listens: DUNGEONCODER_PORT, else the port the extension wrote to
+    .dungeoncoder-port in the working folder or a folder above it (setting dungeonCoder.port),
+    else the default from api/openapi.yaml."""
+    port = os.environ.get("DUNGEONCODER_PORT", "").strip()
+    if not port.isdigit():
+        port = ""
+        folder = os.getcwd()
+        while True:
+            candidate = os.path.join(folder, ".dungeoncoder-port")
+            if os.path.isfile(candidate):
+                with open(candidate, encoding="utf-8") as f:
+                    port = f.read().strip()
+                break
+            parent = os.path.dirname(folder)
+            if parent == folder:
+                break
+            folder = parent
+    return f"http://{HOST}:{port}" if port.isdigit() else _CONFIGURED_BASE_URL
+
+
+DEFAULT_BASE_URL = _discover_base_url()
 
 # move() and turn_left() return only after the animation: a step takes
 # _STEP_SECONDS / pace (game/src/character.js). The server gives up on a step
@@ -94,7 +118,8 @@ def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, *
         print(f"API error: {_extract_message(err) or err}")
         return default
     except httpx.ConnectError:
-        print("Connection error occurred. Did you start the Dungeon Coder Plugin?")
+        print("Connection error occurred. Did you start the Dungeon Coder Plugin? "
+              f"(looked for the game at {getattr(client, '_base_url', DEFAULT_BASE_URL)})")
         return default
     except httpx.TimeoutException:
         print("Timeout error occurred. Server took too long to respond.")

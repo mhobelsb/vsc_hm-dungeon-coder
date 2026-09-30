@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import * as OpenApiValidator from 'express-openapi-validator';
-import { COMMANDS, COMMAND_LIST } from '../game/src/commands.js';
+import { COMMANDS, COMMAND_LIST, ROUTES } from '../game/src/commands.js';
 import { API_HOST, API_PORT } from '../game/src/api-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -142,63 +142,29 @@ function registerRoute(method, route, command, options = {}) {
     });
 }
 
-// --- Hero Movement ---
-registerRoute('post', '/hero/move', COMMANDS.MOVE, { onSuccess: () => pollUntilStopped(10) });
-registerRoute('post', '/hero/turn_left', COMMANDS.TURN_LEFT, {
-    onSuccess: () => delay(TURN_DELAY_MS / currentPaceFactor),
-});
-
-// --- Configuration ---
-registerRoute('post', '/hero/configure', COMMANDS.CONFIGURE, { includeBody: true });
-registerRoute('post', '/hero/pace', COMMANDS.SET_PACE, {
-    includeBody: true,
-    onSuccess: (_, req) => {
+// --- Routes: all from api/openapi.yaml (ROUTES, generated), plus special behaviour per command ---
+// A (re)loaded level has a fresh hero at pace 1; reset the server's copy too.
+const resetPace = () => { currentPaceFactor = 1.0; };
+const AFTER_SUCCESS = {
+    [COMMANDS.MOVE]: () => pollUntilStopped(10),
+    [COMMANDS.TURN_LEFT]: () => delay(TURN_DELAY_MS / currentPaceFactor),
+    [COMMANDS.SET_PACE]: (_, req) => {
         const factor = req.body?.factor;
         if (typeof factor === 'number') {
             currentPaceFactor = factor;
         }
     },
-});
-
-// --- Interaction ---
-registerRoute('post', '/hero/interact', COMMANDS.INTERACT);
-registerRoute('post', '/hero/pickup', COMMANDS.PICKUP, { includeBody: true });
-registerRoute('post', '/hero/drop', COMMANDS.DROP, { includeBody: true });
-
-// --- Queries ---
-registerRoute('get', '/hero/get_items_at_position', COMMANDS.GET_ITEMS_AT_POSITION);
-registerRoute('get', '/hero/inventory', COMMANDS.GET_INVENTORY);
-registerRoute('get', '/hero/read_item_value', COMMANDS.READ_ITEM_VALUE);
-registerRoute('get', '/hero/ask_oracle', COMMANDS.ASK_ORACLE);
-registerRoute('post', '/hero/peek_item_value', COMMANDS.PEEK_ITEM_VALUE, { includeBody: true });
-registerRoute('get', '/game/statistics', COMMANDS.GET_STATISTICS);
-
-// --- Level ---
-// A (re)loaded level has a fresh hero at pace 1; reset the server's copy too.
-const resetPace = () => { currentPaceFactor = 1.0; };
-registerRoute('post', '/level/load', COMMANDS.LOAD_LEVEL, { includeBody: true, onSuccess: resetPace });
-registerRoute('post', '/level/reset', COMMANDS.RESET_LEVEL, { onSuccess: resetPace });
-
+    [COMMANDS.LOAD_LEVEL]: resetPace,
+    [COMMANDS.RESET_LEVEL]: resetPace,
+};
 const registeredCommands = new Set([
-    COMMANDS.MOVE, COMMANDS.TURN_LEFT, COMMANDS.CONFIGURE, COMMANDS.SET_PACE,
-    COMMANDS.INTERACT, COMMANDS.PICKUP, COMMANDS.DROP, COMMANDS.GET_ITEMS_AT_POSITION,
-    COMMANDS.GET_INVENTORY, COMMANDS.READ_ITEM_VALUE, COMMANDS.PEEK_ITEM_VALUE, COMMANDS.ASK_ORACLE, COMMANDS.GET_STATISTICS, COMMANDS.LOAD_LEVEL, COMMANDS.RESET_LEVEL,
     // Used only internally by pollUntilStopped(), not exposed as an HTTP route.
     COMMANDS.IS_MOVING,
 ]);
-
-[
-    COMMANDS.IS_COLLISION_IN_FRONT,
-    COMMANDS.IS_FACING_NORTH,
-    COMMANDS.IS_AT_GOAL,
-    COMMANDS.IS_TORCH_IN_FRONT,
-    COMMANDS.IS_SWITCH_IN_FRONT,
-    COMMANDS.IS_ABYSS_IN_FRONT,
-    COMMANDS.IS_ENEMY_IN_FRONT,
-].forEach(command => {
-    registerRoute('get', `/hero/${command}`, command);
-    registeredCommands.add(command);
-});
+for (const route of ROUTES) {
+    registerRoute(route.method, route.path, route.command, { includeBody: route.body, onSuccess: AFTER_SUCCESS[route.command] });
+    registeredCommands.add(route.command);
+}
 
 const missingRoutes = COMMAND_LIST.filter(command => !registeredCommands.has(command));
 if (missingRoutes.length > 0) {
