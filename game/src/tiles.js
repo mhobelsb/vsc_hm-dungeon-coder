@@ -193,7 +193,7 @@ export class Tileset {
         const tile = this.tiles.get(globalTileId - this.firstgid);
         if (!tile) {
             // global Tile ID zero is used for empty tiles, so no problem for that gid
-            if (globalTileId != 0) {
+            if (globalTileId !== 0) {
                 console.warn(`Tile with global tile id "${globalTileId}" was not found in tile factory.`);
             }
         }
@@ -209,8 +209,9 @@ export class Tileset {
         for (const tile of this.tiles.values()) {
             if (tile.type === type) {
                 const tileState = tile.getProperty("state");
-                if (tileState === state)
+                if (tileState === state) {
                     return tile;
+                }
             }
         }
 

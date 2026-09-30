@@ -295,8 +295,11 @@ export class DungeonCoderServer {
         if (this.serverInstance) {
             console.log('Stopping server...');
             this.serverInstance.close(err => {
-                if (err) console.error('Error stopping server:', err);
-                else console.log('Server stopped successfully.');
+                if (err) {
+                    console.error('Error stopping server:', err);
+                } else {
+                    console.log('Server stopped successfully.');
+                }
                 this.serverInstance = undefined;
             });
         } else {
@@ -413,7 +416,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (ret) {
             vscode.window.showInformationMessage('Enter the dungeon!');
         } else {
-            vscode.window.showErrorMessage("Error: Dungeon Coder could not be started.")
+            vscode.window.showErrorMessage("Error: Dungeon Coder could not be started.");
         }
     });
 
@@ -435,7 +438,9 @@ export function activate(context: vscode.ExtensionContext) {
                 const overwrite = await vscode.window.showQuickPick(['Yes', 'No'], {
                     placeHolder: `Folder 'dungeoncoder' already exists. Overwrite?`
                 });
-                if (overwrite !== 'Yes') return;
+                if (overwrite !== 'Yes') {
+                    return;
+                }
             } catch {
                 // folder doesn’t exist, continue
             }

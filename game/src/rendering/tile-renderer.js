@@ -14,13 +14,14 @@ export class TileRenderer {
      * @param {number} [destHeight=tile.height] Unused - kept for call-site compatibility.
      */
     drawTile(tile, destX, destY, destWidth = tile.width, destHeight = tile.height, angle = 0, scaling_factor = 1.0) {
-        if (!tile.visible)
+        if (!tile.visible) {
             return;
+        }
 
         destY -= tile.height; // tiled coordinates are bottom left corner
 
         const ctx = this.ctx;
-        ctx.save()
+        ctx.save();
         ctx.translate(destX + tile.width / 2, destY + tile.height / 2); // Move to the tile's center
 
         // Rotate the canvas

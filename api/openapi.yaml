@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Dungeon Coder API
-  version: 0.0.16
+  version: 0.1.0
   description: |
     Single source of truth for the Dungeon Coder REST API. This spec drives,
     via generators wired into `npm run generate`:
@@ -15,11 +15,12 @@ info:
     Note on status codes: `result: false` for an ordinary business outcome
     (e.g. "move blocked by a wall") is, for historical reasons, returned with
     HTTP 500 rather than 200 - the same status used for actual RPC/transport
-    failures. This is preserved as-is because the Python client's
-    `parse_api_response` relies on `requests.raise_for_status()` to collapse
-    both cases to a falsy return value; changing it is a breaking change to
-    every student-facing method (`move()`, `pickup()`, ...) and out of scope
-    for this spec.
+    failures. This is preserved as-is: the student-facing Python wrapper
+    (`_call` in api/python/dungeoncoder/dungeoncoder.py) turns both cases into
+    the method's default return value (`False`, `[]` or `None`), and older
+    copies of the package in student workspaces rely on the 500. Changing it
+    is a breaking change to every student-facing method (`move()`,
+    `pickup()`, ...) and out of scope for this spec.
 servers:
   - url: http://127.0.0.1:3000
 

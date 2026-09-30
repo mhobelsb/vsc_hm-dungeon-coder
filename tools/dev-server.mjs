@@ -59,7 +59,9 @@ wss.on('connection', socket => {
     socket.on('message', raw => {
         const message = JSON.parse(raw.toString());
         const resolver = pendingRequests.get(message.id);
-        if (!resolver) return;
+        if (!resolver) {
+            return;
+        }
         pendingRequests.delete(message.id);
 
         if (message.error) {
@@ -88,8 +90,12 @@ async function pollUntilStopped(pollInterval = 10) {
     const deadline = Date.now() + MOVE_TIMEOUT_BASE_MS + MOVE_DURATION_MS / currentPaceFactor;
     while (Date.now() < deadline) {
         const isMovingResponse = await sendToClient(COMMANDS.IS_MOVING);
-        if (!isMovingResponse.success) return isMovingResponse;
-        if (!isMovingResponse.result) return undefined;
+        if (!isMovingResponse.success) {
+            return isMovingResponse;
+        }
+        if (!isMovingResponse.result) {
+            return undefined;
+        }
         await delay(pollInterval);
     }
     return { success: false, message: 'The hero did not finish its step in time.', exception: 'MoveTimeout' };
@@ -171,7 +177,6 @@ if (missingRoutes.length > 0) {
     console.error(`dev-server: no HTTP route registered for command(s): ${missingRoutes.join(', ')}`);
 }
 
-// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
     console.error('API validation/error:', err.message);
     res.status(err.status ?? 500).json({

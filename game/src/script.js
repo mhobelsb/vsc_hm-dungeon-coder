@@ -4,7 +4,7 @@ import { COMMANDS } from './commands.js';
 let vscode = null;
 
 function acquireVsCodeIfAvailable() {
-    if (isRunningInVSCodeWebview() && vscode == null) {
+    if (isRunningInVSCodeWebview() && vscode === null) {
         vscode = acquireVsCodeApi();
     }
 

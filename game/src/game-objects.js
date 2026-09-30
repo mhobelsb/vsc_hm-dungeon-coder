@@ -34,7 +34,7 @@ export class GameObject {
             states.forEach(state => {
                 let tile = tileFactory.getTileByTypeAndState(className, state);
                 if (!tile) {
-                    console.error(`Tile with type/class "${className}" and state "${state} not found!`)
+                    console.error(`Tile with type/class "${className}" and state "${state} not found!`);
                 }
 
                 if (tile.hasAnimation()) {
@@ -63,8 +63,9 @@ export class GameObject {
 
     isCollision() {
         const collision = this.tile.getProperty('collision');
-        if (!collision)
+        if (!collision) {
             return false;
+        }
         return collision;
     }
 
@@ -89,7 +90,7 @@ export class GameObject {
             this.tile = this.tileMap.get(state);
             this.state = state;
         } else {
-            console.warn(`State "${state}" of object "${this.name}" not found.`)
+            console.warn(`State "${state}" of object "${this.name}" not found.`);
         }
     }
 
@@ -127,7 +128,7 @@ export class GameObject {
                 if (typeof object.interact === 'function') {
                     return object.interact(level);
                 } else {
-                    console.log(`Error: the GameObject cannot interact with the object with ID "${propertyControls.value}.`)
+                    console.log(`Error: the GameObject cannot interact with the object with ID "${propertyControls.value}.`);
                 }
             } else {
                 console.warn(`Object with ID "${propertyControls.value}" not found.`);

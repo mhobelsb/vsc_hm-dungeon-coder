@@ -56,7 +56,7 @@ export class Character extends GameObject {
         this.MAX_FALL_TIME_MS = 3000;
         this.ROTATION_PER_SECOND = 6;
         this.SHRINK_RATE_PER_SECOND = 0.6;
-        this.inventory = [] // TODO: Add items essential to survive: Towel, Baby Wipes and Tissues
+        this.inventory = []; // TODO: Add items essential to survive: Towel, Baby Wipes and Tissues
         this.debugDraw = debugDraw;
     }
 
@@ -120,7 +120,7 @@ export class Character extends GameObject {
         };
         const newDirection = nextDirectionMap[direction];
 
-        this.setStateAndDirection(state, newDirection)
+        this.setStateAndDirection(state, newDirection);
 
         return true;
     }
@@ -164,7 +164,7 @@ export class Character extends GameObject {
     isInDirection(level, direction, name) {
         const newTargetXY = this.getPositionInDirection(direction, true);
         const objects = level.getObjectsAtPosition(newTargetXY[0], newTargetXY[1]);
-        if (Array.isArray(objects) && objects.length != 0) {
+        if (Array.isArray(objects) && objects.length !== 0) {
             for (const object of objects) {
                 if (object) {
                     if (object.type === name) {
@@ -238,11 +238,11 @@ export class Character extends GameObject {
     }
 
     getItemsAtCurrentPosition(level) {
-        let item_names = []
+        let item_names = [];
         const current_position = this.getCurrentPosition();
         const objects =  level.getObjectsAtPosition(current_position[0], current_position[1]);
         for (const object of objects) {
-            if (object.type != "Character") {
+            if (object.type !== "Character") {
                 item_names.push(object.type);
             }
         }
@@ -250,7 +250,7 @@ export class Character extends GameObject {
     }
 
     getInventory() {
-        let list_of_names = []
+        let list_of_names = [];
         for (const item of this.inventory) {
             list_of_names.push(item.type);
         }
@@ -328,13 +328,13 @@ export class Character extends GameObject {
         const position = this.getPositionInDirection(this.getDirection(), true);
         const objects =  level.getObjectsAtPosition(position[0], position[1]);
         let reacted = false;
-        if (Array.isArray(objects) && objects.length != 0) {
+        if (Array.isArray(objects) && objects.length !== 0) {
             for (const object of objects) {
                 if (object) {
                     if (typeof object.interact === 'function') {
                         reacted = object.interact(level) || reacted;
                     } else {
-                        console.log(`You cannot interact with the object of class "${object.type}" and ID "${object.id}".`)
+                        console.log(`You cannot interact with the object of class "${object.type}" and ID "${object.id}".`);
                     }
                 }
             }

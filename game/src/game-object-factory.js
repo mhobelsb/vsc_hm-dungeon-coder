@@ -44,7 +44,7 @@ export class GameObjectFactory {
         if (GameObjectFactory.OBJECT_MAP.has(objectType)) {
             classConstructor = GameObjectFactory.OBJECT_MAP.get(objectType);
         } else {
-            console.warn(`Object with type "${objectType}" not defined in Object Map. Check object layer in your level.`)
+            console.warn(`Object with type "${objectType}" not defined in Object Map. Check object layer in your level.`);
         }
         const gameObject = new classConstructor(objectDescription, tileFactory, objectType);
         this.gameObjects.push(gameObject);

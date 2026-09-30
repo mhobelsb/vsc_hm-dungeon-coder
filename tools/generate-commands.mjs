@@ -21,7 +21,9 @@ const routes = [];      // the HTTP surface, shared by src/extension.ts and tool
 for (const [route, pathItem] of Object.entries(spec.paths ?? {})) {
     for (const method of httpMethods) {
         const operation = pathItem[method];
-        if (!operation) continue;
+        if (!operation) {
+            continue;
+        }
         if (!operation.operationId) {
             throw new Error(`Missing operationId for ${method.toUpperCase()} ${route} in api/openapi.yaml`);
         }

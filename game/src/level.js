@@ -137,7 +137,9 @@ export class Level {
     }
 
     static async create(levelData, pathPrefix = "") {
-        if (!levelData) return;
+        if (!levelData) {
+            return;
+        }
 
         // the start inventory needs its item tiles, even if the level doesn't use them
         const tilesets = [...(levelData.tilesets || [])];
@@ -260,7 +262,7 @@ export class Level {
             if (this.character.isMoving()) {
                 return false;
             }
-            if (this.character.x == this.goal.x && this.character.y == this.goal.y) {
+            if (this.character.x === this.goal.x && this.character.y === this.goal.y) {
                 return true;
             }
         }
@@ -451,7 +453,7 @@ export class Level {
 
         // Check for out of bounds
         if (tileCol < 0 || tileCol >= this.width || tileRow < 0 || tileRow >= this.height) {
-            console.warn("Checking for collision out of bounds.")
+            console.warn("Checking for collision out of bounds.");
             return true; // Consider out of bounds as a collision
         }
 
@@ -476,7 +478,7 @@ export class Level {
 
         // Check for out of bounds
         if (tileCol < 0 || tileCol >= this.width || tileRow < 0 || tileRow >= this.height) {
-            console.warn("Checking for collision out of bounds.")
+            console.warn("Checking for collision out of bounds.");
             return true; // Consider out of bounds as a collision
         }
 
@@ -498,7 +500,7 @@ export class Level {
         }
 
         const objects =  this.getObjectsAtPosition(x, y);
-        if (Array.isArray(objects) && objects.length != 0) {
+        if (Array.isArray(objects) && objects.length !== 0) {
             for (const object of objects) {
                 if (object.isCollision()) {
                     return true;
