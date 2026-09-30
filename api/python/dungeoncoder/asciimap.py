@@ -115,6 +115,7 @@ class Pack:
         self.torch_off = {}     # source -> [local ids of "off" torches]
         self.sweets = None      # (source, local)
         self.abyss_tiles = []   # [(source, local)] tiles of class Abyss; the first is the plain fallback
+        self.tile_size = 16     # pixels per field in the style's levels (their tilewidth)
 
     # --- choosing tiles ----------------------------------------------------
     def candidates(self, key):
@@ -201,6 +202,7 @@ class Pack:
             "torch_off": self.torch_off,
             "sweets": list(self.sweets) if self.sweets else None,
             "abyss_tiles": [list(t) for t in self.abyss_tiles],
+            **({"tile_size": self.tile_size} if self.tile_size != 16 else {}),
         }
 
     @classmethod
@@ -226,6 +228,7 @@ class Pack:
         pack.torch_off = data["torch_off"]
         pack.sweets = tuple(data["sweets"]) if data["sweets"] else None
         pack.abyss_tiles = [tuple(t) for t in data.get("abyss_tiles", [])]
+        pack.tile_size = data.get("tile_size", 16)
         return pack
 
     @classmethod
@@ -411,7 +414,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
         visible = not (o["cls"] == "Goal" and pack.goal_decor)
         tiled_objects.append({"gid": gid(o["tile"]), "height": info["tile_h"], "id": i, "name": o["name"],
                               "rotation": 0, "type": obj_type, "visible": visible, "width": info["tile_w"],
-                              "x": c * 16, "y": (r + 1) * 16})
+                              "x": c * pack.tile_size, "y": (r + 1) * pack.tile_size})
         if o.get("properties"):
             tiled_objects[-1]["properties"] = o["properties"]
         cell_to_id[(c - ox, r - oy)] = i
@@ -469,7 +472,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
              "type": "objectgroup", "visible": True, "x": 0, "y": 0},
         ],
         "nextlayerid": 6, "nextobjectid": len(tiled_objects) + 1, "orientation": "orthogonal",
-        "renderorder": "right-down", "tiledversion": "1.11.2", "tileheight": 16, "tilewidth": 16,
+        "renderorder": "right-down", "tiledversion": "1.11.2", "tileheight": pack.tile_size,
+        "tilewidth": pack.tile_size,
         "tilesets": tilesets, "type": "map", "version": "1.10",
     }
     if properties:

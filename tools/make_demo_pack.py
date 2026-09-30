@@ -6,6 +6,10 @@ so the pack has no third-party licence (CC0, see packs/demo/LICENSE.md).
 The pack has the object classes and states the engine knows (Torch burning/off,
 Switch left/right, Door/VerticalDoor open/closed, Chest, Jug, Goal, Sweets, Abyss,
 Character standing/walking in four directions and 16 colours) and two demo levels.
+
+Everything exists twice: with 16 px tiles (demo_*) and with 32 px tiles (demo32_*:
+the same pictures drawn at 32 px, levels of 15 x 10 cells). The 32 px set shows and
+tests that the game handles tilesets of another size.
 """
 import json
 import os
@@ -14,7 +18,37 @@ from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PACK = os.path.join(HERE, "..", "packs", "demo")
-T = 16
+T = 16       # the size the pictures are designed in; Pen draws them at a multiple of it
+
+
+class Pen:
+    """ImageDraw in design pixels (16 per tile), drawn `k` times as large."""
+
+    def __init__(self, draw, k):
+        self.d, self.k = draw, k
+
+    def _box(self, box):
+        k = self.k
+        x0, y0, x1, y1 = box
+        return [x0 * k, y0 * k, (x1 + 1) * k - 1, (y1 + 1) * k - 1]
+
+    def rectangle(self, box, fill=None, outline=None):
+        self.d.rectangle(self._box(box), fill=fill, outline=outline, width=self.k)
+
+    def ellipse(self, box, fill=None):
+        self.d.ellipse(self._box(box), fill=fill)
+
+    def point(self, points, fill=None):
+        for x, y in points:
+            self.d.rectangle(self._box((x, y, x, y)), fill=fill)
+
+    def line(self, points, fill=None, width=1):
+        k = self.k
+        self.d.line([(x * k + (k - 1) // 2, y * k + (k - 1) // 2) for x, y in points], fill=fill, width=width * k)
+
+    def polygon(self, points, fill=None, outline=None):
+        k = self.k
+        self.d.polygon([(x * k + (k - 1) // 2, y * k + (k - 1) // 2) for x, y in points], fill=fill, outline=outline)
 
 # local id -> (class, properties); drawn by the functions below
 TILES = [
@@ -47,10 +81,10 @@ def cell(img, i, cols=8):
     return (i % cols) * T, (i // cols) * T
 
 
-def draw_tiles():
+def draw_tiles(k=1):
     cols = 8
-    img = Image.new("RGBA", (cols * T, ((len(TILES) + cols - 1) // cols) * T), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
+    img = Image.new("RGBA", (cols * T * k, ((len(TILES) + cols - 1) // cols) * T * k), (0, 0, 0, 0))
+    d = Pen(ImageDraw.Draw(img), k)
 
     def box(i):
         x, y = cell(img, i, cols)
@@ -133,10 +167,10 @@ HERO_COLOURS = [(200, 60, 60), (60, 120, 200), (60, 170, 90), (200, 170, 50), (1
 DIRS = ["north", "east", "south", "west"]
 
 
-def draw_heroes():
+def draw_heroes(scale=1):
     """Rows: one per colour (16); columns: standing and walking for each direction (8)."""
-    img = Image.new("RGBA", (8 * T, 16 * T), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
+    img = Image.new("RGBA", (8 * T * scale, 16 * T * scale), (0, 0, 0, 0))
+    d = Pen(ImageDraw.Draw(img), scale)
     for n, colour in enumerate(HERO_COLOURS):
         for k, direction in enumerate(DIRS):
             for w in (0, 1):
@@ -154,10 +188,10 @@ def draw_heroes():
     return img
 
 
-def tileset(name, image, cols, tiles, count):
-    return {"columns": cols, "image": f"../images/{image}", "imageheight": ((count + cols - 1) // cols) * T,
-            "imagewidth": cols * T, "margin": 0, "name": name, "spacing": 0, "tilecount": count,
-            "tiledversion": "1.11.2", "tileheight": T, "tilewidth": T, "type": "tileset", "version": "1.10",
+def tileset(name, image, cols, tiles, count, size=T):
+    return {"columns": cols, "image": f"../images/{image}", "imageheight": ((count + cols - 1) // cols) * size,
+            "imagewidth": cols * size, "margin": 0, "name": name, "spacing": 0, "tilecount": count,
+            "tiledversion": "1.11.2", "tileheight": size, "tilewidth": size, "type": "tileset", "version": "1.10",
             "tiles": tiles}
 
 
@@ -169,9 +203,9 @@ def screen(text, colour, path):
     img.save(path)
 
 
-def level(rows, start="east", props=None):
+def level(rows, start="east", props=None, prefix="demo", size=T, width=30, height=20):
     """A small Tiled level on the demo tiles (no auto-tiling: one tile per symbol)."""
-    width, height = 30, 20
+    T = size
     h, w = len(rows), max(len(r) for r in rows)
     ox, oy = (width - w) // 2, (height - h) // 2
     grid = [[" "] * width for _ in range(height)]
@@ -199,8 +233,8 @@ def level(rows, start="east", props=None):
     lvl = {"compressionlevel": -1, "height": height, "width": width, "infinite": False, "orientation": "orthogonal",
            "renderorder": "right-down", "tiledversion": "1.11.2", "tileheight": T, "tilewidth": T, "type": "map",
            "version": "1.10", "nextlayerid": 4, "nextobjectid": oid,
-           "tilesets": [{"firstgid": 1, "source": "../tilesets/demo_tiles.json"},
-                        {"firstgid": 25, "source": "../tilesets/demo_hero.json"}],
+           "tilesets": [{"firstgid": 1, "source": f"../tilesets/{prefix}_tiles.json"},
+                        {"firstgid": 25, "source": f"../tilesets/{prefix}_hero.json"}],
            "layers": [
                {"data": floor, "height": height, "id": 1, "name": "Floor", "opacity": 1, "type": "tilelayer",
                 "visible": True, "width": width, "x": 0, "y": 0},
@@ -217,8 +251,6 @@ def level(rows, start="east", props=None):
 def main():
     for sub in ("tilesets", "images", "levels"):
         os.makedirs(os.path.join(PACK, sub), exist_ok=True)
-    img, cols = draw_tiles()
-    img.save(os.path.join(PACK, "images", "demo_tiles.png"))
     tiles = []
     for i, (cls, props) in enumerate(TILES):
         entry = {"id": i}
@@ -229,21 +261,29 @@ def main():
                                    for k, v in props.items()]
         if len(entry) > 1:
             tiles.append(entry)
-    with open(os.path.join(PACK, "tilesets", "demo_tiles.json"), "w") as f:
-        json.dump(tileset("demo_tiles", "demo_tiles.png", cols, tiles, len(TILES)), f, indent=1)
-    draw_heroes().save(os.path.join(PACK, "images", "demo_hero.png"))
     hero_tiles = [{"id": n * 8 + k * 2 + w, "type": "Character",
                    "properties": [{"name": "state", "type": "string",
                                    "value": f"{'walking' if w else 'standing'}_{d}_{n}"}]}
                   for n in range(16) for k, d in enumerate(DIRS) for w in (0, 1)]
-    with open(os.path.join(PACK, "tilesets", "demo_hero.json"), "w") as f:
-        json.dump(tileset("demo_hero", "demo_hero.png", 8, hero_tiles, 128), f, indent=1)
+    for prefix, k in (("demo", 1), ("demo32", 2)):          # 16 px and 32 px tiles
+        img, cols = draw_tiles(k)
+        img.save(os.path.join(PACK, "images", f"{prefix}_tiles.png"))
+        with open(os.path.join(PACK, "tilesets", f"{prefix}_tiles.json"), "w") as f:
+            json.dump(tileset(f"{prefix}_tiles", f"{prefix}_tiles.png", cols, tiles, len(TILES), T * k), f, indent=1)
+        draw_heroes(k).save(os.path.join(PACK, "images", f"{prefix}_hero.png"))
+        with open(os.path.join(PACK, "tilesets", f"{prefix}_hero.json"), "w") as f:
+            json.dump(tileset(f"{prefix}_hero", f"{prefix}_hero.png", 8, hero_tiles, 128, T * k), f, indent=1)
     screen("DUNGEON CODER (demo pack)", (120, 200, 120), os.path.join(PACK, "images", "dungeon_coder.png"))
     screen("GAME OVER", (220, 80, 80), os.path.join(PACK, "images", "game_over.jpeg"))
     screen("DUNGEON COMPLETE", (230, 200, 80), os.path.join(PACK, "images", "dungeon_complete.jpeg"))
+    gang = ["########", "#H....Z#", "########"]
+    raum = ["##########", "#H...#...#", "#.##.T...#", "#........#", "#..~~...Z#", "##########"]
+    big = dict(prefix="demo32", size=32, width=15, height=10)       # 15 x 10 cells of 32 px: the same view
     levels = {
-        "demo_gang.json": level(["########", "#H....Z#", "########"]),
-        "demo_raum.json": level(["##########", "#H...#...#", "#.##.T...#", "#........#", "#..~~...Z#", "##########"]),
+        "demo_gang.json": level(gang),
+        "demo_raum.json": level(raum),
+        "demo32_gang.json": level(gang, **big),
+        "demo32_raum.json": level(raum, **big),
     }
     for name, data in levels.items():
         with open(os.path.join(PACK, "levels", name), "w") as f:
