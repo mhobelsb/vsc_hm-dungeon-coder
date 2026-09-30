@@ -1,4 +1,3 @@
-import { TILE_SIZE } from './tiles.js';
 import { GameObject } from './game-objects.js';
 
 export class Character extends GameObject {
@@ -37,6 +36,10 @@ export class Character extends GameObject {
         const all_states = Character.generateCombinedStrings(Character.STATES, Character.DIRECTIONS);
         super(objectDescription, tileFactory, Character.name, all_states);
         // Movement Properties
+        // Size of one cell in pixels. The level is the source of truth and sets it
+        // (setTileSize); until then the hero's own size stands in.
+        this.tileWidth = this.width;
+        this.tileHeight = this.height;
         this.targetX = this.x;        // Target pixel x-coordinate for current movement
         this.targetY = this.y;        // Target pixel y-coordinate for current movement
         this.movementProgress = 0;    // 0.0 to 1.0, progress along the current tile move
@@ -55,6 +58,12 @@ export class Character extends GameObject {
         this.SHRINK_RATE_PER_SECOND = 0.6;
         this.inventory = [] // TODO: Add items essential to survive: Towel, Baby Wipes and Tissues
         this.debugDraw = debugDraw;
+    }
+
+    /** The level's cell size in pixels: one step is one cell. */
+    setTileSize(tileWidth, tileHeight) {
+        this.tileWidth = tileWidth;
+        this.tileHeight = tileHeight;
     }
 
     setName(name) {
@@ -120,24 +129,25 @@ export class Character extends GameObject {
         let newTargetX = this.x;
         let newTargetY = this.y;
 
-        let centerOffset = center ? TILE_SIZE / 2 : 0;
+        const centerOffsetX = center ? this.tileWidth / 2 : 0;
+        const centerOffsetY = center ? this.tileHeight / 2 : 0;
 
         switch (direction) {
             case "north":
-                newTargetX += centerOffset;
-                newTargetY -= (TILE_SIZE + centerOffset);
+                newTargetX += centerOffsetX;
+                newTargetY -= (this.tileHeight + centerOffsetY);
                 break;
             case "south":
-                newTargetX += centerOffset;
-                newTargetY += TILE_SIZE - centerOffset;
+                newTargetX += centerOffsetX;
+                newTargetY += this.tileHeight - centerOffsetY;
                 break;
             case "west":
-                newTargetX -= TILE_SIZE - centerOffset;
-                newTargetY += -centerOffset;
+                newTargetX -= this.tileWidth - centerOffsetX;
+                newTargetY += -centerOffsetY;
                 break;
             case "east":
-                newTargetX += TILE_SIZE + centerOffset;
-                newTargetY -= centerOffset;
+                newTargetX += this.tileWidth + centerOffsetX;
+                newTargetY -= centerOffsetY;
                 break;
         }
 
@@ -189,8 +199,8 @@ export class Character extends GameObject {
         let current_y = this.y;
 
         if (centered) {
-            current_x += TILE_SIZE / 2;
-            current_y -= TILE_SIZE / 2;
+            current_x += this.tileWidth / 2;
+            current_y -= this.tileHeight / 2;
         }
 
         return [current_x, current_y];
@@ -199,18 +209,19 @@ export class Character extends GameObject {
     /** [col, row] of the cell the hero's centre is in (changes halfway through a step). */
     currentCell() {
         const [x, y] = this.getCurrentPosition(true);
-        return [Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE)];
+        return [Math.floor(x / this.tileWidth), Math.floor(y / this.tileHeight)];
     }
 
     /** [col, row] of the cell in front of the hero. */
     frontCell() {
         const [x, y] = this.getPositionInDirection(this.getDirection(), true);
-        return [Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE)];
+        return [Math.floor(x / this.tileWidth), Math.floor(y / this.tileHeight)];
     }
 
     /** The value of the first valued item (e.g. a crystal's weight) on a cell, or null. */
     itemValueAt(level, col, row) {
-        const objects = level.getObjectsAtPosition(col * TILE_SIZE + TILE_SIZE / 2, row * TILE_SIZE + TILE_SIZE / 2);
+        const objects = level.getObjectsAtPosition(
+            col * this.tileWidth + this.tileWidth / 2, row * this.tileHeight + this.tileHeight / 2);
         for (const object of objects) {
             if (object.type !== "Character" && object.visible !== false && Number.isInteger(object.value)) {
                 return object.value;

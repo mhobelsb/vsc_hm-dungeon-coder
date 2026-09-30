@@ -453,12 +453,12 @@ class Simulator:
         self.hero.state = f"standing_{direction}_{number}"
 
     def _centre(self):
-        return self.hero.x + TILE / 2, self.hero.y - TILE / 2
+        return self.hero.x + self.level.tw / 2, self.hero.y - self.level.th / 2
 
     def _front(self, distance=1):
         cx, cy = self._centre()
         dx, dy = OFFSETS[self.direction()]
-        return cx + dx * TILE * distance, cy + dy * TILE * distance
+        return cx + dx * self.level.tw * distance, cy + dy * self.level.th * distance
 
     def _in_front(self, name):
         px, py = self._front()
@@ -529,8 +529,8 @@ class Simulator:
             self.level.caught = True
         abyss = self.level.abyss_at(px, py)
         dx, dy = OFFSETS[self.direction()]
-        self.hero.x += dx * TILE
-        self.hero.y += dy * TILE
+        self.hero.x += dx * self.level.tw
+        self.hero.y += dy * self.level.th
         if abyss:
             self.falling = True
         self._count("moves")

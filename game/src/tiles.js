@@ -1,7 +1,5 @@
 import { loadFromPacks, packPath } from './assets.js';
 
-export const TILE_SIZE = 16;
-
 export class Tile {
     constructor(setTileId, image, imageHeight, imageWidth, x, y, width, height, tileDescription) {
         if (!tileDescription) {

@@ -90,6 +90,7 @@ export class Level {
 
         this.tileFactory = tileFactory;
         this.character = this.getObjectByName("MainCharacter");
+        this.character?.setTileSize(this.tileWidth, this.tileHeight);
         this.goal = this.getObjectByType("Goal");
         this.slots = this.findSlots();
         this.giveStartInventory();
