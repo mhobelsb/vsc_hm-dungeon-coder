@@ -5,7 +5,8 @@ A map file has an optional header, a line "---", and the map:
     start: north             # hero's start direction (default south)
     hero: 7                  # hero sprite 0-15 (default 7)
     style: dungeon           # tile style: dungeon (default), corridor, arena, bridge, maze;
-                             # other worlds: station (a hospital ward), studio (a light studio)
+                             # other worlds: station (a hospital ward), studio (a light studio),
+                             # werkstatt (a production hall), gelaende (a survey area)
     controls: 8,8 -> 25,10   # switch/torch at (8,8) toggles the object at (25,10); repeatable
     pattern: 5,2 = 101 @ 2,0 3,0 4,0   # door at (5,2) is open exactly while these torches show 101
     values: 5 3 8            # weights of the crystals K, in reading order (never drawn)
@@ -27,7 +28,10 @@ Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
 In another world the same symbols mean that world's things: in `station`, K is a bed
 (class "Bett"), * a sample ("Probe"), o a floor mark ("Markierung"), T a lamp, ~ stairs;
 in `studio`, K is a sketch ("Entwurf"), * a colour gel ("Farbfolie"), o a tape mark
-("Klebepunkt"), T one lamp of the display, ~ the edge of the stage.
+("Klebepunkt"), T one lamp of the display, ~ the edge of the stage; in `werkstatt`, K is a
+workpiece ("Teil"), * a load carrier ("Kiste"), o a floor mark ("Marke"), ~ a danger zone,
+W a person; in `gelaende`, K is a survey point ("Messpunkt"), * a soil sample
+("Bodenprobe"), o a stake ("Pflock"), # woods, ~ water.
 
 Coordinates are 0-based (column, row) in the map as written. The map is placed
 centred on the 30x20 game field; with "view: fit" the level is then cut to the map
@@ -123,6 +127,7 @@ class Pack:
         self.tile_size = 16     # pixels per field in the style's levels (their tilewidth)
         self.items = {}         # symbol -> (source, local, class): a world's own items for K, * and o
         self.world = None       # name of the world (not the dungeon): the game shows its end screens
+        self.guard_sprite = GUARD_SPRITE    # the figure number of the agents "W"
 
     # --- choosing tiles ----------------------------------------------------
     def candidates(self, key):
@@ -212,6 +217,7 @@ class Pack:
             **({"tile_size": self.tile_size} if self.tile_size != 16 else {}),
             **({"items": {k: list(v) for k, v in self.items.items()}} if self.items else {}),
             **({"world": self.world} if self.world else {}),
+            **({"guard_sprite": self.guard_sprite} if self.guard_sprite != GUARD_SPRITE else {}),
         }
 
     @classmethod
@@ -240,6 +246,7 @@ class Pack:
         pack.tile_size = data.get("tile_size", 16)
         pack.items = {k: tuple(v) for k, v in data.get("items", {}).items()}
         pack.world = data.get("world")
+        pack.guard_sprite = data.get("guard_sprite", GUARD_SPRITE)
         return pack
 
     @classmethod
@@ -341,7 +348,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
             elif ch == "o":
                 cls, tile = "Pebble", (ICON_SHEET, PEBBLE_TILE)
             elif ch == "W":
-                cls, tile = "Guard", pack.hero.get(f"south_{GUARD_SPRITE}")
+                cls, tile = "Guard", pack.hero.get(f"south_{pack.guard_sprite}")
             elif ch in OBJECT_CLASSES:
                 cls = OBJECT_CLASSES[ch]
                 tile = pack.object_tile(cls, context)
@@ -390,7 +397,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
             behaviour, direction = guard_specs.pop(o["cell"], ("patrol", "east"))
             o["properties"] = [{"name": "behaviour", "type": "string", "value": behaviour},
                                {"name": "direction", "type": "string", "value": direction}]
-            o["tile"] = pack.hero.get(f"{direction if behaviour == 'patrol' else 'south'}_{GUARD_SPRITE}") or o["tile"]
+            o["tile"] = pack.hero.get(f"{direction if behaviour == 'patrol' else 'south'}_{pack.guard_sprite}") or o["tile"]
     if guard_specs:
         x, y = next(iter(guard_specs))
         raise MapError(f"guards: no guard W at ({x - ox},{y - oy})")

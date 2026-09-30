@@ -1,0 +1,1425 @@
+{
+ "columns": 8,
+ "image": "../images/welt_gelaende_figur.png",
+ "imageheight": 512,
+ "imagewidth": 256,
+ "margin": 0,
+ "name": "welt_gelaende_figur",
+ "spacing": 0,
+ "tilecount": 128,
+ "tiledversion": "1.11.2",
+ "tileheight": 32,
+ "tilewidth": 32,
+ "type": "tileset",
+ "version": "1.10",
+ "tiles": [
+  {
+   "id": 0,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_0"
+    }
+   ]
+  },
+  {
+   "id": 1,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_0"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_0"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_0"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_0"
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_0"
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_0"
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_0"
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_1"
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_1"
+    }
+   ]
+  },
+  {
+   "id": 10,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_1"
+    }
+   ]
+  },
+  {
+   "id": 11,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_1"
+    }
+   ]
+  },
+  {
+   "id": 12,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_1"
+    }
+   ]
+  },
+  {
+   "id": 13,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_1"
+    }
+   ]
+  },
+  {
+   "id": 14,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_1"
+    }
+   ]
+  },
+  {
+   "id": 15,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_1"
+    }
+   ]
+  },
+  {
+   "id": 16,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_2"
+    }
+   ]
+  },
+  {
+   "id": 17,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_2"
+    }
+   ]
+  },
+  {
+   "id": 18,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_2"
+    }
+   ]
+  },
+  {
+   "id": 19,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_2"
+    }
+   ]
+  },
+  {
+   "id": 20,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_2"
+    }
+   ]
+  },
+  {
+   "id": 21,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_2"
+    }
+   ]
+  },
+  {
+   "id": 22,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_2"
+    }
+   ]
+  },
+  {
+   "id": 23,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_2"
+    }
+   ]
+  },
+  {
+   "id": 24,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_3"
+    }
+   ]
+  },
+  {
+   "id": 25,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_3"
+    }
+   ]
+  },
+  {
+   "id": 26,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_3"
+    }
+   ]
+  },
+  {
+   "id": 27,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_3"
+    }
+   ]
+  },
+  {
+   "id": 28,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_3"
+    }
+   ]
+  },
+  {
+   "id": 29,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_3"
+    }
+   ]
+  },
+  {
+   "id": 30,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_3"
+    }
+   ]
+  },
+  {
+   "id": 31,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_3"
+    }
+   ]
+  },
+  {
+   "id": 32,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_4"
+    }
+   ]
+  },
+  {
+   "id": 33,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_4"
+    }
+   ]
+  },
+  {
+   "id": 34,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_4"
+    }
+   ]
+  },
+  {
+   "id": 35,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_4"
+    }
+   ]
+  },
+  {
+   "id": 36,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_4"
+    }
+   ]
+  },
+  {
+   "id": 37,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_4"
+    }
+   ]
+  },
+  {
+   "id": 38,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_4"
+    }
+   ]
+  },
+  {
+   "id": 39,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_4"
+    }
+   ]
+  },
+  {
+   "id": 40,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_5"
+    }
+   ]
+  },
+  {
+   "id": 41,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_5"
+    }
+   ]
+  },
+  {
+   "id": 42,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_5"
+    }
+   ]
+  },
+  {
+   "id": 43,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_5"
+    }
+   ]
+  },
+  {
+   "id": 44,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_5"
+    }
+   ]
+  },
+  {
+   "id": 45,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_5"
+    }
+   ]
+  },
+  {
+   "id": 46,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_5"
+    }
+   ]
+  },
+  {
+   "id": 47,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_5"
+    }
+   ]
+  },
+  {
+   "id": 48,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_6"
+    }
+   ]
+  },
+  {
+   "id": 49,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_6"
+    }
+   ]
+  },
+  {
+   "id": 50,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_6"
+    }
+   ]
+  },
+  {
+   "id": 51,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_6"
+    }
+   ]
+  },
+  {
+   "id": 52,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_6"
+    }
+   ]
+  },
+  {
+   "id": 53,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_6"
+    }
+   ]
+  },
+  {
+   "id": 54,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_6"
+    }
+   ]
+  },
+  {
+   "id": 55,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_6"
+    }
+   ]
+  },
+  {
+   "id": 56,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_7"
+    }
+   ]
+  },
+  {
+   "id": 57,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_7"
+    }
+   ]
+  },
+  {
+   "id": 58,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_7"
+    }
+   ]
+  },
+  {
+   "id": 59,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_7"
+    }
+   ]
+  },
+  {
+   "id": 60,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_7"
+    }
+   ]
+  },
+  {
+   "id": 61,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_7"
+    }
+   ]
+  },
+  {
+   "id": 62,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_7"
+    }
+   ]
+  },
+  {
+   "id": 63,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_7"
+    }
+   ]
+  },
+  {
+   "id": 64,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_8"
+    }
+   ]
+  },
+  {
+   "id": 65,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_8"
+    }
+   ]
+  },
+  {
+   "id": 66,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_8"
+    }
+   ]
+  },
+  {
+   "id": 67,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_8"
+    }
+   ]
+  },
+  {
+   "id": 68,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_8"
+    }
+   ]
+  },
+  {
+   "id": 69,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_8"
+    }
+   ]
+  },
+  {
+   "id": 70,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_8"
+    }
+   ]
+  },
+  {
+   "id": 71,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_8"
+    }
+   ]
+  },
+  {
+   "id": 72,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_9"
+    }
+   ]
+  },
+  {
+   "id": 73,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_9"
+    }
+   ]
+  },
+  {
+   "id": 74,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_9"
+    }
+   ]
+  },
+  {
+   "id": 75,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_9"
+    }
+   ]
+  },
+  {
+   "id": 76,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_9"
+    }
+   ]
+  },
+  {
+   "id": 77,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_9"
+    }
+   ]
+  },
+  {
+   "id": 78,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_9"
+    }
+   ]
+  },
+  {
+   "id": 79,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_9"
+    }
+   ]
+  },
+  {
+   "id": 80,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_10"
+    }
+   ]
+  },
+  {
+   "id": 81,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_10"
+    }
+   ]
+  },
+  {
+   "id": 82,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_10"
+    }
+   ]
+  },
+  {
+   "id": 83,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_10"
+    }
+   ]
+  },
+  {
+   "id": 84,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_10"
+    }
+   ]
+  },
+  {
+   "id": 85,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_10"
+    }
+   ]
+  },
+  {
+   "id": 86,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_10"
+    }
+   ]
+  },
+  {
+   "id": 87,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_10"
+    }
+   ]
+  },
+  {
+   "id": 88,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_11"
+    }
+   ]
+  },
+  {
+   "id": 89,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_11"
+    }
+   ]
+  },
+  {
+   "id": 90,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_11"
+    }
+   ]
+  },
+  {
+   "id": 91,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_11"
+    }
+   ]
+  },
+  {
+   "id": 92,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_11"
+    }
+   ]
+  },
+  {
+   "id": 93,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_11"
+    }
+   ]
+  },
+  {
+   "id": 94,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_11"
+    }
+   ]
+  },
+  {
+   "id": 95,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_11"
+    }
+   ]
+  },
+  {
+   "id": 96,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_12"
+    }
+   ]
+  },
+  {
+   "id": 97,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_12"
+    }
+   ]
+  },
+  {
+   "id": 98,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_12"
+    }
+   ]
+  },
+  {
+   "id": 99,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_12"
+    }
+   ]
+  },
+  {
+   "id": 100,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_12"
+    }
+   ]
+  },
+  {
+   "id": 101,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_12"
+    }
+   ]
+  },
+  {
+   "id": 102,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_12"
+    }
+   ]
+  },
+  {
+   "id": 103,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_12"
+    }
+   ]
+  },
+  {
+   "id": 104,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_13"
+    }
+   ]
+  },
+  {
+   "id": 105,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_13"
+    }
+   ]
+  },
+  {
+   "id": 106,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_13"
+    }
+   ]
+  },
+  {
+   "id": 107,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_13"
+    }
+   ]
+  },
+  {
+   "id": 108,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_13"
+    }
+   ]
+  },
+  {
+   "id": 109,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_13"
+    }
+   ]
+  },
+  {
+   "id": 110,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_13"
+    }
+   ]
+  },
+  {
+   "id": 111,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_13"
+    }
+   ]
+  },
+  {
+   "id": 112,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_14"
+    }
+   ]
+  },
+  {
+   "id": 113,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_14"
+    }
+   ]
+  },
+  {
+   "id": 114,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_14"
+    }
+   ]
+  },
+  {
+   "id": 115,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_14"
+    }
+   ]
+  },
+  {
+   "id": 116,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_14"
+    }
+   ]
+  },
+  {
+   "id": 117,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_14"
+    }
+   ]
+  },
+  {
+   "id": 118,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_14"
+    }
+   ]
+  },
+  {
+   "id": 119,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_14"
+    }
+   ]
+  },
+  {
+   "id": 120,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_north_15"
+    }
+   ]
+  },
+  {
+   "id": 121,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_north_15"
+    }
+   ]
+  },
+  {
+   "id": 122,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_east_15"
+    }
+   ]
+  },
+  {
+   "id": 123,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_east_15"
+    }
+   ]
+  },
+  {
+   "id": 124,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_south_15"
+    }
+   ]
+  },
+  {
+   "id": 125,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_south_15"
+    }
+   ]
+  },
+  {
+   "id": 126,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "standing_west_15"
+    }
+   ]
+  },
+  {
+   "id": 127,
+   "type": "Character",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "walking_west_15"
+    }
+   ]
+  }
+ ]
+}

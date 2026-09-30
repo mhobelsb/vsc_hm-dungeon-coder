@@ -1,0 +1,215 @@
+{
+ "columns": 8,
+ "image": "../images/welt_gelaende_tiles.png",
+ "imageheight": 96,
+ "imagewidth": 256,
+ "margin": 0,
+ "name": "welt_gelaende_tiles",
+ "spacing": 0,
+ "tilecount": 18,
+ "tiledversion": "1.11.2",
+ "tileheight": 32,
+ "tilewidth": 32,
+ "type": "tileset",
+ "version": "1.10",
+ "tiles": [
+  {
+   "id": 3,
+   "type": "Abyss"
+  },
+  {
+   "id": 4,
+   "type": "Torch",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "burning"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "Torch",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "off"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "type": "Switch",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "left"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "type": "Switch",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "right"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "type": "Door",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "closed"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "type": "Door",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "open"
+    }
+   ]
+  },
+  {
+   "id": 10,
+   "type": "VerticalDoor",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "closed"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 11,
+   "type": "VerticalDoor",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "open"
+    }
+   ]
+  },
+  {
+   "id": 12,
+   "type": "Chest",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "closed"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 13,
+   "type": "Chest",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "open"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 14,
+   "type": "Goal",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "default"
+    }
+   ]
+  },
+  {
+   "id": 15,
+   "type": "Messpunkt",
+   "properties": [
+    {
+     "name": "item",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 16,
+   "type": "Bodenprobe",
+   "properties": [
+    {
+     "name": "item",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 17,
+   "type": "Pflock",
+   "properties": [
+    {
+     "name": "item",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  }
+ ]
+}
