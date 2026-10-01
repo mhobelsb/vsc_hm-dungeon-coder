@@ -66,7 +66,12 @@ export class HudRenderer {
         const width = REFERENCE_WIDTH * this.scale, height = REFERENCE_HEIGHT * this.scale;
         ctx.fillStyle = 'black';
         ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-        ctx.drawImage(image, (this.canvasWidth - width) / 2, (this.canvasHeight - height) / 2, width, height);
+        // only a loaded picture: while imageFromPacks() moves on from a pack that doesn't have
+        // it, the Image is "broken", and drawImage() on a broken Image throws, which would end
+        // the game loop for good (bug B22)
+        if (image.complete && image.naturalWidth > 0) {
+            ctx.drawImage(image, (this.canvasWidth - width) / 2, (this.canvasHeight - height) / 2, width, height);
+        }
     }
 
     /** Draws the "waiting for a level to be loaded" entry screen. */

@@ -32,7 +32,10 @@ export class GameObject {
 
         if (states) {
             states.forEach(state => {
-                let tile = tileFactory.getTileByTypeAndState(className, state);
+                // the state's tile from the object's own tileset first (a tall door opens
+                // into the tall open door, not into a field-sized one of another tileset)
+                let tile = tileFactory.getTilesetByGlobalTileId(gid)?.getTileByTypeAndState(className, state)
+                    || tileFactory.getTileByTypeAndState(className, state);
                 if (!tile) {
                     console.error(`Tile with type/class "${className}" and state "${state} not found!`);
                 }

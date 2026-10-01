@@ -251,8 +251,13 @@ class Pack:
 
     @classmethod
     def load(cls, style):
-        path = os.path.join(PACK_DIR, f"{style}.json")
-        if not os.path.exists(path):
+        """The pack of a style. An asset pack in DC_ASSET_PACKS may bring its own packs
+        (styles/<style>.json, first pack wins, as for tilesets in the game): so a private
+        pack can draw a style with other art than the one shipped here."""
+        folders = [os.path.join(p, "styles") for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]
+        path = next((os.path.join(d, f"{style}.json") for d in folders + [PACK_DIR]
+                     if os.path.exists(os.path.join(d, f"{style}.json"))), None)
+        if path is None:
             styles = sorted(f[:-5] for f in os.listdir(PACK_DIR) if f.endswith(".json") and f != "tilesets.json")
             raise MapError(f"unknown style {style!r}; available: {', '.join(styles)}")
         with open(path, encoding="utf-8") as f:

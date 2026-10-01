@@ -359,9 +359,7 @@ export class DungeonCoderServer {
 
     /** Folders of the asset packs from the setting dungeonCoder.assetPacks (D8a). */
     private assetPackUris(): vscode.Uri[] {
-        const folders = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks', []);
-        const base = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-        return folders.map(folder => vscode.Uri.file(path.isAbsolute(folder) ? folder : path.join(base, folder)));
+        return assetPackFolders().map(folder => vscode.Uri.file(folder));
     }
 
     /** Load HTML with CSP */
@@ -404,11 +402,41 @@ export class DungeonCoderServer {
     }
 }
 
+/** The setting dungeonCoder.assetPacks as absolute folders (relative ones start at the workspace folder). */
+function assetPackFolders(): string[] {
+    const folders = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks', []);
+    const base = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+    return folders.map(folder => (path.isAbsolute(folder) ? folder : path.join(base, folder)));
+}
+
+/**
+ * The asset packs reach the student's Python too: every new integrated terminal gets
+ * DC_ASSET_PACKS, which Game("karte.txt") (a pack's own style packs) and the simulator
+ * (its tile rules) read. Follows changes of the setting.
+ */
+function shareAssetPacks(context: vscode.ExtensionContext) {
+    const update = () => {
+        const folders = assetPackFolders();
+        if (folders.length > 0) {
+            context.environmentVariableCollection.replace('DC_ASSET_PACKS', folders.join(path.delimiter));
+        } else {
+            context.environmentVariableCollection.delete('DC_ASSET_PACKS');
+        }
+    };
+    update();
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('dungeonCoder.assetPacks')) {
+            update();
+        }
+    }));
+}
+
 // ------------------------------------------------------------
 // VSCode activate function using the Singleton
 // ------------------------------------------------------------
 export function activate(context: vscode.ExtensionContext) {
     const server = DungeonCoderServer.getInstance();
+    shareAssetPacks(context);
 
     const startGame = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', async () => {
         let ret = await server.createWebview(context);
