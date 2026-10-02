@@ -77,7 +77,9 @@
     "lint": "eslint src game/src game/test tools",
     "test:engine": "node --test game/test/engine.test.mjs",
     "test": "vscode-test",
-    "dev:browser": "npm run generate:commands && node tools/dev-server.mjs"
+    "dev:browser": "npm run generate:commands && node tools/dev-server.mjs",
+    "check:version": "node tools/check-version.mjs",
+    "build:wheel": "npm run generate:api-config && npm run check:version && python3 -m pip wheel --no-deps -w out/wheel api/python"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
