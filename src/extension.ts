@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { readFileSync, writeFileSync, constants as fsConstants } from 'fs';
+import { existsSync, readFileSync, writeFileSync, constants as fsConstants } from 'fs';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import * as OpenApiValidator from 'express-openapi-validator';
 import { Server } from 'http';
@@ -409,6 +409,25 @@ function assetPackFolders(): string[] {
     return folders.map(folder => (path.isAbsolute(folder) ? folder : path.join(base, folder)));
 }
 
+/** The folders among `folders` that don't exist (a pack named in the settings but not cloned). */
+export function missingFolders(folders: string[]): string[] {
+    return folders.filter(folder => !existsSync(folder));
+}
+
+/**
+ * An exercise names its pack in .vscode/settings.json, e.g. "../dungeon-coder-assets", and
+ * the student clones the pack next to the exercise folders. Say so if that step was missed;
+ * otherwise the first level would only fail with "Missing tileset".
+ */
+function warnAboutMissingAssetPacks() {
+    const missing = missingFolders(assetPackFolders());
+    if (missing.length > 0) {
+        vscode.window.showWarningMessage(
+            `Asset pack not found: ${missing.join(', ')}. `
+            + 'Clone it there, or change the setting dungeonCoder.assetPacks; then close the game tab and start it again.');
+    }
+}
+
 /**
  * The asset packs reach the student's Python too: every new integrated terminal gets
  * DC_ASSET_PACKS, which Game("karte.txt") (a pack's own style packs) and the simulator
@@ -443,6 +462,7 @@ export function activate(context: vscode.ExtensionContext) {
         ret = ret && server.startServer(context.extensionPath);
         if (ret) {
             vscode.window.showInformationMessage('Enter the dungeon!');
+            warnAboutMissingAssetPacks();
         } else {
             vscode.window.showErrorMessage("Error: Dungeon Coder could not be started.");
         }

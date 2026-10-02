@@ -8,6 +8,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **The Python package as a wheel**: `api/python/pyproject.toml` builds `dungeoncoder` (with its style packs) at the extension's version (`dungeoncoder.__version__`); `npm run build:wheel`, `npm run check:version`. It installs with pip from the repository too (`#subdirectory=api/python`).
+- When the game starts, a folder in `dungeonCoder.assetPacks` that doesn't exist (a course pack that wasn't cloned) is named in a warning.
+- **Integration tests in VS Code**: `npm test` opens a fixture exercise folder that names the demo pack in its `.vscode/settings.json` (relative path), starts the game and loads a level of the pack. The test VS Code is kept in `~/.cache/vscode-test` (`npm run test:download`).
 - **Mirrored tiles**: the game draws Tiled's flip flags (horizontal, vertical, diagonal) on tile layers and objects; a mirrored tile keeps its rules (wall, abyss, goal). A door that changes state stays mirrored. The simulator ignores the flags, as before, for the rules.
 - **Text maps: decoration and size**: `x` an obstacle (a wall for the rules, drawn as furniture, crates, a rock), `,` a path, `"` a small detail, and the header `deko: N` scatters details on N % of the plain floor and walls (seeded, the same map always looks the same). Maps may be larger than 30 x 20; the field grows with the map. The goal is drawn facing the way the hero comes in, where the style has exits for four directions.
 - Asset packs can bring their own text-map styles (`styles/<style>.json`), which `Game("karte.txt")` prefers; the extension passes `dungeonCoder.assetPacks` to new terminals as `DC_ASSET_PACKS`.

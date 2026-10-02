@@ -59,9 +59,15 @@ npm run compile         # development build -> dist/extension.js (also: watch, p
 npm run lint            # eslint on src, game/src, game/test, tools
 npm run test:engine     # unit tests of the game's rules in Node (no browser, demo pack)
 npm run compile-tests   # type check
+npm run check:version   # package.json, dungeoncoder.__version__ and openapi.yaml agree
+npm run build:wheel     # the Python package dungeoncoder as a wheel -> out/wheel/
+npm run test:download   # once: VS Code for the integration tests -> ~/.cache/vscode-test
+npm test                # integration tests in a real VS Code (src/test/)
 ```
 
-`compile`, `watch` and `package` first run `npm run generate`, which derives from **`api/openapi.yaml`, the single source of truth for the REST API**: `game/src/commands.js` (command registry and route table for both servers), `src/generated/api-types.d.ts`, `game/src/api-config.js` and `api/python/dungeoncoder/_api_config.py`. They are not committed. The low-level Python client `api/python/dungeoncoder/_generated/` is committed (students need no code generator); regenerate it after changing the spec with `npm run generate:python-client` (creates its own venv in `.codegen-venv/`). `npm test` runs the VS Code test runner, which holds only a sample test so far.
+`compile`, `watch` and `package` first run `npm run generate`, which derives from **`api/openapi.yaml`, the single source of truth for the REST API**: `game/src/commands.js` (command registry and route table for both servers), `src/generated/api-types.d.ts`, `game/src/api-config.js` and `api/python/dungeoncoder/_api_config.py`. Only the last one is committed (a `pip install` from git can't run the generator). The low-level Python client `api/python/dungeoncoder/_generated/` is committed (students need no code generator); regenerate it after changing the spec with `npm run generate:python-client` (creates its own venv in `.codegen-venv/`). `npm test` runs the VS Code test runner on `test-fixtures/side-by-side/exercise`, an exercise folder whose `.vscode/settings.json` names an asset pack by a relative path: it starts the game and loads a level of that pack over the REST API.
+
+**The Python package** lives in `api/python/` (`pyproject.toml`) and has the extension's version. Install it with `pip install "git+<repo URL>#subdirectory=api/python"` or from a wheel built by `npm run build:wheel`. The command "Copy Python API to workspace" still copies it into a workspace (offline use); a copied folder sits next to the scripts and wins over an installed package.
 
 **Run in VS Code:** press **F5** (needs the recommended extension `amodio.tsl-problem-matcher`; without it the window may report "Extension host did not start in 10 seconds"), or `code --extensionDevelopmentPath="$PWD" <folder>` after `npm run compile`. Close the game tab of an installed Dungeon Coder first, since both use port 3000. For the game canvas, use "Developer: Open Webview Developer Tools".
 

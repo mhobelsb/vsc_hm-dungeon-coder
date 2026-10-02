@@ -1,0 +1,73 @@
+import * as assert from 'assert';
+import { readFileSync } from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+
+// The workspace is test-fixtures/side-by-side/exercise (.vscode-test.mjs). Its
+// .vscode/settings.json names the demo pack by a relative path and sets the port.
+const PORT = 3197;
+const DEMO_PACK = path.resolve(__dirname, '..', '..', 'packs', 'demo');
+
+async function loadLevel(level: object): Promise<{ status: number; body: string }> {
+    const response = await fetch(`http://127.0.0.1:${PORT}/level/load`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(level),
+    });
+    return { status: response.status, body: await response.text() };
+}
+
+/** Retries while the game in the webview is still starting. */
+async function loadLevelWhenReady(level: object): Promise<{ status: number; body: string }> {
+    let last = { status: 0, body: 'no answer' };
+    for (let attempt = 0; attempt < 40; attempt++) {
+        try {
+            last = await loadLevel(level);
+            if (last.status === 200 || last.body.includes('Missing tileset')) {
+                return last;
+            }
+        } catch (err) {
+            last = { status: 0, body: String(err) };
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return last;
+}
+
+suite('Asset pack next to the exercise folder (P3)', () => {
+    suiteSetup(async () => {
+        await vscode.commands.executeCommand('vscode-dungeon-coder.startGame');
+    });
+
+    test('the relative path starts at the workspace folder', () => {
+        const extension = vscode.extensions.all.find(e => e.id.endsWith('.vscode-dungeon-coder'));
+        assert.ok(extension, 'extension not found');
+        const settings = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks');
+        assert.deepStrictEqual(settings, ['../../../packs/demo']);
+        const workspace = vscode.workspace.workspaceFolders![0].uri.fsPath;
+        assert.strictEqual(path.resolve(workspace, settings![0]), DEMO_PACK);
+    });
+
+    test('a level of the pack loads', async () => {
+        const level = JSON.parse(readFileSync(path.join(DEMO_PACK, 'levels', 'demo_gang.json'), 'utf8'));
+        const result = await loadLevelWhenReady(level);
+        assert.strictEqual(result.status, 200, result.body);
+    });
+
+    test('a tileset no pack has is refused (control)', async () => {
+        const level = JSON.parse(readFileSync(path.join(DEMO_PACK, 'levels', 'demo_gang.json'), 'utf8'));
+        level.tilesets[0].source = '../tilesets/kein_pack_hat_das.json';
+        const result = await loadLevelWhenReady(level);
+        assert.notStrictEqual(result.status, 200);
+        assert.ok(result.body.includes('kein_pack_hat_das.json'), result.body);
+    });
+});
+
+suite('A pack named in the settings but not cloned', () => {
+    test('is reported as missing', () => {
+        const { missingFolders } = require('../extension') as typeof import('../extension');
+        const workspace = vscode.workspace.workspaceFolders![0].uri.fsPath;
+        const notCloned = path.join(workspace, '..', 'dungeon-coder-assets');
+        assert.deepStrictEqual(missingFolders([DEMO_PACK, notCloned]), [notCloned]);
+    });
+});
