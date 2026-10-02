@@ -76,6 +76,7 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src game/src game/test tools",
     "test:engine": "node --test game/test/engine.test.mjs",
+    "test:tools": "python3 tools/levels/test_level_tools.py",
     "test": "vscode-test",
     "test:download": "node -e \"require('@vscode/test-electron').downloadAndUnzipVSCode({cachePath: require('os').homedir() + '/.cache/vscode-test', version: '1.140.0'}).then(console.log)\"",
     "dev:browser": "npm run generate:commands && node tools/dev-server.mjs",

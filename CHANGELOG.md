@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Level tools** in `tools/levels/`: `level2ascii.py`, `level2png.py`, `check_level.py`, `run_sim.py`, `run_headless.py` and their shared level model `dclevel.py`, for anyone building levels; tilesets come from `DC_ASSET_PACKS`, then the engine's assets. `npm run test:tools` checks them on the demo pack.
 - **The Python package as a wheel**: `api/python/pyproject.toml` builds `dungeoncoder` (with its style packs) at the extension's version (`dungeoncoder.__version__`); `npm run build:wheel`, `npm run check:version`. It installs with pip from the repository too (`#subdirectory=api/python`).
 - When the game starts, a folder in `dungeonCoder.assetPacks` that doesn't exist (a course pack that wasn't cloned) is named in a warning.
 - **Integration tests in VS Code**: `npm test` opens a fixture exercise folder that names the demo pack in its `.vscode/settings.json` (relative path), starts the game and loads a level of the pack. The test VS Code is kept in `~/.cache/vscode-test` (`npm run test:download`).

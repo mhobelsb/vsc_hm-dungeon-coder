@@ -92,6 +92,7 @@ The dev server serves the same REST API and game page as the extension and relay
 | `api/python/dungeoncoder/` | the Python package: `dungeoncoder.py` (`Game`, `Hero`), `sim.py` (simulator), `asciimap.py` (text maps), `generator.py` (mazes), `testing.py` (pytest), `packs/` (text-map styles and tile rules) |
 | `packs/demo/` | the CC0 demo pack |
 | `tools/` | code generators, the dev server, `make_demo_pack.py`, `make_world_art.py` |
+| `tools/levels/` | level tools for anyone building levels (Python; tilesets from `DC_ASSET_PACKS`, then `game/assets`): `level2ascii.py` (a level as a text map), `level2png.py` (a level as a picture, with grid, marks and paths; needs Pillow), `check_level.py` (check a level by the game's rules; with two levels: did only the look change?), `run_sim.py` (run a script in the simulator), `run_headless.py` (run a script against the dev server in headless Chrome; needs Playwright); `npm run test:tools` checks them on the demo pack |
 
 ### Adding an API command
 
