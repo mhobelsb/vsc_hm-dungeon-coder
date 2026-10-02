@@ -26,6 +26,17 @@ export class TileRenderer {
 
         // Rotate the canvas
         ctx.rotate(angle);
+        // Tiled's flip flags: the picture is swapped diagonally first, then mirrored
+        // horizontally, then vertically (canvas transforms apply in reverse order)
+        if (tile.flipV) {
+            ctx.scale(1, -1);
+        }
+        if (tile.flipH) {
+            ctx.scale(-1, 1);
+        }
+        if (tile.flipD) {
+            ctx.transform(0, 1, 1, 0, 0, 0);
+        }
 
         // Draw the image centered at (0, 0)
         ctx.drawImage(tile.image,

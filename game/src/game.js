@@ -72,8 +72,9 @@ export class Game {
     }
 
     async loadLevel(levelData) {
-        this.statistics.reset();
+        // a level that can't be built (e.g. a missing tileset) throws here and leaves the old one
         this.level = await Level.create(levelData, this.pathPrefix);
+        this.statistics.reset();
         const width = this.level.width * this.level.tileWidth, height = this.level.height * this.level.tileHeight;
         if (width > 0 && height > 0 && (width !== this.viewWidth || height !== this.viewHeight)) {
             this.setViewSize(width, height);
@@ -138,7 +139,10 @@ export class Game {
                 if (this.level) {
                     this.level.update(this.FIXED_TIME_STEP);
                     this.fog.update(this.FIXED_TIME_STEP);
-                    this.fog.markPresent(...this.character.currentCell());
+                    // a level without a hero must not end the game loop for good (bug B23)
+                    if (this.character) {
+                        this.fog.markPresent(...this.character.currentCell());
+                    }
                 }
             }
             this.updatesThisSecond++;

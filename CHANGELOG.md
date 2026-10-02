@@ -8,6 +8,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Mirrored tiles**: the game draws Tiled's flip flags (horizontal, vertical, diagonal) on tile layers and objects; a mirrored tile keeps its rules (wall, abyss, goal). A door that changes state stays mirrored. The simulator ignores the flags, as before, for the rules.
+- **Text maps: decoration and size**: `x` an obstacle (a wall for the rules, drawn as furniture, crates, a rock), `,` a path, `"` a small detail, and the header `deko: N` scatters details on N % of the plain floor and walls (seeded, the same map always looks the same). Maps may be larger than 30 x 20; the field grows with the map. The goal is drawn facing the way the hero comes in, where the style has exits for four directions.
+- Asset packs can bring their own text-map styles (`styles/<style>.json`), which `Game("karte.txt")` prefers; the extension passes `dungeonCoder.assetPacks` to new terminals as `DC_ASSET_PACKS`.
 - **Port setting**: `dungeonCoder.port` (default 3000) lets a second Dungeon Coder run next to another one. The extension writes the port to `.dungeoncoder-port` in the workspace, and the Python package finds it there (or in `DUNGEONCODER_PORT`). The "port in use" message now says what is probably running and how to switch.
 - Both servers (extension and dev server) register their routes from one table generated from `api/openapi.yaml` (`ROUTES` in `game/src/commands.js`) instead of two hand-kept lists.
 - **The view follows the level**: the game view is as large as the level (`width` x `tilewidth`, `height` x `tileheight`) instead of a fixed 480 x 320. Levels of 30 x 20 cells of 16 px look as before; a smaller level (e.g. 15 x 10 cells) fills the panel with larger cells, a larger one is shown completely. Texts, banners and the title/end pictures scale with the view; the pictures keep their shape and are centred. The canvas carries `data-view-width`/`data-view-height`.
@@ -44,6 +47,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- A level that names a tileset no asset pack has (for example a course level while `dungeonCoder.assetPacks` is not set) was reported as loaded and showed a broken level; the simulator even played it without walls. The game and the simulator now refuse it, `Game()` prints which tileset is missing and which setting to change, and the previous level stays loaded.
+- A level without a hero (`MainCharacter`) stopped the game loop for good; every level loaded afterwards stayed frozen.
+- With asset packs, a screen picture drawn while it was still being looked up in the packs stopped the game loop for good (black canvas).
 - A floor drawn over an abyss background counted as abyss: walking through e.g. `playground.json`'s door made the hero fall, and `is_abyss_in_front()` was `True` in front of most walls. Now only an Abyss tile with nothing drawn over it is an abyss.
 - While the hero was falling into an abyss (the 3 s before "Game over"), actions were still accepted; a `move()` could start a step that never finished. Actions are now refused from the moment the hero falls.
 - `pickup()` and `drop()` returned `False` even when they succeeded.

@@ -1,5 +1,6 @@
 import { Game, GAME_WIDTH, GAME_HEIGHT } from './game.js';
 import { COMMANDS } from './commands.js';
+import { MissingTilesetError } from './tiles.js';
 
 let vscode = null;
 
@@ -85,7 +86,16 @@ function loadFileAsync(file) {
     // transport-level error (JSON-RPC `error`), not a business outcome.
     const HANDLERS = {
         [COMMANDS.LOAD_LEVEL]: async (game, character, params) => {
-            const result = await game.loadLevel(params);
+            let result;
+            try {
+                result = await game.loadLevel(params);
+            } catch (error) {
+                if (error instanceof MissingTilesetError) {
+                    console.error(error.message);
+                    return { success: false, message: error.message, result: false };
+                }
+                throw error;
+            }
             canvas.focus();
             return { success: result, message: result ? "Parsing level successful." : "Parsing level failed.", result };
         },

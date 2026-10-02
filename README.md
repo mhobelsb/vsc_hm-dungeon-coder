@@ -1,85 +1,100 @@
-# VS Code Dungeon Coder
+# Dungeon Coder
 
-This VS Code extension provides a gamified environment where students write simple algorithms to control a hero and navigate a challenging dungeon.
-
-*Note: This is still under development.*
+A VS Code extension in which you steer a hero through a pixel-art dungeon **with a Python program**. The game runs in a VS Code tab; your script sends it commands such as `hero.move()` over a local REST API and gets answers such as `True` or `False`. It was built for a first-semester course on computational thinking at Munich University of Applied Sciences, where the exercises train both programming and critical thinking: predict before you run, test on levels you haven't seen, measure instead of believing.
 
 ![](game/assets/images/dungeon_coder.png)
 
-## Prerequisites
+## Using it
 
-- [Node.js](https://nodejs.org/) 18+ and npm
-- [Visual Studio Code](https://code.visualstudio.com/) 1.102+
-- Python 3
+**Install:** Python 3.10+, VS Code 1.102+, this extension, and the VS Code Python extension.
 
-## Install
+**First program**, in a folder opened in VS Code:
+
+1. Command palette (`Ctrl/Cmd+Shift+P`) → **Dungeon Coder: Copy Python API to workspace**. This creates the folder `dungeoncoder/`; then `pip install -r dungeoncoder/requirements.txt` (in a virtual environment).
+2. Command palette → **Dungeon Coder: Enter the dungeon**. The game opens in a tab and listens on `http://127.0.0.1:3000`.
+3. Write a level as text (`karte.txt`; `#` wall, `.` floor, `H` hero, `Z` exit) and a script, and run it:
+
+```text
+start: east
+---
+######
+#H...#
+#...Z#
+######
+```
+
+```python
+from dungeoncoder import Game
+
+game = Game("karte.txt")          # a text map, or a Tiled level (.json)
+hero = game.get_hero()
+while not hero.is_collision_in_front():
+    hero.move()
+print(game.get_statistics()["moves"])
+```
+
+**The hero only senses the field in front of it** (`is_collision_in_front()`, `is_abyss_in_front()`, `is_switch_in_front()`, `is_torch_in_front()`, `is_enemy_in_front()`, `is_at_goal()`, `get_items_at_position()`, …) and acts with `move()`, `turn_left()`, `interact()`, `pickup(name)`, `drop(name)`. There is deliberately no `turn_right()` and no `get_position()`: building those yourself is part of the learning. Every method has a docstring; `help(hero)` lists them. Business outcomes never raise: a blocked step returns `False`.
+
+**Without VS Code:** `dungeoncoder.use_simulator()` (or `DUNGEONCODER_SIM=1`) runs the same script in a pure-Python simulator of the game's rules: no window, no waiting, the same answers. That is what automatic grading and `pytest` use (`dungeoncoder.testing.spiel(map_text)` gives `(game, hero)` for a test).
+
+**Settings:**
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `dungeonCoder.assetPacks` | `[]` | folders with asset packs (tilesets, images, text-map styles), searched before the extension's own pictures; relative paths start at the workspace folder |
+| `dungeonCoder.port` | `3000` | the API port; scripts in the workspace find it through `.dungeoncoder-port` (or `DUNGEONCODER_PORT`) |
+
+## Levels and asset packs
+
+- **Levels** are [Tiled](https://www.mapeditor.org/) maps (JSON), or text maps that `Game("x.txt")` turns into one. Map properties switch on the game's mechanics: `fog` (`explored`/`dark`), `keyboard: false`, `win` (`all_sweets`, `all_switches`, `sorted`, `stable`), `inventory_size`, `hero_inventory`, `fernrohr`, `orakel`, and more; text maps write them as header lines. `Game.generate(seed, kind="maze")` builds a seeded maze.
+- **Asset packs** hold the pictures: a folder with `tilesets/`, `images/`, optionally `styles/` (text-map styles) and a `pack.json`. A tile's class (`Torch`, `Switch`, `Door`, `Goal`, `Abyss`, …) and its properties (`collision`, `state`, `item`) give it its rules, so a pack can redraw the whole game without touching levels or code. The free **demo pack** in `packs/demo/` (CC0, drawn by `tools/make_demo_pack.py`, 16 px and 32 px tiles) shows the format. A level whose tilesets no pack has is refused with a message naming the missing tileset.
+
+## Developing
+
+**Prerequisites:** Node.js 18+ and npm, VS Code 1.102+, Python 3.
 
 ```bash
 npm install
+npm run compile         # development build -> dist/extension.js (also: watch, package)
+npm run lint            # eslint on src, game/src, game/test, tools
+npm run test:engine     # unit tests of the game's rules in Node (no browser, demo pack)
+npm run compile-tests   # type check
 ```
 
-The bundled `dungeoncoder` Python package (the one copied into a student's workspace by the "Copy Python API to workspace" command) already ships pre-generated, so no Python setup is needed just to work on the extension.
+`compile`, `watch` and `package` first run `npm run generate`, which derives from **`api/openapi.yaml`, the single source of truth for the REST API**: `game/src/commands.js` (command registry and route table for both servers), `src/generated/api-types.d.ts`, `game/src/api-config.js` and `api/python/dungeoncoder/_api_config.py`. They are not committed. The low-level Python client `api/python/dungeoncoder/_generated/` is committed (students need no code generator); regenerate it after changing the spec with `npm run generate:python-client` (creates its own venv in `.codegen-venv/`). `npm test` runs the VS Code test runner, which holds only a sample test so far.
 
-## Build
+**Run in VS Code:** press **F5** (needs the recommended extension `amodio.tsl-problem-matcher`; without it the window may report "Extension host did not start in 10 seconds"), or `code --extensionDevelopmentPath="$PWD" <folder>` after `npm run compile`. Close the game tab of an installed Dungeon Coder first, since both use port 3000. For the game canvas, use "Developer: Open Webview Developer Tools".
+
+**Run in a browser** (faster loop, no VS Code):
 
 ```bash
-npm run compile   # development build -> dist/extension.js
-npm run watch     # development build, rebuilds on every change
-npm run package   # production build (minified), used when packaging the extension
+DC_PORT=3100 DC_ASSET_PACKS=packs/demo npm run dev:browser
+# open http://127.0.0.1:3100/index.html, then run scripts with
+DUNGEONCODER_PORT=3100 python my_script.py
 ```
 
-All three first run `npm run generate`, which derives several files from `api/openapi.yaml` - the single source of truth for the REST API:
+The dev server serves the same REST API and game page as the extension and relays to the browser tab over a WebSocket on port 8000 (fixed, so one dev server at a time).
 
-- `game/src/commands.js` - the RPC command registry shared by the extension host, the webview, and the standalone dev server
-- `src/generated/api-types.d.ts` - TypeScript types for the Express API
-- `game/src/api-config.js` - the API host/port
+### Layout
 
-These are regenerated automatically on every build; you never need to run `npm run generate` by hand.
+| Path | What |
+|---|---|
+| `src/extension.ts` | extension host: webview, REST server (Express), settings, commands |
+| `game/src/` | the game (ES modules): `game.js` loop and states, `level.js` layers and rules, `character.js` hero and the API facade with statistics, `game-objects.js` objects, `fog.js`, `assets.js` pack lookup, `rendering/` drawing only |
+| `game/test/` | Node unit tests for the rules (`npm run test:engine`) |
+| `api/openapi.yaml` | the REST API |
+| `api/python/dungeoncoder/` | the Python package: `dungeoncoder.py` (`Game`, `Hero`), `sim.py` (simulator), `asciimap.py` (text maps), `generator.py` (mazes), `testing.py` (pytest), `packs/` (text-map styles and tile rules) |
+| `packs/demo/` | the CC0 demo pack |
+| `tools/` | code generators, the dev server, `make_demo_pack.py`, `make_world_art.py` |
 
-Type-check and lint separately with:
+### Adding an API command
 
-```bash
-npm run compile-tests   # tsc, no emit beyond out/
-npm run lint             # eslint src game/src game/test tools
-npm run test:engine      # unit tests of the game's rules (Node, no browser, demo pack)
-```
+1. Add the path to `api/openapi.yaml`, then `npm run generate`.
+2. Add a handler in `game/src/script.js` (`HANDLERS`) and the logic in `CharacterInterface` or the engine. Both servers create routes from the spec; only a command that needs special handling after success gets an entry in their `afterSuccess` tables.
+3. `npm run generate:python-client`, then a wrapper method with a docstring in `api/python/dungeoncoder/dungeoncoder.py`.
+4. **Port the rule to the simulator** (`sim.py`, a `cmd_<operationId>` method) and check that game and simulator answer every call the same way.
+5. Add a unit test in `game/test/`, and a CHANGELOG entry.
 
-## Run & Debug
+## Licence
 
-Press **F5** in VS Code (or Run → Start Debugging). The build task's problem matcher comes from the recommended VS Code extension `amodio.tsl-problem-matcher`; install it first (without it the new window may report "Extension host did not start in 10 seconds"). Without a debugger, `code --extensionDevelopmentPath="$PWD" <folder>` after `npm run compile` opens the same window. This runs the default build task (`npm: watch`) and opens a new **Extension Development Host** window with the extension loaded.
-
-In that new window:
-
-1. Open the Command Palette (`Cmd/Ctrl+Shift+P`).
-2. Run **"Dungeon Coder: Enter the dungeon"** - opens the game webview and starts the REST API on `http://127.0.0.1:3000`.
-3. Run **"Dungeon Coder: Copy Python API to workspace"** to drop the `dungeoncoder` package into your open folder, then write a Python script that imports it to drive the hero.
-
-Breakpoints in `src/extension.ts` are hit in the Extension Development Host, and the Debug Console shows its `console.log` output. To inspect the webview itself (the game canvas), use the Command Palette's "Developer: Open Webview Developer Tools" while the game panel is open.
-
-### Faster iteration loop
-
-Relaunching the Extension Development Host on every change is slow. To iterate on the game engine or the API without VS Code in the loop:
-
-```bash
-npm run dev:browser
-```
-
-Then open `http://127.0.0.1:3000/index.html` in a regular browser tab. If an installed Dungeon Coder extension already holds port 3000, start it with `DC_PORT=3100 npm run dev:browser` instead and set `Game.BASE_URL = "http://127.0.0.1:3100"` in the Python script. This serves the same REST API and game page as the real extension, and can be driven by any Python script pointed at `http://127.0.0.1:3000`.
-
-## Tests
-
-```bash
-npm test
-```
-
-Runs the VS Code extension test suite via `@vscode/test-cli`.
-
-## Regenerating the Python API client (advanced)
-
-`api/python/dungeoncoder/_generated/` is a committed, pre-generated client (from `api/openapi.yaml`) that ships with the extension so students never need a codegen toolchain themselves. If you change `api/openapi.yaml`, regenerate it with:
-
-```bash
-npm run generate:python-client
-```
-
-This needs Python 3 - it creates its own virtual environment at `.codegen-venv/` and installs `openapi-python-client` into it, nothing is installed system-wide.
+Code: MIT (`LICENSE.txt`). Demo pack: CC0 (`packs/demo/LICENSE.md`). Based on Dungeon Coder 0.1 by Benedikt Dietrich, Munich University of Applied Sciences.

@@ -63,6 +63,20 @@ def _rules():
     return _rules_cache
 
 
+def missing_tileset_message(sources):
+    """Same wording as the game (game/src/tiles.js, missingTilesetMessage)."""
+    return (f"Missing tileset {', '.join(sources)}: no asset pack has it. "
+            "Add the asset pack to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).")
+
+
+class MissingTileset(Exception):
+    """A level names tilesets that no asset pack has."""
+
+    def __init__(self, sources):
+        super().__init__(missing_tileset_message(sources))
+        self.sources = sources
+
+
 class Tile:
     """A tile's class ("type") and properties; the picture doesn't matter here."""
 
@@ -82,16 +96,19 @@ class Tilesets:
 
     def __init__(self, descriptions):
         self.sets = []
+        missing = [d["source"] for d in descriptions if d["source"] not in _rules()]
+        if missing:
+            # without its rules a wall would be floor: refuse the level like the game (bug B24)
+            raise MissingTileset(missing)
         for d in descriptions:
-            rules = _rules().get(d["source"])
-            if rules is None:
-                print(f"Simulator: unknown tileset {d['source']!r}; its tiles have no class or properties.")
-                rules = {"count": 1 << 20, "tiles": {}}
+            rules = _rules()[d["source"]]
             tiles = {int(k): Tile(int(k), v) for k, v in rules["tiles"].items()}
             self.sets.append((d["firstgid"], rules["count"], tiles, d["source"]))
 
     def tile(self, gid):
-        """The tile of a global id, or None (gid 0, or no tileset has it)."""
+        """The tile of a global id, or None (gid 0, or no tileset has it). Tiled's flip flags
+        (the top three bits) only change the picture."""
+        gid &= 0x1FFFFFFF
         if not gid:
             return None
         for firstgid, count, tiles, _ in self.sets:
@@ -482,6 +499,8 @@ class Simulator:
             data = self._read_level(self.level_override)
         try:
             self.level = Level(data)
+        except MissingTileset:
+            raise                   # the game keeps the old level and refuses with a message
         except Exception as err:    # noqa: BLE001 - the game answers a broken level with an error
             self.level = None
             raise RuntimeError(f"Parsing level failed: {err}") from err
@@ -504,7 +523,10 @@ class Simulator:
     def handle(self, method, params):
         """(success, message, result) like the webview's handlers."""
         if method == "load_level":
-            return (True, "Parsing level successful.", self.load_level(params))
+            try:
+                return (True, "Parsing level successful.", self.load_level(params))
+            except MissingTileset as err:
+                return (False, str(err), False)
         if method == "reset_level":
             if self.last_level_data is None:
                 return (False, "No level loaded.", False)

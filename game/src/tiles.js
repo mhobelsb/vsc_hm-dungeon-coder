@@ -1,5 +1,33 @@
 import { loadFromPacks, packPath } from './assets.js';
 
+/**
+ * Tiled stores a tile's mirroring in the top bits of its global id: flipped horizontally,
+ * vertically, diagonally (x and y swapped). The rest is the id.
+ */
+export const GID_MASK = 0x1FFFFFFF;
+const FLIPPED_H = 0x80000000, FLIPPED_V = 0x40000000, FLIPPED_D = 0x20000000;
+
+/** The flip flags of a global id, or null if it has none. */
+export function flipsOf(gid) {
+    const raw = gid >>> 0;
+    if (raw <= GID_MASK) {
+        return null;
+    }
+    return { h: (raw & FLIPPED_H) !== 0, v: (raw & FLIPPED_V) !== 0, d: (raw & FLIPPED_D) !== 0 };
+}
+
+/** The same tile, drawn mirrored: a view on it (rules and properties are the tile's own). */
+export function flipped(tile, flips) {
+    if (!tile || !flips) {
+        return tile;
+    }
+    const view = Object.create(tile);
+    view.flipH = flips.h;
+    view.flipV = flips.v;
+    view.flipD = flips.d;
+    return view;
+}
+
 export class Tile {
     constructor(setTileId, image, imageHeight, imageWidth, x, y, width, height, tileDescription) {
         if (!tileDescription) {
@@ -267,18 +295,35 @@ export class TileFactory {
     }
 
     getTileByGlobalTileId(globalTileId) {
-        for (const tileset of this.tilesets) {
-            const tile = tileset.getTileByGlobalTileId(globalTileId);
-            if (tile) {
-                return tile;
+        const flips = flipsOf(globalTileId);
+        const id = flips ? (globalTileId >>> 0) & GID_MASK : globalTileId;
+        // the tileset that has the id (asking each in turn warned on every miss)
+        const tileset = this.tilesets.find(t => id >= t.firstgid && id < t.firstgid + t.tilecount);
+        const tile = tileset ? tileset.getTileByGlobalTileId(id) : null;
+        if (!tile) {
+            if (id !== 0) {
+                console.warn(`Tile with global tile id "${id}" was not found in tile factory.`);
             }
+            return null;
         }
-        return null;
+        return flips ? this.flippedTile(globalTileId, tile, flips) : tile;
+    }
+
+    /** One view per flipped global id, so the same id always gives the same tile object. */
+    flippedTile(globalTileId, tile, flips) {
+        if (!this.flippedTiles) {
+            this.flippedTiles = new Map();
+        }
+        if (!this.flippedTiles.has(globalTileId)) {
+            this.flippedTiles.set(globalTileId, flipped(tile, flips));
+        }
+        return this.flippedTiles.get(globalTileId);
     }
 
     getTilesetByGlobalTileId(globalTileId) {
+        globalTileId = (globalTileId >>> 0) & GID_MASK;
         for (const tileset of this.tilesets) {
-            const tile = tileset.getTileByGlobalTileId(globalTileId);
+            const tile = tileset.tiles.get(globalTileId - tileset.firstgid);
             if (tile) {
                 return tileset;
             }
@@ -320,9 +365,29 @@ export class TileFactory {
             return Tileset.create(ts.source, ts.firstgid, pathPrefix);
         });
         const loadedTilesets = await Promise.all(tilesetPromises);
+        // a tileset no pack has would leave walls without rules: refuse the level (bug B24)
+        const missing = tilesetsDescription.filter((ts, i) => !loadedTilesets[i]).map(ts => ts.source);
+        if (missing.length > 0) {
+            throw new MissingTilesetError(missing);
+        }
         loadedTilesets.forEach(tileset => {
             tileFactory.add(tileset);
         });
         return tileFactory;
     }
+}
+
+/** A level names tilesets that no asset pack has. The message is the one the student sees. */
+export class MissingTilesetError extends Error {
+    constructor(sources) {
+        super(missingTilesetMessage(sources));
+        this.name = 'MissingTilesetError';
+        this.sources = sources;
+    }
+}
+
+/** Same wording as the simulator (dungeoncoder/sim.py, missing_tileset_message). */
+export function missingTilesetMessage(sources) {
+    return `Missing tileset ${sources.join(', ')}: no asset pack has it. `
+        + 'Add the asset pack to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).';
 }

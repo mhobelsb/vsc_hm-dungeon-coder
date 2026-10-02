@@ -156,3 +156,36 @@ test('tile size: on 32 px tiles one step is 32 px and the rules are the same', a
     assert.deepEqual(game.character.currentCell(), [2, 1]);
     assert.equal(game.hero.isAbyssInFront(), true);
 });
+
+test('flip flags: a mirrored tile keeps its rules (wall, abyss, goal), only the picture is mirrored', async () => {
+    const { Level } = await import('../src/level.js');
+    const { levelData } = await import('./helpers.mjs');
+    const data = levelData(['#####', '#H~Z#', '#####']);
+    const H = 0x80000000, V = 0x40000000, D = 0x20000000;
+    const [floor, walls, objects] = data.layers;
+    walls.data = walls.data.map(gid => (gid ? gid + H + V : 0));
+    floor.data = floor.data.map(gid => (gid ? gid + D : 0));
+    const goal = objects.objects.find(o => o.gid === 1 + 16);
+    goal.gid += H;
+    const level = await Level.create(data);
+    const hero = level.character;
+    assert.equal(level.tileFactory.getTileByGlobalTileId(walls.data[0]).flipH, true);
+    assert.equal(level.tileFactory.getTileByGlobalTileId(walls.data[0]).flipV, true);
+    const { CharacterInterface } = await import('../src/character.js');
+    const { Statistics } = await import('../src/statistics.js');
+    const face = new CharacterInterface({ fog: null }, level, hero, new Statistics());
+    assert.equal(face.isAbyssInFront(), true);              // the mirrored abyss is still an abyss
+    turn({ hero: face }, 1);                                // north: a mirrored wall
+    assert.equal(face.isCollisionInFront(), true);
+    assert.ok(level.objectFactory.gameObjects.some(o => o.type === 'Goal' && o.tile.flipH === true));
+});
+
+test('a tileset no asset pack has refuses the level with a message (bug B24)', async () => {
+    const { Level } = await import('../src/level.js');
+    const { MissingTilesetError } = await import('../src/tiles.js');
+    const { levelData } = await import('./helpers.mjs');
+    const data = levelData(['####', '#HZ#', '####']);
+    data.tilesets[0] = { ...data.tilesets[0], source: '../tilesets/gibt_es_nicht.json' };
+    await assert.rejects(Level.create(data), error => error instanceof MissingTilesetError
+        && error.sources.length === 1 && /gibt_es_nicht.*dungeonCoder\.assetPacks/.test(error.message));
+});

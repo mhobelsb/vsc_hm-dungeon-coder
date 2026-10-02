@@ -14,6 +14,7 @@ A map file has an optional header, a line "---", and the map:
     guards: 5,2 patrol east  # guard W at (5,2) walks east and back; "x,y chase" follows the hero
     orakel: true             # the level has an oracle (hero.ask_oracle())
     view: fit                # show only the map, with larger fields (default: full, the 30x20 field)
+    deko: 6                  # scatter small details on 6 % of the plain floor and walls (seeded, default 0)
     fog: dark                # any other key becomes a map property (bool/int/str)
     ---
     ##########
@@ -25,6 +26,9 @@ Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
          H  hero      Z  goal      T/t  torch (burning/off, on a wall)
          s  switch    D  door      G  grille    C  chest    J  jug    *  sweets
          K  crystal   o  pebble    W  guard (see guards:)
+Decoration (looks only; where a style has no pictures for it, x is a wall and , " are floor):
+         x  an obstacle: furniture, crates, a rock, a tree (a wall for the rules)
+         ,  a path or carpet; neighbouring fields join up       "  a small detail on the floor
 In another world the same symbols mean that world's things: in `station`, K is a bed
 (class "Bett"), * a sample ("Probe"), o a floor mark ("Markierung"), T a lamp, ~ stairs;
 in `studio`, K is a sketch ("Entwurf"), * a colour gel ("Farbfolie"), o a tape mark
@@ -34,8 +38,12 @@ W a person; in `gelaende`, K is a survey point ("Messpunkt"), * a soil sample
 ("Bodenprobe"), o a stake ("Pflock"), # woods, ~ water.
 
 Coordinates are 0-based (column, row) in the map as written. The map is placed
-centred on the 30x20 game field; with "view: fit" the level is then cut to the map
-and one field around it, so the game shows it larger.
+centred on the 30x20 game field (a larger map makes the field as large as the map);
+with "view: fit" the level is then cut to the map and one field around it, so the
+game shows it larger.
+
+The goal Z is drawn facing the way the hero comes in, where the style has exits
+for the four directions (stairs going down away from the hero).
 
 Which tile goes where is decided by a *style pack* (packs/<style>.json): for every
 3x3 neighbourhood of terrain it lists the tile stacks that good levels use there,
@@ -53,7 +61,9 @@ OBJECT_CLASSES = {"s": "Switch", "C": "Chest", "J": "Jug", "Z": "Goal", "*": "Sw
 NEIGHBOURS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 WEIGHTS = [1, 2, 1, 2, 2, 1, 2, 1]     # orthogonal neighbours matter more than diagonal ones
 DIRECTIONS = ("north", "east", "south", "west")
-HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards", "view")
+HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards", "view", "deko")
+PROP, PATH, DETAIL = "x", ",", '"'      # decoration symbols
+OFFSETS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 VIEWS = ("full", "fit")
 GUARD_SPRITE = 3            # the characters tileset's sprite number used for guards
 # items that aren't learned from the levels: tiles from the icon sheet (the engine's ITEM_TILES)
@@ -87,8 +97,9 @@ def parse_text(text):
 
 
 def base_terrain(ch):
-    """Terrain under an ASCII symbol. Torches always stand on a wall or a pedestal."""
-    if ch in (WALL, "T", "t"):
+    """Terrain under an ASCII symbol. Torches always stand on a wall or a pedestal; an
+    obstacle x is a wall for the rules."""
+    if ch in (WALL, "T", "t", PROP):
         return WALL
     if ch in (VOID, ABYSS):
         return ch
@@ -128,6 +139,12 @@ class Pack:
         self.items = {}         # symbol -> (source, local, class): a world's own items for K, * and o
         self.world = None       # name of the world (not the dungeon): the game shows its end screens
         self.guard_sprite = GUARD_SPRITE    # the figure number of the agents "W"
+        # decoration (optional; tiles are (source, local)):
+        self.props = []         # obstacles x: [their tile, tile drawn into the field behind them or None]
+        self.paths = {}         # paths ",": 8-neighbour mask ("0"/"1" in NEIGHBOURS order) -> tile
+        self.details = []       # small details '"' on the floor
+        self.wall_variants = {}  # wall tile -> [decorated variants] (deko:)
+        self.exits = {}         # walking direction into the goal -> (source, local, Tiled flip flags)
 
     # --- choosing tiles ----------------------------------------------------
     def candidates(self, key):
@@ -218,6 +235,12 @@ class Pack:
             **({"items": {k: list(v) for k, v in self.items.items()}} if self.items else {}),
             **({"world": self.world} if self.world else {}),
             **({"guard_sprite": self.guard_sprite} if self.guard_sprite != GUARD_SPRITE else {}),
+            **({"props": [[list(b), list(t) if t else None] for b, t in self.props]} if self.props else {}),
+            **({"paths": {k: list(v) for k, v in self.paths.items()}} if self.paths else {}),
+            **({"details": [list(t) for t in self.details]} if self.details else {}),
+            **({"wall_variants": [[list(k), [list(t) for t in v]] for k, v in self.wall_variants.items()]}
+               if self.wall_variants else {}),
+            **({"exits": {k: list(v) for k, v in self.exits.items()}} if self.exits else {}),
         }
 
     @classmethod
@@ -247,6 +270,11 @@ class Pack:
         pack.items = {k: tuple(v) for k, v in data.get("items", {}).items()}
         pack.world = data.get("world")
         pack.guard_sprite = data.get("guard_sprite", GUARD_SPRITE)
+        pack.props = [(tuple(b), tuple(t) if t else None) for b, t in data.get("props", [])]
+        pack.paths = {k: tuple(v) for k, v in data.get("paths", {}).items()}
+        pack.details = [tuple(t) for t in data.get("details", [])]
+        pack.wall_variants = {tuple(k): [tuple(t) for t in v] for k, v in data.get("wall_variants", [])}
+        pack.exits = {k: tuple(v) for k, v in data.get("exits", {}).items()}
         return pack
 
     @classmethod
@@ -264,29 +292,110 @@ class Pack:
             return cls.from_json(json.load(f))
 
 
+def _hash(c, r, salt=0):
+    """A fixed pseudo-random number per field: the same map always gets the same decoration."""
+    h = (c * 73856093) ^ (r * 19349663) ^ (salt * 83492791)
+    return (h ^ (h >> 13)) & 0x7FFFFFFF
+
+
+def exit_direction(grid, c, r):
+    """The direction the hero walks into the goal at (c, r): from its one open neighbour;
+    with several, the one whose opposite side is solid (stairs lead into the wall)."""
+    h, w = len(grid), len(grid[0])
+
+    def at(x, y):
+        return grid[y][x] if 0 <= x < w and 0 <= y < h else VOID
+
+    def open_(ch):
+        return ch not in (WALL, "T", "t", PROP, VOID, ABYSS)
+    options = [d for d, (dx, dy) in OFFSETS.items() if open_(at(c - dx, r - dy))]
+    if not options:
+        return None
+    solid = [d for d in options if not open_(at(c + OFFSETS[d][0], r + OFFSETS[d][1]))]
+    return (solid or options)[0]
+
+
+def decorate(grid, terrain, layers, pack, header):
+    """The decoration of a map (it changes no rule): obstacles x, paths ",", details '"',
+    and with "deko: N" small details on N % of the plain floor and decorated walls."""
+    try:
+        density = int(header.get("deko", ["0"])[0])
+    except ValueError:
+        raise MapError(f"deko: a whole number (percent) expected, got {header['deko'][0]!r}") from None
+    h, w = len(grid), len(grid[0])
+
+    def is_path(x, y):
+        return 0 <= x < w and 0 <= y < h and grid[y][x] == PATH
+    # obstacles that touch form one group and get the same picture (a row of machines, of trees)
+    group = {}
+    for r in range(h):
+        for c in range(w):
+            if grid[r][c] == PROP and (c, r) not in group:
+                todo = [(c, r)]
+                while todo:
+                    x, y = todo.pop()
+                    if (x, y) in group or not (0 <= x < w and 0 <= y < h) or grid[y][x] != PROP:
+                        continue
+                    group[(x, y)] = (c, r)
+                    todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+    for r in range(h):
+        for c in range(w):
+            ch = grid[r][c]
+            if ch == PROP and pack.props:
+                bottom, top = pack.props[_hash(*group[(c, r)], 1) % len(pack.props)]
+                layers["wall"][(c, r)] = bottom
+                if top and r > 0 and terrain[r - 1][c] in (FLOOR, WALL):
+                    layers["deko"][(c, r - 1)] = top
+            elif ch == PATH and pack.paths:
+                layers["floor2"][(c, r)] = pack.paths.get(path_mask(is_path, c, r), pack.paths.get("0" * 8))
+            elif ch == DETAIL and pack.details:
+                layers["floor2"][(c, r)] = pack.details[_hash(c, r, 2) % len(pack.details)]
+            elif not density:
+                continue
+            elif ch == FLOOR and pack.details and (c, r) not in layers["floor2"] and _hash(c, r, 3) % 100 < density:
+                layers["floor2"][(c, r)] = pack.details[_hash(c, r, 2) % len(pack.details)]
+            elif ch == WALL and layers["wall"].get((c, r)) in pack.wall_variants and _hash(c, r, 4) % 100 < 2 * density:
+                variants = pack.wall_variants[layers["wall"][(c, r)]]
+                layers["wall"][(c, r)] = variants[_hash(c, r, 5) % len(variants)]
+
+
+def path_mask(same, c, r):
+    """The 8-neighbour mask of a path field ("1" = path there, NEIGHBOURS order); a diagonal
+    counts only where both fields beside it are path too (it changes nothing otherwise)."""
+    bits = {d: same(c + d[0], r + d[1]) for d in NEIGHBOURS}
+    for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+        bits[(dx, dy)] = bits[(dx, dy)] and bits[(dx, 0)] and bits[(0, dy)]
+    return "".join("1" if bits[d] else "0" for d in NEIGHBOURS)
+
+
 def build(header, rows, pack, seed=0, variety=0.0):
     """(level as a Tiled JSON dict, terrain grid) for a parsed map."""
     height, width = len(rows), max((len(r) for r in rows), default=0)
-    if width > GRID_W or height > GRID_H:
-        raise MapError(f"the map is {width}x{height}; the game field is {GRID_W}x{GRID_H}")
-    ox, oy = (GRID_W - width) // 2, (GRID_H - height) // 2
-    grid = [[VOID] * GRID_W for _ in range(GRID_H)]
+    if sum(row.count("H") for row in rows) != 1:
+        raise MapError(f"the map needs exactly one hero H, it has {sum(row.count('H') for row in rows)}")
+    grid_w, grid_h = max(GRID_W, width), max(GRID_H, height)       # a larger map, a larger field
+    ox, oy = (grid_w - width) // 2, (grid_h - height) // 2
+    grid = [[VOID] * grid_w for _ in range(grid_h)]
     for r, line in enumerate(rows):
         for c, ch in enumerate(line):
             grid[r + oy][c + ox] = ch
 
     terrain = [[base_terrain(ch) for ch in row] for row in grid]
+    # an obstacle x stands on floor: its neighbours see floor, it gets the floor's tiles and the
+    # obstacle's picture on the wall layer; without pictures for obstacles it is a wall
+    looks = [[FLOOR if ch == PROP and pack.props else t for ch, t in zip(row, trow)]
+             for row, trow in zip(grid, terrain)]
 
     rng = random.Random(seed)
-    layers = {"bg": {}, "floor": {}, "floor2": {}, "wall": {}}
+    layers = {"bg": {}, "floor": {}, "floor2": {}, "wall": {}, "deko": {}}
     chosen = {}
-    for r in range(GRID_H):
-        for c in range(GRID_W):
+    for r in range(grid_h):
+        for c in range(grid_w):
             if pack.neighbour_fit:
                 left, up = chosen.get((c - 1, r)), chosen.get((c, r - 1))
             else:
                 left = up = None      # no constraint: the most frequent stack for the pattern
-            stack = pack.choose(pattern(terrain, c, r), left, up, rng, variety)
+            stack = pack.choose(pattern(looks, c, r), left, up, rng, variety)
             if terrain[r][c] == ABYSS and pack.abyss_tiles and not (
                     stack and (stack[-1][1], stack[-1][2]) in {tuple(t) for t in pack.abyss_tiles}):
                 # the game only sees an abyss where an Abyss tile is the topmost tile
@@ -301,18 +410,22 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 elif role in ("bg", "wall"):
                     layers[role][(c, r)] = (source, local)
 
+    decorate(grid, terrain, layers, pack, header)
+
     # what the style draws under/above its goal (e.g. stairs in the bridge style);
     # the part above is only used where that field is floor as well
     if pack.goal_decor:
         decor = pack.goal_decor.most_common(1)[0][0]
-        for r in range(GRID_H):
-            for c in range(GRID_W):
+        for r in range(grid_h):
+            for c in range(grid_w):
                 if grid[r][c] != "Z":
                     continue
+                # the stairs climb eastwards: mirrored when the hero comes in walking west
+                flags = 0x80000000 if exit_direction(grid, c, r) == "west" else 0
                 for dx, dy, source, local in decor:
                     x, y = c + dx, r + dy
-                    if dy == 0 or (0 <= y < GRID_H and terrain[y][x] == FLOOR):
-                        layers["floor2"][(x, y)] = (source, local)
+                    if dy == 0 or (0 <= y < grid_h and terrain[y][x] == FLOOR):
+                        layers["floor2"][(x, y)] = (source, local, flags) if flags else (source, local)
 
     # objects
     objects, cell_to_id = [], {}
@@ -320,8 +433,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
     direction = header.get("start", ["south"])[0]
     if direction not in DIRECTIONS:
         raise MapError(f"start must be one of {', '.join(DIRECTIONS)}, not {direction!r}")
-    for r in range(GRID_H):
-        for c in range(GRID_W):
+    for r in range(grid_h):
+        for c in range(grid_w):
             ch, context = grid[r][c], terrain[r][c]
             name = ""
             if ch == "H":
@@ -342,7 +455,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
             elif ch in ("D", "G"):
                 # a door in a vertical wall line (walls above and below) blocks an east-west passage
                 solid = (WALL, "T", "t")
-                vertical = (0 < r < GRID_H - 1 and grid[r - 1][c] in solid and grid[r + 1][c] in solid)
+                vertical = (0 < r < grid_h - 1 and grid[r - 1][c] in solid and grid[r + 1][c] in solid)
                 base = "Door" if ch == "D" else "Grille"
                 cls = "Vertical" + base if vertical else base
                 tile = pack.object_tile(cls, FLOOR) or pack.object_tile(base, FLOOR)
@@ -354,10 +467,12 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 cls, tile = "Pebble", (ICON_SHEET, PEBBLE_TILE)
             elif ch == "W":
                 cls, tile = "Guard", pack.hero.get(f"south_{pack.guard_sprite}")
+            elif ch == "Z" and exit_direction(grid, c, r) in pack.exits:
+                cls, tile = "Goal", pack.exits[exit_direction(grid, c, r)]   # facing the hero's way in
             elif ch in OBJECT_CLASSES:
                 cls = OBJECT_CLASSES[ch]
                 tile = pack.object_tile(cls, context)
-            elif ch in (WALL, FLOOR, VOID, ABYSS):
+            elif ch in (WALL, FLOOR, VOID, ABYSS, PROP, PATH, DETAIL):
                 continue
             else:
                 raise MapError(f"unknown symbol {ch!r} at ({c - ox},{r - oy})")
@@ -417,12 +532,13 @@ def build(header, rows, pack, seed=0, variety=0.0):
         next_gid += tileset_info(source)["count"]
 
     def gid(tile):
-        return firstgid[tile[0]] + tile[1]
+        """The global id; a third element are Tiled's flip flags (a mirrored exit)."""
+        return firstgid[tile[0]] + tile[1] + (tile[2] if len(tile) > 2 else 0)
 
     def tile_layer(layer_id, name, cells, collision=False):
-        data = [gid(cells[(c, r)]) if (c, r) in cells else 0 for r in range(GRID_H) for c in range(GRID_W)]
-        layer = {"data": data, "height": GRID_H, "id": layer_id, "name": name, "opacity": 1,
-                 "type": "tilelayer", "visible": True, "width": GRID_W, "x": 0, "y": 0}
+        data = [gid(cells[(c, r)]) if (c, r) in cells else 0 for r in range(grid_h) for c in range(grid_w)]
+        layer = {"data": data, "height": grid_h, "id": layer_id, "name": name, "opacity": 1,
+                 "type": "tilelayer", "visible": True, "width": grid_w, "x": 0, "y": 0}
         if collision:
             layer["properties"] = [{"name": "collision", "type": "bool", "value": True}]
         return layer
@@ -488,16 +604,19 @@ def build(header, rows, pack, seed=0, variety=0.0):
             properties.append({"name": key, "type": "string", "value": value})
 
     level = {
-        "compressionlevel": -1, "height": GRID_H, "width": GRID_W, "infinite": False,
+        "compressionlevel": -1, "height": grid_h, "width": grid_w, "infinite": False,
         "layers": [
             tile_layer(1, "Background", layers["bg"]),
             tile_layer(2, "Floor", layers["floor"]),
             tile_layer(3, "Floor2", layers["floor2"]),
             tile_layer(4, "Walls", layers["wall"], collision=True),
+        ] + ([tile_layer(6, "Deko", layers["deko"])] if layers["deko"] else []) + [
+            # what reaches from an obstacle into the field behind it: below the figures (a hero
+            # behind a tree stays visible), above the walls
             {"draworder": "topdown", "id": 5, "name": "Objects", "objects": tiled_objects, "opacity": 1,
              "type": "objectgroup", "visible": True, "x": 0, "y": 0},
         ],
-        "nextlayerid": 6, "nextobjectid": len(tiled_objects) + 1, "orientation": "orthogonal",
+        "nextlayerid": 7 if layers["deko"] else 6, "nextobjectid": len(tiled_objects) + 1, "orientation": "orthogonal",
         "renderorder": "right-down", "tiledversion": "1.11.2", "tileheight": pack.tile_size,
         "tilewidth": pack.tile_size,
         "tilesets": tilesets, "type": "map", "version": "1.10",

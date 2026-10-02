@@ -1,4 +1,4 @@
-import { AnimatedTile } from './tiles.js';
+import { AnimatedTile, flipped, flipsOf } from './tiles.js';
 
 export class GameObject {
     /**
@@ -36,6 +36,7 @@ export class GameObject {
                 // into the tall open door, not into a field-sized one of another tileset)
                 let tile = tileFactory.getTilesetByGlobalTileId(gid)?.getTileByTypeAndState(className, state)
                     || tileFactory.getTileByTypeAndState(className, state);
+                tile = flipped(tile, flipsOf(gid));     // a mirrored door stays mirrored
                 if (!tile) {
                     console.error(`Tile with type/class "${className}" and state "${state} not found!`);
                 }

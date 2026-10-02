@@ -292,8 +292,8 @@ class Game:
             print(f"Error: Map file '{level_file}': {err}")
             sys.exit(1)
         if not loaded:
-            print(f"Error: Level '{level_file}' could not be loaded. Did you start Dungeon Coder "
-                  f"(\"Dungeon Coder: Enter the dungeon\")?")
+            print(f"Error: Level '{level_file}' could not be loaded (see the message above). "
+                  f"Did you start Dungeon Coder (\"Dungeon Coder: Enter the dungeon\")?")
             sys.exit(1)
 
         self.__hero = Hero(self.BASE_URL)
@@ -352,8 +352,9 @@ class Game:
                 with open(filename, 'r') as f:
                     level_data = json.load(f)
 
+            # a refused level (e.g. a missing asset pack) prints the game's explanation
             return _call(self._client, _load_level_api.sync_detailed, default=False,
-                         body=TiledLevel.from_dict(level_data))
+                         explain_refusal=True, body=TiledLevel.from_dict(level_data))
 
         def reset(self):
             """Resets the current level."""

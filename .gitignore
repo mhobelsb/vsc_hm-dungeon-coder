@@ -14,3 +14,5 @@ game/src/commands.js
 game/src/api-config.js
 src/generated/
 api/python/dungeoncoder/_api_config.py
+# macOS Finder files
+.DS_Store
