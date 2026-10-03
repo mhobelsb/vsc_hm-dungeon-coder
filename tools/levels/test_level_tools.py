@@ -59,7 +59,10 @@ except ImportError:
 else:
     out = os.path.join(tempfile.mkdtemp(), "raum.png")
     run = tool("level2png.py", level("demo32_raum.json"), out, "--scale", "1")
-    size = Image.open(out).size if run.returncode == 0 else None
+    size = None
+    if run.returncode == 0:
+        with Image.open(out) as img:
+            size = img.size
     check("level2png: 15 x 10 cells of 32 px give 480 x 320", size == (480, 320), run.stdout + run.stderr)
 
 print(f"\n{sum(results)}/{len(results)} passed")

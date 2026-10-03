@@ -6,7 +6,7 @@ A VS Code extension in which you steer a hero through a pixel-art dungeon **with
 
 ## Using it
 
-**Install:** Python 3.10+, VS Code 1.102+, this extension, and the VS Code Python extension.
+**Install:** Python 3.10+ (developed on 3.15), VS Code 1.102+, this extension, and the VS Code Python extension.
 
 **First program**, in a folder opened in VS Code:
 
