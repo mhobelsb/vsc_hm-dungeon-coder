@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Text maps: large props**: a style pack may list large obstacles (`big_props`: a footprint of w x h fields, one tile per footprint field, and parts beyond it: a crown, the devices on a bench). A block of touching `x` that is a rectangle of exactly a prop's size becomes that prop; other blocks are filled with the props marked `fill`, largest first; a single `x` keeps the small props. Every footprint field gets its own wall tile, so the rules are the same as before; the parts beyond the footprint go into as many `Deko` layers as overlap. Decoration only: the simulator is unchanged.
 - **Level tools** in `tools/levels/`: `level2ascii.py`, `level2png.py`, `check_level.py`, `run_sim.py`, `run_headless.py` and their shared level model `dclevel.py`, for anyone building levels; tilesets come from `DC_ASSET_PACKS`, then the engine's assets. `npm run test:tools` checks them on the demo pack.
 - **The Python package as a wheel**: `api/python/pyproject.toml` builds `dungeoncoder` (with its style packs) at the extension's version (`dungeoncoder.__version__`); `npm run build:wheel`, `npm run check:version`. It installs with pip from the repository too (`#subdirectory=api/python`).
 - When the game starts, a folder in `dungeonCoder.assetPacks` that doesn't exist (a course pack that wasn't cloned) is named in a warning.

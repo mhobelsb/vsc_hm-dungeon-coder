@@ -29,6 +29,9 @@ Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
 Decoration (looks only; where a style has no pictures for it, x is a wall and , " are floor):
          x  an obstacle: furniture, crates, a rock, a tree (a wall for the rules)
          ,  a path or carpet; neighbouring fields join up       "  a small detail on the floor
+         A block of touching x that is a rectangle of exactly the size of one of the style's large
+         props becomes that prop (a 5 x 3 house, a 2 x 2 tank); any other block is filled with the
+         style's filling props, largest first (trees, rocks, benches), the rest with small ones.
 In another world the same symbols mean that world's things: in `station`, K is a bed
 (class "Bett"), * a sample ("Probe"), o a floor mark ("Markierung"), T a lamp, ~ stairs;
 in `studio`, K is a sketch ("Entwurf"), * a colour gel ("Farbfolie"), o a tape mark
@@ -141,6 +144,9 @@ class Pack:
         self.guard_sprite = GUARD_SPRITE    # the figure number of the agents "W"
         # decoration (optional; tiles are (source, local)):
         self.props = []         # obstacles x: [their tile, tile drawn into the field behind them or None]
+        self.big_props = []     # large obstacles: {"w", "h", "fill", "parts": [(dx, dy, source, local)]}: a part
+                                # per field of the w x h footprint (walls), parts outside it (a crown) are deko;
+                                # "fill": may fill blocks of other sizes (trees), else only a block of its size
         self.paths = {}         # paths ",": 8-neighbour mask ("0"/"1" in NEIGHBOURS order) -> tile
         self.details = []       # small details '"' on the floor
         self.wall_variants = {}  # wall tile -> [decorated variants] (deko:)
@@ -236,6 +242,8 @@ class Pack:
             **({"world": self.world} if self.world else {}),
             **({"guard_sprite": self.guard_sprite} if self.guard_sprite != GUARD_SPRITE else {}),
             **({"props": [[list(b), list(t) if t else None] for b, t in self.props]} if self.props else {}),
+            **({"big_props": [{"w": p["w"], "h": p["h"], "fill": p["fill"], "parts": [list(t) for t in p["parts"]]}
+                              for p in self.big_props]} if self.big_props else {}),
             **({"paths": {k: list(v) for k, v in self.paths.items()}} if self.paths else {}),
             **({"details": [list(t) for t in self.details]} if self.details else {}),
             **({"wall_variants": [[list(k), [list(t) for t in v]] for k, v in self.wall_variants.items()]}
@@ -271,6 +279,8 @@ class Pack:
         pack.world = data.get("world")
         pack.guard_sprite = data.get("guard_sprite", GUARD_SPRITE)
         pack.props = [(tuple(b), tuple(t) if t else None) for b, t in data.get("props", [])]
+        pack.big_props = [{"w": p["w"], "h": p["h"], "fill": p.get("fill", False), "parts": [tuple(t) for t in p["parts"]]}
+                          for p in data.get("big_props", [])]
         pack.paths = {k: tuple(v) for k, v in data.get("paths", {}).items()}
         pack.details = [tuple(t) for t in data.get("details", [])]
         pack.wall_variants = {tuple(k): [tuple(t) for t in v] for k, v in data.get("wall_variants", [])}
@@ -338,9 +348,12 @@ def decorate(grid, terrain, layers, pack, header):
                         continue
                     group[(x, y)] = (c, r)
                     todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+    big = place_big_props(grid, terrain, layers, pack, group)
     for r in range(h):
         for c in range(w):
             ch = grid[r][c]
+            if (c, r) in big:
+                continue
             if ch == PROP and pack.props:
                 bottom, top = pack.props[_hash(*group[(c, r)], 1) % len(pack.props)]
                 layers["wall"][(c, r)] = bottom
@@ -357,6 +370,62 @@ def decorate(grid, terrain, layers, pack, header):
             elif ch == WALL and layers["wall"].get((c, r)) in pack.wall_variants and _hash(c, r, 4) % 100 < 2 * density:
                 variants = pack.wall_variants[layers["wall"][(c, r)]]
                 layers["wall"][(c, r)] = variants[_hash(c, r, 5) % len(variants)]
+
+
+def deko_layer(n):
+    """Name of the n-th deko layer (1: "deko"; more where large props overlap)."""
+    return "deko" if n == 1 else f"deko{n}"
+
+
+def place_big_props(grid, terrain, layers, pack, group):
+    """Large obstacles. A block of touching x (two fields or more) that is a rectangle of a
+    prop's footprint size becomes that prop (several of that size: chosen by position). Any other block is filled in
+    reading order with the largest filling prop that still fits; what is left gets the small
+    props. Every field of a footprint gets its own wall tile, so the rules see the same walls
+    as with small props. Parts outside the footprint (above it, or a crown wider than the
+    trunk) go into the deko layers (the later prop's on top). Returns the fields covered."""
+    covered = set()
+    if not pack.big_props:
+        return covered
+    h, w = len(grid), len(grid[0])
+    blocks = collections.defaultdict(set)
+    for cell, anchor in group.items():
+        blocks[anchor].add(cell)
+
+    def put(prop, c, r):
+        for dx, dy, source, local in prop["parts"]:
+            x, y = c + dx, r + dy
+            if 0 <= dx < prop["w"] and 0 <= dy < prop["h"]:
+                layers["wall"][(x, y)] = (source, local)
+                covered.add((x, y))
+            elif 0 <= y < h and 0 <= x < w and terrain[y][x] in (FLOOR, WALL):
+                n = 1                       # the first deko layer that is free here; a new one if none
+                while (x, y) in layers.setdefault(deko_layer(n), {}):
+                    n += 1
+                layers[deko_layer(n)][(x, y)] = (source, local)
+
+    fillers = [p for p in pack.big_props if p["fill"]]
+    for anchor in sorted(blocks, key=lambda a: (a[1], a[0])):
+        cells = blocks[anchor]
+        x0, y0 = min(c for c, _ in cells), min(r for _, r in cells)
+        bw, bh = max(c for c, _ in cells) - x0 + 1, max(r for _, r in cells) - y0 + 1
+        # a single field keeps the style's small props (their variety); a full rectangle of a prop's size is that prop
+        exact = ([p for p in pack.big_props if (p["w"], p["h"]) == (bw, bh)]
+                 if len(cells) == bw * bh > 1 else [])
+        if exact:
+            put(exact[_hash(x0, y0, 6) % len(exact)], x0, y0)
+            continue
+        for c, r in sorted(cells, key=lambda a: (a[1], a[0])):
+            if (c, r) in covered:
+                continue
+            fitting = [p for p in fillers
+                       if all((c + dx, r + dy) in cells and (c + dx, r + dy) not in covered
+                              for dx in range(p["w"]) for dy in range(p["h"]))]
+            if fitting:
+                largest = max(p["w"] * p["h"] for p in fitting)
+                options = [p for p in fitting if p["w"] * p["h"] == largest]
+                put(options[_hash(c, r, 6) % len(options)], c, r)
+    return covered
 
 
 def path_mask(same, c, r):
@@ -603,6 +672,11 @@ def build(header, rows, pack, seed=0, variety=0.0):
         else:
             properties.append({"name": key, "type": "string", "value": value})
 
+    # what reaches from obstacles into other fields (tops, crowns), in as many layers as overlap there
+    deko_layers, n = [], 1
+    while layers.get(deko_layer(n)):
+        deko_layers.append(tile_layer(5 + n, "Deko" if n == 1 else f"Deko{n}", layers[deko_layer(n)]))
+        n += 1
     level = {
         "compressionlevel": -1, "height": grid_h, "width": grid_w, "infinite": False,
         "layers": [
@@ -610,13 +684,13 @@ def build(header, rows, pack, seed=0, variety=0.0):
             tile_layer(2, "Floor", layers["floor"]),
             tile_layer(3, "Floor2", layers["floor2"]),
             tile_layer(4, "Walls", layers["wall"], collision=True),
-        ] + ([tile_layer(6, "Deko", layers["deko"])] if layers["deko"] else []) + [
+        ] + deko_layers + [
             # what reaches from an obstacle into the field behind it: below the figures (a hero
             # behind a tree stays visible), above the walls
             {"draworder": "topdown", "id": 5, "name": "Objects", "objects": tiled_objects, "opacity": 1,
              "type": "objectgroup", "visible": True, "x": 0, "y": 0},
         ],
-        "nextlayerid": 7 if layers["deko"] else 6, "nextobjectid": len(tiled_objects) + 1, "orientation": "orthogonal",
+        "nextlayerid": 6 + len(deko_layers), "nextobjectid": len(tiled_objects) + 1, "orientation": "orthogonal",
         "renderorder": "right-down", "tiledversion": "1.11.2", "tileheight": pack.tile_size,
         "tilewidth": pack.tile_size,
         "tilesets": tilesets, "type": "map", "version": "1.10",
