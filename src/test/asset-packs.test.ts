@@ -71,3 +71,30 @@ suite('A pack named in the settings but not cloned', () => {
         assert.deepStrictEqual(missingFolders([DEMO_PACK, notCloned]), [notCloned]);
     });
 });
+
+suite('Versions (G4)', () => {
+    test('GET /version reports the extension version and the API version', async () => {
+        const response = await fetch(`http://127.0.0.1:${PORT}/version`);
+        const body = await response.json() as { result: { extension: string; api: string } };
+        const pkg = JSON.parse(readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8'));
+        assert.strictEqual(response.status, 200);
+        assert.strictEqual(body.result.extension, pkg.version);
+        assert.strictEqual(body.result.api, pkg.version);
+    });
+
+    test('a copied Python API is recognised: none, an old copy, a versioned copy', () => {
+        const { copiedApiVersion } = require('../extension') as typeof import('../extension');
+        const { mkdtempSync, mkdirSync, writeFileSync } = require('fs') as typeof import('fs');
+        const os = require('os') as typeof import('os');
+        const none = mkdtempSync(path.join(os.tmpdir(), 'dc-'));
+        const old = mkdtempSync(path.join(os.tmpdir(), 'dc-'));
+        mkdirSync(path.join(old, 'dungeoncoder'));
+        writeFileSync(path.join(old, 'dungeoncoder', '__init__.py'), 'from .dungeoncoder import Game, Hero\n');
+        const current = mkdtempSync(path.join(os.tmpdir(), 'dc-'));
+        mkdirSync(path.join(current, 'dungeoncoder'));
+        writeFileSync(path.join(current, 'dungeoncoder', '__init__.py'), '__version__ = "0.1.0"\n');
+        assert.strictEqual(copiedApiVersion(none), undefined);
+        assert.strictEqual(copiedApiVersion(old), 'old');
+        assert.strictEqual(copiedApiVersion(current), '0.1.0');
+    });
+});

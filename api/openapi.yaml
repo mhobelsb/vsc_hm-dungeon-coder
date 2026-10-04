@@ -283,6 +283,20 @@ paths:
         '500':
           $ref: '#/components/responses/Error'
 
+  /version:
+    get:
+      operationId: get_version
+      summary: The versions of the extension and of this API, so a client can tell whether it fits.
+      description: |
+        Answered by the server itself (x-host), not by the game. The Python
+        package compares it with its own version once per program and warns if
+        a copied package doesn't fit the running extension.
+      tags: [Game]
+      x-host: true
+      responses:
+        '200':
+          $ref: '#/components/responses/VersionSuccess'
+
   /level/load:
     post:
       operationId: load_level
@@ -343,6 +357,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/StatisticsResult'
+    VersionSuccess:
+      description: The versions of the running extension and its API.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/VersionResult'
     Error:
       description: RPC-level failure, or an ordinary negative business outcome (see info.description).
       content:
@@ -414,6 +434,26 @@ components:
         result:
           type: string
           nullable: true
+
+    VersionResult:
+      type: object
+      required: [status, message, result]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        result:
+          type: object
+          required: [extension, api]
+          properties:
+            extension:
+              type: string
+              description: version of the extension (package.json), e.g. 0.1.0
+            api:
+              type: string
+              description: version of this API description (info.version)
 
     StatisticsResult:
       type: object

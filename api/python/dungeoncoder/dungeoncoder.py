@@ -3,7 +3,15 @@ import os
 import sys
 import tempfile
 
-import httpx
+try:
+    import httpx
+except ImportError:         # the most common first problem: the script runs with a Python without the packages
+    raise ImportError(
+        f"The package 'httpx' is missing in the Python that runs this program ({sys.executable}). "
+        "Usually VS Code uses another Python than your environment: choose it with "
+        "'Python: Select Interpreter' (the entry with .venv), or run in the terminal: "
+        "pip install -r requirements.txt (or: pip install -r dungeoncoder/requirements.txt), "
+        "then check the setup with: python -m dungeoncoder") from None
 
 from . import asciimap, generator
 from ._api_config import BASE_URL as _CONFIGURED_BASE_URL, HOST
@@ -37,7 +45,7 @@ from ._generated.api.hero import (
     turn_left as _turn_left_api,
 )
 from ._generated.api.level import load_level as _load_level_api, reset_level as _reset_level_api
-from ._generated.api.game import get_statistics as _get_statistics_api
+from ._generated.api.game import get_statistics as _get_statistics_api, get_version as _get_version_api
 
 os.environ["NO_PROXY"] = HOST
 
@@ -99,6 +107,34 @@ def _simulated(client, sync_detailed_fn, body=None):
     params = body.to_dict() if body is not None else {}
     status, payload = _simulator.request(method, params)
     return module._build_response(client=client, response=httpx.Response(status, json=payload))
+
+
+_version_checked = False
+
+
+def _check_version(base_url):
+    """Once per program: does this copy of the package fit the running extension? A copied
+    `dungeoncoder` folder ages with its exercise folder, and after an update of the extension
+    it fails in odd ways (a method that doesn't exist yet). Only warns, never stops."""
+    global _version_checked
+    if _version_checked or _simulator is not None:
+        return
+    _version_checked = True
+    from . import __version__
+    try:
+        response = _get_version_api.sync_detailed(client=Client(base_url=base_url, timeout=httpx.Timeout(1)))
+    except Exception:
+        return                  # no game running: loading the level says so
+    if response.status_code == 404:
+        print(f"Warning: the Dungeon Coder extension in VS Code is older than this Python package "
+              f"(dungeoncoder {__version__}): some commands may be missing. Update the extension, "
+              f"or check that the right Dungeon Coder runs (Extensions view).")
+        return
+    extension = getattr(getattr(response.parsed, "result", None), "extension", None)
+    if extension and extension.split(".")[:2] != __version__.split(".")[:2]:
+        print(f"Warning: this Python package (dungeoncoder {__version__}, {os.path.dirname(os.path.abspath(__file__))}) "
+              f"doesn't fit the Dungeon Coder extension ({extension}). Run \"Dungeon Coder: Copy Python API "
+              f"to workspace\" again, or: pip install --upgrade dungeoncoder")
 
 
 def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, **kwargs):
@@ -277,6 +313,7 @@ class Game:
     BASE_URL = DEFAULT_BASE_URL
 
     def __init__(self, level_file):
+        _check_version(self.BASE_URL)
         self.__level = self.Level(self.BASE_URL)
         try:
             loaded = self.__level.load(level_file)

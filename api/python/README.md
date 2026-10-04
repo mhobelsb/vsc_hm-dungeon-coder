@@ -17,5 +17,6 @@ while not hero.is_at_goal():
 - **With the extension:** start the game in VS Code (`Dungeon Coder: Start Game`); the script talks to it over a local REST API.
 - **Without VS Code:** `dungeoncoder.use_simulator()` (or `DUNGEONCODER_SIM=1`) runs the same script in a pure-Python simulator of the game's rules: no picture, no waiting. `dungeoncoder.testing.spiel(map_text)` gives `(game, hero)` for pytest.
 - **Levels from text maps:** `Game("karte.txt")`.
+- **Setup check:** `python -m dungeoncoder` says which Python and which copy of the package run, whether the game answers and whether its version fits.
 
 The package has the same version as the extension. Install it with `pip install dungeoncoder` (or from this repository: `pip install "git+https://github.com/mhobelsb/vscode-dungeon-coder_v2#subdirectory=api/python"`).

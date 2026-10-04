@@ -226,9 +226,16 @@ export class DungeonCoderServer {
             [COMMANDS.RESET_LEVEL]: resetPace,
         };
         for (const route of ROUTES) {
+            if (route.host) {
+                continue;
+            }
             this.registerRoute(app, route.method, route.path, route.command,
                 { includeBody: route.body, onSuccess: afterSuccess[route.command] });
         }
+        // answered here, not by the game: the Python package checks that it fits this extension
+        app.get('/version', (_req: Request, res: Response) => {
+            res.json({ status: 'success', message: 'versions', result: versions(extensionPath) });
+        });
 
         // IS_MOVING is used only internally by pollUntilStopped(), not exposed as an HTTP route.
         this.registeredCommands.add(COMMANDS.IS_MOVING);
@@ -402,6 +409,49 @@ export class DungeonCoderServer {
     }
 }
 
+/** The versions of this extension and of its API (package.json, api/openapi.yaml), for GET /version. */
+function versions(extensionPath: string): { extension: string; api: string } {
+    const extension = JSON.parse(readFileSync(path.join(extensionPath, 'package.json'), 'utf8')).version;
+    const spec = readFileSync(path.join(extensionPath, 'api', 'openapi.yaml'), 'utf8');
+    const api = (spec.match(/^ {2}version: *"?([^"\s]+)"?/m) || [])[1] ?? 'unknown';
+    return { extension, api };
+}
+
+/**
+ * The version of a copied Python package in a folder (dungeoncoder/__init__.py): its
+ * __version__, "old" for a copy from before versions existed, undefined if there is none.
+ */
+export function copiedApiVersion(folder: string): string | undefined {
+    const init = path.join(folder, 'dungeoncoder', '__init__.py');
+    if (!existsSync(init)) {
+        return undefined;
+    }
+    const match = readFileSync(init, 'utf8').match(/__version__ = "([^"]+)"/);
+    return match ? match[1] : 'old';
+}
+
+/**
+ * A student's exercise folder may hold a copy of the Python package from an older extension
+ * (copied weeks ago, or by another Dungeon Coder). It then fails in odd ways, e.g. a method
+ * that doesn't exist. Say so when the game starts, and offer to copy it again.
+ */
+function warnAboutOutdatedPythonApi(extensionPath: string) {
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const copied = folder ? copiedApiVersion(folder) : undefined;
+    const ours = versions(extensionPath).extension;
+    if (copied === undefined || copied === ours) {
+        return;
+    }
+    const which = copied === 'old' ? 'an older version' : `version ${copied}`;
+    vscode.window.showWarningMessage(
+        `The folder "dungeoncoder" in this workspace holds ${which} of the Python API; this Dungeon Coder is ${ours}. `
+        + 'Copy the matching one?', 'Copy Python API').then(choice => {
+        if (choice) {
+            vscode.commands.executeCommand('vscode-dungeon-coder.copyPythonAPI');
+        }
+    });
+}
+
 /** The setting dungeonCoder.assetPacks as absolute folders (relative ones start at the workspace folder). */
 function assetPackFolders(): string[] {
     const folders = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks', []);
@@ -463,6 +513,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (ret) {
             vscode.window.showInformationMessage('Enter the dungeon!');
             warnAboutMissingAssetPacks();
+            warnAboutOutdatedPythonApi(context.extensionPath);
         } else {
             vscode.window.showErrorMessage("Error: Dungeon Coder could not be started.");
         }
@@ -493,7 +544,8 @@ export function activate(context: vscode.ExtensionContext) {
                 // folder doesn’t exist, continue
             }
 
-            // Create destination folder
+            // Replace, don't merge: files of an older copy must not stay behind
+            await fs.rm(destPath, { recursive: true, force: true });
             await fs.mkdir(destPath, { recursive: true });
 
             // Copy files recursively

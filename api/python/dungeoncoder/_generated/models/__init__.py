@@ -18,6 +18,9 @@ from .statistics_result_status import StatisticsResultStatus
 from .string_array_result import StringArrayResult
 from .string_array_result_status import StringArrayResultStatus
 from .tiled_level import TiledLevel
+from .version_result import VersionResult
+from .version_result_result import VersionResultResult
+from .version_result_status import VersionResultStatus
 
 __all__ = (
     "ApiErrorResponse",
@@ -38,4 +41,7 @@ __all__ = (
     "StringArrayResult",
     "StringArrayResultStatus",
     "TiledLevel",
+    "VersionResult",
+    "VersionResultResult",
+    "VersionResultStatus",
 )

@@ -168,9 +168,20 @@ const registeredCommands = new Set([
     COMMANDS.IS_MOVING,
 ]);
 for (const route of ROUTES) {
+    if (route.host) {
+        continue;
+    }
     registerRoute(route.method, route.path, route.command, { includeBody: route.body, onSuccess: AFTER_SUCCESS[route.command] });
     registeredCommands.add(route.command);
 }
+// answered here, not by the game (x-host in the spec): the Python package checks that it fits
+app.get('/version', (req, res) => {
+    const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const extension = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+    const spec = readFileSync(path.join(root, 'api', 'openapi.yaml'), 'utf8');
+    const api = (spec.match(/^ {2}version: *"?([^"\s]+)"?/m) || [])[1] ?? 'unknown';
+    res.json({ status: 'success', message: 'versions', result: { extension, api } });
+});
 
 const missingRoutes = COMMAND_LIST.filter(command => !registeredCommands.has(command));
 if (missingRoutes.length > 0) {

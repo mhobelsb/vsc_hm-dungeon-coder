@@ -27,6 +27,11 @@ for (const [route, pathItem] of Object.entries(spec.paths ?? {})) {
         if (!operation.operationId) {
             throw new Error(`Missing operationId for ${method.toUpperCase()} ${route} in api/openapi.yaml`);
         }
+        if (operation['x-host']) {
+            // answered by the server itself (e.g. /version), never relayed to the game
+            routes.push({ method, path: route, command: operation.operationId, body: false, host: true });
+            continue;
+        }
         operationIds.push(operation.operationId);
         routes.push({ method, path: route, command: operation.operationId, body: Boolean(operation.requestBody) });
     }
@@ -62,6 +67,7 @@ export const COMMAND_LIST = Object.freeze(Object.values(COMMANDS));
 
 // Every HTTP route: method, path, RPC command, and whether the request has a JSON body.
 // Both servers register exactly these; special behaviour (e.g. waiting for a step) is added per command.
+// Routes with host: true are answered by the server itself (x-host in the spec), not by the game.
 export const ROUTES = Object.freeze(${JSON.stringify(routes, null, 4).replace(/\n/g, '\n')});
 `;
 
@@ -86,7 +92,7 @@ declare module '*commands.js' {
 ${dtsEntries}
     };
     export const COMMAND_LIST: readonly string[];
-    export const ROUTES: readonly { method: 'get' | 'post'; path: string; command: string; body: boolean }[];
+    export const ROUTES: readonly { method: 'get' | 'post'; path: string; command: string; body: boolean; host?: boolean }[];
 }
 
 declare module '*api-config.js' {
