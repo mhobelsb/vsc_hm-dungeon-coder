@@ -1,0 +1,15 @@
+{
+ "style": "station",
+ "about": "placeholder world drawn by the engine's tools/make_world_art.py (CC0)",
+ "levels": "../../../../../game/assets/levels",
+ "tiles": [{"level": "welt_station"}],
+ "objects": ["welt_station"],
+ "hero": "../tilesets/welt_station_figur.json",
+ "abyss": "../tilesets/welt_station_tiles.json",
+ "items": {
+  "K": "Bett",
+  "*": "Probe",
+  "o": "Markierung"
+ },
+ "export": ["package"]
+}

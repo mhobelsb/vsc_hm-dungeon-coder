@@ -13,7 +13,9 @@ character.js, game-objects.js, script.js); tests/conformance.py checks that it
 behaves like the real engine. Steps take no time, and there is no picture.
 
 Tile rules (classes, collision, states) come from packs/tilesets.json, which is
-exported from the game's tilesets (tools/ascii2level.py --export-packs).
+exported from the game's tilesets (tools/ascii2level.py --export-packs), and from the asset
+packs in DC_ASSET_PACKS. The tiles of the start inventory's items come from the packs'
+manifests (pack.json "items"), then packs/items.json (the bundled assets' items).
 Differences on purpose: none known. Fog only changes the picture, so it has no
 effect here.
 """
@@ -23,12 +25,9 @@ import os
 TILE = 16
 PACK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "packs")
 DIRECTIONS_LEFT = {"north": "west", "west": "south", "south": "east", "east": "north"}
-ITEM_TILES = {    # the engine's ITEM_TILES (game/src/level.js)
-    "Pebble": ("../tilesets/Icon sheet (16x16).json", 155),
-    "Crystal": ("../tilesets/Icon sheet (16x16).json", 109),
-}
 
 _rules_cache = None
+_items_cache = None
 
 
 def _rules_from_folder(folder):
@@ -61,6 +60,35 @@ def _rules():
         for folder in reversed([p for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]):
             _rules_cache.update(_rules_from_folder(folder))
     return _rules_cache
+
+
+def _items_from_manifest(manifest):
+    out = {}
+    for type_, spec in (manifest or {}).get("items", {}).items():
+        if isinstance(spec, dict) and isinstance(spec.get("tileset"), str) and isinstance(spec.get("tile"), int):
+            out[type_] = ("../tilesets/" + spec["tileset"], spec["tile"])
+    return out
+
+
+def item_tiles():
+    """{item type: (tileset source, local id)} for the items the engine creates itself (the
+    start inventory): from the manifests (pack.json "items") of the packs in DC_ASSET_PACKS,
+    first pack wins, then packs/items.json, the items of the engine's bundled assets
+    (engine: game/src/assets.js, loadItemTiles)."""
+    global _items_cache
+    if _items_cache is None:
+        manifests = [os.path.join(p, "pack.json") for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]
+        manifests.append(os.path.join(PACK_DIR, "items.json"))
+        _items_cache = {}
+        for path in manifests:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    found = _items_from_manifest(json.load(f))
+            except (OSError, ValueError):
+                continue
+            for type_, tile in found.items():
+                _items_cache.setdefault(type_, tile)
+    return _items_cache
 
 
 def missing_tileset_message(sources):
@@ -222,7 +250,7 @@ class Level:
         inventory = self.prop("hero_inventory")
         next_gid = max([1] + [t["firstgid"] for t in tilesets]) + 10000
         for type_, _ in parse_start_inventory(inventory):
-            spec = ITEM_TILES.get(type_)
+            spec = item_tiles().get(type_)
             if spec and not any(t["source"] == spec[0] for t in tilesets):
                 tilesets.append({"firstgid": next_gid, "source": spec[0]})
                 next_gid += 10000
@@ -267,7 +295,7 @@ class Level:
             return
         next_id = 1 + max([0] + [o.id or 0 for o in self.objects])
         for type_, count in parse_start_inventory(text):
-            spec = ITEM_TILES.get(type_)
+            spec = item_tiles().get(type_)
             firstgid = spec and self.tilesets.firstgid(spec[0])
             if firstgid is None:
                 continue
@@ -296,7 +324,9 @@ class Level:
                 out.append(t)
         return out
 
-    def is_collision(self, px, py):
+    def wall_tile_at(self, px, py):
+        """A wall by the tiles alone: outside the map, or a tile with a local id other than 0 on a
+        tile layer with collision=true (engine: Level.isCollision without the objects)."""
         col, row = int(px // self.tw), int(py // self.th)
         if not (0 <= col < self.width and 0 <= row < self.height):
             return True
@@ -305,7 +335,10 @@ class Level:
                 t = self.tilesets.tile(data[row * self.width + col])
                 if t and t.local != 0:
                     return True
-        return any(o.is_collision() for o in self.objects_at(px, py))
+        return False
+
+    def is_collision(self, px, py):
+        return self.wall_tile_at(px, py) or any(o.is_collision() for o in self.objects_at(px, py))
 
     def update(self):
         """What the engine does every frame: pattern doors follow their torches."""
@@ -329,10 +362,14 @@ class Level:
             return False
         return not self.abyss_at(px, py)
 
+    def abyss_tile_at(self, px, py):
+        """An Abyss tile as the topmost tile of the field (B21: a floor over an abyss is floor)."""
+        tiles = self.tiles_at(px, py)
+        return bool(tiles) and tiles[-1].type == "Abyss"
+
     def abyss_at(self, px, py):
         """An Abyss object, or an Abyss tile as the topmost tile of the field (engine: Level.isAbyssAt)."""
-        tiles = self.tiles_at(px, py)
-        return (bool(tiles) and tiles[-1].type == "Abyss") or any(o.type == "Abyss" for o in self.objects_at(px, py))
+        return self.abyss_tile_at(px, py) or any(o.type == "Abyss" for o in self.objects_at(px, py))
 
     def step_guards(self, hero_from, hero_to):
         guards = [o for o in self.objects if o.kind == "Guard"]

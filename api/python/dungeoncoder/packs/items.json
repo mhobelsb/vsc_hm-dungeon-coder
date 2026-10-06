@@ -1,0 +1,19 @@
+{
+ "name": "bundled-items",
+ "version": "0.1",
+ "description": "The items of the engine bundled assets (a copy of game/assets/pack.json, items; checked by tests): the simulator falls back to them when no pack in DC_ASSET_PACKS names an item",
+ "items": {
+  "Pebble": {
+   "tileset": "Icon sheet (16x16).json",
+   "tile": 155
+  },
+  "Crystal": {
+   "tileset": "Icon sheet (16x16).json",
+   "tile": 109
+  },
+  "Crystal:orange": {
+   "tileset": "Icon sheet (16x16).json",
+   "tile": 106
+  }
+ }
+}

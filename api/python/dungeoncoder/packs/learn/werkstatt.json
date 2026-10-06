@@ -1,0 +1,16 @@
+{
+ "style": "werkstatt",
+ "about": "placeholder world drawn by the engine's tools/make_world_art.py (CC0)",
+ "levels": "../../../../../game/assets/levels",
+ "tiles": [{"level": "welt_werkstatt"}],
+ "objects": ["welt_werkstatt"],
+ "hero": "../tilesets/welt_werkstatt_figur.json",
+ "abyss": "../tilesets/welt_werkstatt_tiles.json",
+ "items": {
+  "K": "Teil",
+  "*": "Kiste",
+  "o": "Marke"
+ },
+ "guard": 12,
+ "export": ["package"]
+}

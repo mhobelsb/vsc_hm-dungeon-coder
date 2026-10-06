@@ -54,6 +54,7 @@ and which stacks fit next to each other. The packs are learned from the levels
 that ship with the game (tools/ascii2level.py in the development workspace).
 """
 import collections
+import importlib.util
 import json
 import os
 import random
@@ -69,12 +70,33 @@ PROP, PATH, DETAIL = "x", ",", '"'      # decoration symbols
 OFFSETS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 VIEWS = ("full", "fit")
 GUARD_SPRITE = 3            # the characters tileset's sprite number used for guards
-# items that aren't learned from the levels: tiles from the icon sheet (the engine's ITEM_TILES)
-ICON_SHEET = "../tilesets/Icon sheet (16x16).json"
-ITEM_TILESETS = {ICON_SHEET: {"count": 420, "tile_w": 16, "tile_h": 16, "classes": {}}}
-CRYSTAL_TILES = {"weiss": 109, "orange": 106}
-PEBBLE_TILE = 155   # everything else: map properties
+# items that aren't learned from the levels: K a crystal, o a pebble. Their tiles come from the
+# asset packs' manifests (pack.json "items", as the engine's start inventory: sim.item_tiles);
+# the colour of a crystal (header colors:) picks the item "Crystal" or "Crystal:<colour>"
+CRYSTAL_ITEMS = {"weiss": "Crystal", "orange": "Crystal:orange"}
 PACK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "packs")
+NOT_STYLES = ("tilesets.json", "items.json")     # files in packs/ that aren't style packs
+
+
+def _sim():
+    """The simulator module (its tile rules and item tiles). This file is also loaded on its
+    own (tools/ascii2level.py), so the sibling sim.py is loaded by path then."""
+    try:
+        from . import sim
+    except ImportError:
+        spec = importlib.util.spec_from_file_location(
+            "dungeoncoder_sim", os.path.join(os.path.dirname(os.path.abspath(__file__)), "sim.py"))
+        sim = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sim)
+    return sim
+
+
+def item_tile(item, symbol):
+    """(tileset source, local id) of an item the builder places (K, o), from the packs."""
+    tile = _sim().item_tiles().get(item)
+    if tile is None:
+        raise MapError(f"no tile for {symbol} ({item}): no asset pack names one (pack.json, \"items\")")
+    return tile
 PACK_VERSION = 1
 
 
@@ -294,9 +316,9 @@ class Pack:
         pack can draw a style with other art than the one shipped here."""
         folders = [os.path.join(p, "styles") for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]
         path = next((os.path.join(d, f"{style}.json") for d in folders + [PACK_DIR]
-                     if os.path.exists(os.path.join(d, f"{style}.json"))), None)
+                     if f"{style}.json" not in NOT_STYLES and os.path.exists(os.path.join(d, f"{style}.json"))), None)
         if path is None:
-            styles = sorted(f[:-5] for f in os.listdir(PACK_DIR) if f.endswith(".json") and f != "tilesets.json")
+            styles = sorted(f[:-5] for f in os.listdir(PACK_DIR) if f.endswith(".json") and f not in NOT_STYLES)
             raise MapError(f"unknown style {style!r}; available: {', '.join(styles)}")
         with open(path, encoding="utf-8") as f:
             return cls.from_json(json.load(f))
@@ -531,9 +553,9 @@ def build(header, rows, pack, seed=0, variety=0.0):
             elif ch == "*":
                 cls, tile = "Sweets", pack.sweets
             elif ch == "K":
-                cls, tile = "Crystal", (ICON_SHEET, CRYSTAL_TILES["weiss"])
+                cls, tile = "Crystal", item_tile("Crystal", "K")
             elif ch == "o":
-                cls, tile = "Pebble", (ICON_SHEET, PEBBLE_TILE)
+                cls, tile = "Pebble", item_tile("Pebble", "o")
             elif ch == "W":
                 cls, tile = "Guard", pack.hero.get(f"south_{pack.guard_sprite}")
             elif ch == "Z" and exit_direction(grid, c, r) in pack.exits:
@@ -560,15 +582,23 @@ def build(header, rows, pack, seed=0, variety=0.0):
         except ValueError:
             raise MapError(f"values: whole numbers expected, got {' '.join(values)!r}") from None
     if colors:
-        if len(colors) != len(crystals) or set(colors) - set(CRYSTAL_TILES):
-            raise MapError(f"colors: one of {', '.join(CRYSTAL_TILES)} per crystal K")
+        if len(colors) != len(crystals) or set(colors) - set(CRYSTAL_ITEMS):
+            raise MapError(f"colors: one of {', '.join(CRYSTAL_ITEMS)} per crystal K")
         for o, color in zip(crystals, colors):
-            o["tile"] = (ICON_SHEET, CRYSTAL_TILES[color])
+            o["tile"] = item_tile(CRYSTAL_ITEMS[color], "K")
     for o, value in zip(crystals, values):
         o["properties"] = [{"name": "value", "type": "int", "value": value}]
 
     def tileset_info(source):
-        return pack.tilesets.get(source) or ITEM_TILESETS[source]
+        """What the style knows about a tileset; for an item tileset (not learned with the style)
+        the tile count from the simulator's rules, one field per tile, no classes (the object
+        gets its class as its type)."""
+        if source in pack.tilesets:
+            return pack.tilesets[source]
+        rules = _sim()._rules().get(source)
+        if rules is None:
+            raise MapError(f"{source}: no asset pack has this tileset")
+        return {"count": rules["count"], "tile_w": pack.tile_size, "tile_h": pack.tile_size, "classes": {}}
 
     guard_specs = {}
     for spec in header.get("guards", []):

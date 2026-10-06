@@ -4,8 +4,9 @@ so the pack has no third-party licence (CC0, see packs/demo/LICENSE.md).
     python3 tools/make_demo_pack.py          # needs Pillow
 
 The pack has the object classes and states the engine knows (Torch burning/off,
-Switch left/right, Door/VerticalDoor open/closed, Chest, Jug, Goal, Sweets, Abyss,
-Character standing/walking in four directions and 16 colours) and two demo levels.
+Switch left/right, Door/VerticalDoor and Grille open/closed, Chest, Jug, Goal, Sweets, Abyss,
+Character standing/walking in four directions and 16 colours), the item tiles the engine
+creates itself (Pebble, Crystal white and orange: pack.json "items") and two demo levels.
 
 Everything exists twice: with 16 px tiles (demo_*) and with 32 px tiles (demo32_*:
 the same pictures drawn at 32 px, levels of 15 x 10 cells). The 32 px set shows and
@@ -73,7 +74,12 @@ TILES = [
     (None, {}),                                       # 18: crystal (white)
     (None, {}),                                       # 19: crystal (orange)
     (None, {}),                                       # 20: pebble
+    ("Grille", {"state": "closed", "collision": True}),  # 21
+    ("Grille", {"state": "open"}),                    # 22
 ]
+# the items the engine creates itself (start inventory, map property hero_inventory) and the
+# text-map builder's crystals and pebbles: pack.json "items" (game/src/assets.js, loadItemTiles)
+ITEMS = {"Pebble": 20, "Crystal": 18, "Crystal:orange": 19}
 FLOOR, WALL, ABYSS = (86, 78, 70), (48, 44, 58), (8, 6, 14)
 
 
@@ -158,6 +164,13 @@ def draw_tiles(k=1):
     x0, y0, _, _ = box(20)
     for dx, dy in ((4, 9), (8, 6), (10, 11)):
         d.ellipse([x0 + dx, y0 + dy, x0 + dx + 3, y0 + dy + 2], fill=(150, 140, 130))
+    for i, open_ in ((21, False), (22, True)):        # a grille: iron bars, raised when open
+        x0, y0, x1, y1 = box(i)
+        d.rectangle(box(i), fill=FLOOR)
+        bottom = y0 + 4 if open_ else y1
+        d.rectangle([x0, y0, x1, y0 + 1], fill=(70, 70, 80))
+        for bx in (x0 + 2, x0 + 6, x0 + 10, x0 + 14):
+            d.line([(bx, y0), (bx, bottom)], fill=(110, 110, 125))
     return img, cols
 
 
@@ -220,7 +233,7 @@ def level(rows, start="east", props=None, prefix="demo", size=T, width=30, heigh
             c = grid[y][x]
             floor.append(0 if c == " " else floor_gid + (3 if c == "~" else 1))
             walls.append(floor_gid + 2 if c == "#" else 0)
-            obj = {"Z": 16, "T": 4, "t": 5, "s": 6, "D": 10, "C": 12, "J": 14, "*": 17}.get(c)
+            obj = {"Z": 16, "T": 4, "t": 5, "s": 6, "D": 10, "G": 21, "C": 12, "J": 14, "*": 17}.get(c)
             if c == "H":
                 n, k = 7, DIRS.index(start)
                 objects.append({"gid": hero_first + n * 8 + k * 2, "height": T, "id": oid, "name": "MainCharacter",
@@ -289,8 +302,9 @@ def main():
         with open(os.path.join(PACK, "levels", name), "w") as f:
             json.dump(data, f)
     with open(os.path.join(PACK, "pack.json"), "w") as f:
-        json.dump({"name": "demo", "version": "1.0", "licence": "CC0-1.0",
-                   "description": "Free demo pack for Dungeon Coder; every picture drawn by tools/make_demo_pack.py"},
+        json.dump({"name": "demo", "version": "1.1", "licence": "CC0-1.0",
+                   "description": "Free demo pack for Dungeon Coder; every picture drawn by tools/make_demo_pack.py",
+                   "items": {item: {"tileset": "demo_tiles.json", "tile": local} for item, local in ITEMS.items()}},
                   f, indent=1)
     with open(os.path.join(PACK, "LICENSE.md"), "w") as f:
         f.write("# Demo asset pack: CC0 1.0\n\nEvery picture in this pack was drawn by `tools/make_demo_pack.py`.\n"

@@ -6,7 +6,7 @@
  "margin": 0,
  "name": "demo_tiles",
  "spacing": 0,
- "tilecount": 21,
+ "tilecount": 23,
  "tiledversion": "1.11.2",
  "tileheight": 16,
  "tilewidth": 16,
@@ -208,6 +208,33 @@
   {
    "id": 17,
    "type": "Sweets"
+  },
+  {
+   "id": 21,
+   "type": "Grille",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "closed"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 22,
+   "type": "Grille",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "open"
+    }
+   ]
   }
  ]
 }

@@ -1,0 +1,10 @@
+{
+ "name": "bundled",
+ "version": "0.1",
+ "description": "The extension's own assets (the fallback after the configured packs). Until the public release they are the course art; then the demo pack replaces them, with its own items (docs: public release, step 3)",
+ "items": {
+  "Pebble": {"tileset": "Icon sheet (16x16).json", "tile": 155},
+  "Crystal": {"tileset": "Icon sheet (16x16).json", "tile": 109},
+  "Crystal:orange": {"tileset": "Icon sheet (16x16).json", "tile": 106}
+ }
+}

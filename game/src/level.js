@@ -2,15 +2,7 @@ import { AnimatedTile, TileFactory } from './tiles.js';
 import { TileLayer, ObjectLayer } from './layers.js';
 import { GameObjectFactory } from './game-object-factory.js';
 import { Torch, PatternDoor, Guard } from './game-objects.js';
-
-/**
- * Tiles for items the engine creates itself (the start inventory, map property
- * `hero_inventory`, e.g. "Pebble*20"). Their tileset is added to a level that lacks it.
- */
-export const ITEM_TILES = {
-    Pebble: { source: "../tilesets/Icon sheet (16x16).json", local: 155 },
-    Crystal: { source: "../tilesets/Icon sheet (16x16).json", local: 109 },
-};
+import { loadItemTiles } from './assets.js';
 
 /** [[type, count], ...] from a start inventory like "Pebble*20, Crystal". */
 export function parseStartInventory(text) {
@@ -27,8 +19,9 @@ export class Level {
     /**
      * @param {Array<Object>} levelDescription Raw level data from Tiled Level JSON
      * @param {TileFactory} tileFactory Tile Factory that was generated from the Tiled Level JSON
+     * @param {Object<string, {source: string, local: number}>} itemTiles tiles of the start inventory's items (loadItemTiles)
      */
-    constructor(levelDescription, tileFactory) {
+    constructor(levelDescription, tileFactory, itemTiles = {}) {
         const {
             compressionlevel = -1,
             height = 0,
@@ -89,6 +82,7 @@ export class Level {
         });
 
         this.tileFactory = tileFactory;
+        this.itemTiles = itemTiles;
         this.character = this.getObjectByName("MainCharacter");
         this.character?.setTileSize(this.tileWidth, this.tileHeight);
         this.goal = this.getObjectByType("Goal");
@@ -119,10 +113,10 @@ export class Level {
         const layer = this.layers.find(l => l instanceof ObjectLayer);
         let nextId = 1 + Math.max(0, ...this.objectFactory.gameObjects.map(o => o.id || 0));
         for (const [type, count] of parseStartInventory(this.getProperty('hero_inventory'))) {
-            const spec = ITEM_TILES[type];
+            const spec = this.itemTiles[type];
             const tileset = spec && this.tileFactory.getTilesetBySource(spec.source);
             if (!tileset) {
-                console.warn(`Start inventory: no tile for item type "${type}".`);
+                console.warn(`Start inventory: no tile for item type "${type}" (no asset pack names one in its pack.json).`);
                 continue;
             }
             for (let i = 0; i < count; i++) {
@@ -141,13 +135,15 @@ export class Level {
             return;
         }
 
-        // the start inventory needs its item tiles, even if the level doesn't use them
+        // the start inventory needs its item tiles, even if the level doesn't use them; the
+        // asset packs say which tiles those are (pack.json, "items")
+        const itemTiles = await loadItemTiles(pathPrefix);
         const tilesets = [...(levelData.tilesets || [])];
         const properties = levelData.properties || [];
         const inventory = properties.find(p => p.name === 'hero_inventory')?.value;
         let nextGid = Math.max(1, ...tilesets.map(t => t.firstgid)) + 10000;
         for (const [type] of parseStartInventory(inventory)) {
-            const spec = ITEM_TILES[type];
+            const spec = itemTiles[type];
             if (spec && !tilesets.some(t => t.source === spec.source)) {
                 tilesets.push({ firstgid: nextGid, source: spec.source });
                 nextGid += 10000;
@@ -156,7 +152,7 @@ export class Level {
         levelData = { ...levelData, tilesets };
 
         const tileFactory = await TileFactory.create(levelData.tilesets, pathPrefix);
-        const level = new Level(levelData, tileFactory);
+        const level = new Level(levelData, tileFactory, itemTiles);
 
         return level;
     }

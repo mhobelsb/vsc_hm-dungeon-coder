@@ -189,3 +189,24 @@ test('a tileset no asset pack has refuses the level with a message (bug B24)', a
     await assert.rejects(Level.create(data), error => error instanceof MissingTilesetError
         && error.sources.length === 1 && /gibt_es_nicht.*dungeonCoder\.assetPacks/.test(error.message));
 });
+
+test('start inventory: the item tiles come from the pack manifest (pack.json "items", gap G3)', async () => {
+    const game = await play(['#####', '#H.Z#', '#####'], { properties: { hero_inventory: 'Pebble*3, Crystal' } });
+    assert.deepEqual(game.hero.getInventory(), ['Pebble', 'Pebble', 'Pebble', 'Crystal']);
+    // the demo pack names its own tiles: pebble local 20, white crystal local 18 (tools/make_demo_pack.py)
+    const pebble = game.character.inventory[0];
+    assert.equal(pebble.tile, game.level.tileFactory.getTileByGlobalTileId(1 + 20));
+    assert.equal(game.hero.drop('Pebble'), true);
+    assert.deepEqual(game.hero.getItemsAtHeroPosition(), ['Pebble']);
+    // an item type no pack names isn't given (the game warns), the others are
+    const other = await play(['#####', '#H.Z#', '#####'], { properties: { hero_inventory: 'Feder*2, Pebble' } });
+    assert.deepEqual(other.hero.getInventory(), ['Pebble']);
+});
+
+test('the bundled assets name the same items for the game and for the Python package (sim, map builder)', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const read = async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
+    const game = await read('../assets/pack.json');
+    const python = await read('../../api/python/dungeoncoder/packs/items.json');
+    assert.deepEqual(python.items, game.items);
+});

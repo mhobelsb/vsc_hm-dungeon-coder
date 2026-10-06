@@ -1,6 +1,7 @@
 """Shared model of a Dungeon Coder level (Tiled JSON) for the tools in this folder.
 
-Mirrors the engine's rules (game/src/level.js, character.js):
+The rules come from the simulator (api/python/dungeoncoder/sim.py), the port of the engine's
+rules that tests/conformance.py keeps equal to the game, so they exist once (gap G2):
   - a cell is a WALL if a tile layer with the bool property collision=true has a
     tile there whose local id is not 0 (Level.isCollision)
   - a cell is an ABYSS if its topmost tile has the class "Abyss" (Level.isAbyssAt);
@@ -8,11 +9,16 @@ Mirrors the engine's rules (game/src/level.js, character.js):
   - an object's type is the class of its tile, or its own `type`
   - tile objects are anchored bottom-left: cell = (x // tilewidth, (y - 1) // tileheight)
 
+This module adds what the tools need beyond the rules: layer roles, the tile stacks of a
+cell, and the learning views (visual_walls, ignore_bg_abyss, learning_abyss), which differ
+from the engine on purpose.
+
 Layer roles (used for learning and generating tiles): the first non-collision
 layer named "Background" is `bg`; other non-collision layers before the first
 collision layer are `floor`; collision layers are `wall`; non-collision layers
 after it are `over` (arches and other decoration drawn above the hero).
 """
+import importlib.util
 import json
 import os
 
@@ -34,6 +40,26 @@ OBJECT_SYMBOLS = {
 }
 
 _tileset_cache = {}
+_sim_module = None
+
+
+def sim():
+    """The simulator module, loaded by path (no need for the dungeoncoder package and its
+    dependencies), with tile rules from the same folders this module reads tilesets from:
+    the simulator's bundled rules, then ASSETS, then the asset packs (first pack wins)."""
+    global _sim_module
+    if _sim_module is None:
+        path = os.path.join(HERE, "..", "..", "api", "python", "dungeoncoder", "sim.py")
+        spec = importlib.util.spec_from_file_location("dclevel_sim", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with open(os.path.join(module.PACK_DIR, "tilesets.json"), encoding="utf-8") as f:
+            rules = json.load(f)
+        for folder in [ASSETS] + list(reversed(PACKS)):
+            rules.update(module._rules_from_folder(folder))
+        module._rules_cache = rules
+        _sim_module = module
+    return _sim_module
 
 
 def asset_path(source):
@@ -100,6 +126,13 @@ class Level:
         self.tile_layers = [l for l in d["layers"] if l["type"] == "tilelayer"]
         self.object_layers = [l for l in d["layers"] if l["type"] == "objectgroup"]
         self.roles = self._layer_roles()
+        self._sim_level = None
+
+    def rules(self):
+        """The simulator's model of this level (walls, abysses, objects by the engine's rules)."""
+        if self._sim_level is None:
+            self._sim_level = sim().Level(self.data)
+        return self._sim_level
 
     # --- tiles -------------------------------------------------------------
     def resolve(self, gid):
@@ -143,8 +176,19 @@ class Level:
         return out
 
     def terrain(self, col, row):
-        """WALL, ABYSS, FLOOR or VOID for a cell, by the engine's rules."""
+        """WALL, ABYSS, FLOOR or VOID for a cell, by the engine's rules (asked from the simulator).
+        An abyss whose topmost tile is on the background layer shows as VOID (nothing drawn
+        there); for the rules it is an abyss as well."""
         tiles = self.tiles_at(col, row)
+        if not (self.visual_walls or self.ignore_bg_abyss or self.learning_abyss):
+            rules = self.rules()
+            px, py = col * self.tile_w + self.tile_w / 2, row * self.tile_h + self.tile_h / 2
+            if rules.wall_tile_at(px, py):
+                return WALL
+            if rules.abyss_tile_at(px, py):
+                return ABYSS if tiles[-1][0] != "bg" else VOID
+            return FLOOR if any(role in ("floor", "over") for role, _, _ in tiles) else VOID
+        # the learning views (not engine behaviour, see the module docstring)
         if any(role == "wall" and local != 0 for role, _, local in tiles):
             return WALL
         has_floor = any(role in ("floor", "over") for role, _, _ in tiles)

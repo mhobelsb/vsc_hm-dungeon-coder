@@ -8,6 +8,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- **Item tiles from the asset packs**: a pack's `pack.json` names the tiles of the items the engine creates itself (`"items"`: `Pebble`, `Crystal`, `Crystal:orange`, each `{"tileset", "tile"}`), the first pack wins. The start inventory (`hero_inventory`) in the game and the simulator, and the crystals `K` and pebbles `o` of text maps, take their tiles from there instead of a fixed tileset. The bundled assets have their own `pack.json`; the Python package a copy (`packs/items.json`), checked equal by a unit test. An item type no pack names isn't given (the game warns).
+- **Demo pack 1.1**: grille tiles (closed, open) and an `items` entry for its pebble and crystals, so the demo pack alone plays levels with a start inventory.
+- **Style recipes**: `api/python/dungeoncoder/packs/learn/<world>.json` say what each CC0 world style is learned from (source levels, figure sheet, abyss, items); the course's style learner reads them instead of a table in code.
+
 - **Versions**: `GET /version` returns the versions of the extension and of the API (answered by the server, `x-host` in `api/openapi.yaml`). `Game()` warns once per program if the Python package doesn't fit the running extension (another major/minor version, or an extension without `/version`). When the game starts, the extension warns about an outdated copied `dungeoncoder/` folder in the workspace and offers to copy the matching one. "Copy Python API to workspace" now replaces an existing folder instead of copying over it.
 - **Setup check**: `python -m dungeoncoder` prints the Python, the package (copied or installed), where the game is expected and whether it answers and fits, the asset packs, and whether the simulator runs; each line `ok`, `note` or `PROBLEM` with what to do. A missing `httpx` now gives a message that names the Python in use and the fix (select the interpreter, install the packages).
 - **Text maps: large props**: a style pack may list large obstacles (`big_props`: a footprint of w x h fields, one tile per footprint field, and parts beyond it: a crown, the devices on a bench). A block of touching `x` that is a rectangle of exactly a prop's size becomes that prop; other blocks are filled with the props marked `fill`, largest first; a single `x` keeps the small props. Every footprint field gets its own wall tile, so the rules are the same as before; the parts beyond the footprint go into as many `Deko` layers as overlap. Decoration only: the simulator is unchanged.
@@ -51,6 +55,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Keyboard moves (WASD) are counted separately and shown on the "Level Complete" screen as "Keyboard moves".
 - A level can switch keyboard control off with the bool map property `keyboard: false` (set in Tiled under Map Properties).
 - The dev server's HTTP port can be changed with `DC_PORT`, so it can run next to an installed Dungeon Coder extension.
+
+### Changed
+
+- The level tools' shared model (`tools/levels/dclevel.py`) asks the simulator for walls and abysses (`Level.wall_tile_at`, `Level.abyss_tile_at`, split out of `is_collision` and `abyss_at` without a change in behaviour), so the rules exist once; its learning views stay its own.
+- The 11 course levels are no longer bundled (`game/assets/levels/` keeps the four show levels of the CC0 worlds); they live in the private course assets.
 
 ### Fixed
 

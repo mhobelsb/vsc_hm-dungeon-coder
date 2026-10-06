@@ -47,7 +47,7 @@ print(game.get_statistics()["moves"])
 ## Levels and asset packs
 
 - **Levels** are [Tiled](https://www.mapeditor.org/) maps (JSON), or text maps that `Game("x.txt")` turns into one. Map properties switch on the game's mechanics: `fog` (`explored`/`dark`), `keyboard: false`, `win` (`all_sweets`, `all_switches`, `sorted`, `stable`), `inventory_size`, `hero_inventory`, `fernrohr`, `orakel`, and more; text maps write them as header lines. `Game.generate(seed, kind="maze")` builds a seeded maze.
-- **Asset packs** hold the pictures: a folder with `tilesets/`, `images/`, optionally `styles/` (text-map styles) and a `pack.json`. A tile's class (`Torch`, `Switch`, `Door`, `Goal`, `Abyss`, …) and its properties (`collision`, `state`, `item`) give it its rules, so a pack can redraw the whole game without touching levels or code. The free **demo pack** in `packs/demo/` (CC0, drawn by `tools/make_demo_pack.py`, 16 px and 32 px tiles) shows the format. A level whose tilesets no pack has is refused with a message naming the missing tileset.
+- **Asset packs** hold the pictures: a folder with `tilesets/`, `images/`, optionally `styles/` (text-map styles) and a `pack.json`. A tile's class (`Torch`, `Switch`, `Door`, `Goal`, `Abyss`, …) and its properties (`collision`, `state`, `item`) give it its rules, so a pack can redraw the whole game without touching levels or code. A pack's `pack.json` names the tiles of the items the engine creates itself, the start inventory (`hero_inventory`) and the crystals and pebbles of text maps: `"items": {"Pebble": {"tileset": "x.json", "tile": 20}, "Crystal": {...}, "Crystal:orange": {...}}`; the first pack that names an item wins. The free **demo pack** in `packs/demo/` (CC0, drawn by `tools/make_demo_pack.py`, 16 px and 32 px tiles) shows the format. A level whose tilesets no pack has is refused with a message naming the missing tileset.
 
 ## Developing
 
@@ -89,10 +89,10 @@ The dev server serves the same REST API and game page as the extension and relay
 | `game/src/` | the game (ES modules): `game.js` loop and states, `level.js` layers and rules, `character.js` hero and the API facade with statistics, `game-objects.js` objects, `fog.js`, `assets.js` pack lookup, `rendering/` drawing only |
 | `game/test/` | Node unit tests for the rules (`npm run test:engine`) |
 | `api/openapi.yaml` | the REST API |
-| `api/python/dungeoncoder/` | the Python package: `dungeoncoder.py` (`Game`, `Hero`), `sim.py` (simulator), `asciimap.py` (text maps), `generator.py` (mazes), `testing.py` (pytest), `packs/` (text-map styles and tile rules) |
+| `api/python/dungeoncoder/` | the Python package: `dungeoncoder.py` (`Game`, `Hero`), `sim.py` (simulator), `asciimap.py` (text maps), `generator.py` (mazes), `testing.py` (pytest), `packs/` (text-map styles, tile rules, `items.json`: the bundled assets' items; `learn/`: the recipes of the CC0 world styles, not shipped) |
 | `packs/demo/` | the CC0 demo pack |
 | `tools/` | code generators, the dev server, `make_demo_pack.py`, `make_world_art.py` |
-| `tools/levels/` | level tools for anyone building levels (Python; tilesets from `DC_ASSET_PACKS`, then `game/assets`): `level2ascii.py` (a level as a text map), `level2png.py` (a level as a picture, with grid, marks and paths; needs Pillow), `check_level.py` (check a level by the game's rules; with two levels: did only the look change?), `run_sim.py` (run a script in the simulator), `run_headless.py` (run a script against the dev server in headless Chrome; needs Playwright); `npm run test:tools` checks them on the demo pack |
+| `tools/levels/` | level tools for anyone building levels (Python; tilesets from `DC_ASSET_PACKS`, then `game/assets`): `level2ascii.py` (a level as a text map), `level2png.py` (a level as a picture, with grid, marks and paths; needs Pillow), `check_level.py` (check a level by the game's rules; with two levels: did only the look change?), `run_sim.py` (run a script in the simulator), `run_headless.py` (run a script against the dev server in headless Chrome; needs Playwright); their shared model `dclevel.py` takes walls and abysses from the simulator, so the rules exist once; `npm run test:tools` checks them on the demo pack |
 
 ### Adding an API command
 

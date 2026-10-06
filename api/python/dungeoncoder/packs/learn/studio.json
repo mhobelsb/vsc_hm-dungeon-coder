@@ -1,0 +1,15 @@
+{
+ "style": "studio",
+ "about": "placeholder world drawn by the engine's tools/make_world_art.py (CC0)",
+ "levels": "../../../../../game/assets/levels",
+ "tiles": [{"level": "welt_studio"}],
+ "objects": ["welt_studio"],
+ "hero": "../tilesets/welt_studio_figur.json",
+ "abyss": "../tilesets/welt_studio_tiles.json",
+ "items": {
+  "K": "Entwurf",
+  "*": "Farbfolie",
+  "o": "Klebepunkt"
+ },
+ "export": ["package"]
+}

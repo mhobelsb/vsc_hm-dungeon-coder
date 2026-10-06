@@ -53,3 +53,29 @@ export function imageFromPacks(relativePath, pathPrefix = "") {
     image.src = bases[0] + relativePath;
     return image;
 }
+
+/**
+ * The tiles of the items the engine creates itself (the start inventory, map property
+ * `hero_inventory`), from the packs' manifests: pack.json may name them as
+ *     "items": {"Pebble": {"tileset": "x.json", "tile": 20}, "Crystal": {...}}
+ * The first pack that names an item wins (the same order as for tilesets).
+ * @returns {Promise<Object<string, {source: string, local: number}>>} item type -> level-relative tileset and local id
+ */
+export async function loadItemTiles(pathPrefix = "") {
+    const items = {};
+    for (const base of assetBases(pathPrefix)) {
+        let manifest = null;
+        try {
+            const response = await fetch(base + "pack.json");
+            manifest = response.ok ? await response.json() : null;
+        } catch (e) {
+            // a pack without a manifest names no items
+        }
+        for (const [type, spec] of Object.entries(manifest?.items ?? {})) {
+            if (!(type in items) && spec && typeof spec.tileset === "string" && Number.isInteger(spec.tile)) {
+                items[type] = { source: "../tilesets/" + spec.tileset, local: spec.tile };
+            }
+        }
+    }
+    return items;
+}
