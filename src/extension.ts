@@ -464,17 +464,56 @@ export function missingFolders(folders: string[]): string[] {
     return folders.filter(folder => !existsSync(folder));
 }
 
+/** True if version `have` is at least `need` (both "major.minor.patch"; missing parts count as 0). */
+export function versionAtLeast(have: string, need: string): boolean {
+    const parts = (v: string) => v.split('.').map(n => parseInt(n, 10) || 0);
+    const [a, b] = [parts(have), parts(need)];
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        if ((a[i] ?? 0) !== (b[i] ?? 0)) {
+            return (a[i] ?? 0) > (b[i] ?? 0);
+        }
+    }
+    return true;
+}
+
+/**
+ * The packs among `folders` whose manifest (pack.json, "engine": the oldest Dungeon Coder that
+ * draws them correctly, gap G6) needs a newer extension than `version`: "name (needs x.y.z)".
+ * A pack without a manifest or without "engine" fits every version.
+ */
+export function packsNeedingNewerEngine(folders: string[], version: string): string[] {
+    const out: string[] = [];
+    for (const folder of folders) {
+        try {
+            const manifest = JSON.parse(readFileSync(path.join(folder, 'pack.json'), 'utf8'));
+            if (typeof manifest.engine === 'string' && !versionAtLeast(version, manifest.engine)) {
+                out.push(`${manifest.name ?? path.basename(folder)} (needs ${manifest.engine})`);
+            }
+        } catch {
+            // no manifest, or an unreadable one: nothing to compare
+        }
+    }
+    return out;
+}
+
 /**
  * An exercise names its pack in .vscode/settings.json, e.g. "../dungeon-coder-assets", and
  * the student clones the pack next to the exercise folders. Say so if that step was missed;
  * otherwise the first level would only fail with "Missing tileset".
  */
-function warnAboutMissingAssetPacks() {
+function warnAboutMissingAssetPacks(extensionPath: string) {
     const missing = missingFolders(assetPackFolders());
     if (missing.length > 0) {
         vscode.window.showWarningMessage(
             `Asset pack not found: ${missing.join(', ')}. `
             + 'Clone it there, or change the setting dungeonCoder.assetPacks; then close the game tab and start it again.');
+    }
+    const version = versions(extensionPath).extension;
+    const tooNew = packsNeedingNewerEngine(assetPackFolders(), version);
+    if (tooNew.length > 0) {
+        vscode.window.showWarningMessage(
+            `Asset pack for a newer Dungeon Coder: ${tooNew.join(', ')}; this is ${version}. `
+            + 'Update the extension, otherwise some levels may not work.');
     }
 }
 
@@ -512,7 +551,7 @@ export function activate(context: vscode.ExtensionContext) {
         ret = ret && server.startServer(context.extensionPath);
         if (ret) {
             vscode.window.showInformationMessage('Enter the dungeon!');
-            warnAboutMissingAssetPacks();
+            warnAboutMissingAssetPacks(context.extensionPath);
             warnAboutOutdatedPythonApi(context.extensionPath);
         } else {
             vscode.window.showErrorMessage("Error: Dungeon Coder could not be started.");

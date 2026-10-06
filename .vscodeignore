@@ -15,6 +15,7 @@ tools/**
 .yarnrc
 webpack.config.js
 vsc-extension-quickstart.md
+ARCHITECTURE.md
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map

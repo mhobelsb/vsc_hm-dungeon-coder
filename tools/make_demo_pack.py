@@ -302,8 +302,9 @@ def main():
         with open(os.path.join(PACK, "levels", name), "w") as f:
             json.dump(data, f)
     with open(os.path.join(PACK, "pack.json"), "w") as f:
-        json.dump({"name": "demo", "version": "1.1", "licence": "CC0-1.0",
+        json.dump({"name": "demo", "version": "1.1", "engine": "0.1.0", "licence": "CC0-1.0",
                    "description": "Free demo pack for Dungeon Coder; every picture drawn by tools/make_demo_pack.py",
+                   "styles": [], "worlds": [],
                    "items": {item: {"tileset": "demo_tiles.json", "tile": local} for item, local in ITEMS.items()}},
                   f, indent=1)
     with open(os.path.join(PACK, "LICENSE.md"), "w") as f:

@@ -151,7 +151,9 @@ export class Level {
         }
         levelData = { ...levelData, tilesets };
 
-        const tileFactory = await TileFactory.create(levelData.tilesets, pathPrefix);
+        // a level may name the asset pack its art comes from (map property `pack`, gap G5)
+        const pack = (levelData.properties || []).find(p => p.name === 'pack')?.value || "";
+        const tileFactory = await TileFactory.create(levelData.tilesets, pathPrefix, pack);
         const level = new Level(levelData, tileFactory, itemTiles);
 
         return level;

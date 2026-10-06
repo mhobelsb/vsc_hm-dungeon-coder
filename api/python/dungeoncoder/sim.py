@@ -91,18 +91,22 @@ def item_tiles():
     return _items_cache
 
 
-def missing_tileset_message(sources):
-    """Same wording as the game (game/src/tiles.js, missingTilesetMessage)."""
+def missing_tileset_message(sources, pack=""):
+    """Same wording as the game (game/src/tiles.js, missingTilesetMessage); pack: the asset pack
+    the level names (map property `pack`)."""
+    needs = (f'This level needs the asset pack "{pack}": get it (the exercise sheet says how) and add it '
+             if pack else "Add the asset pack ")
     return (f"Missing tileset {', '.join(sources)}: no asset pack has it. "
-            "Add the asset pack to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).")
+            f"{needs}to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).")
 
 
 class MissingTileset(Exception):
     """A level names tilesets that no asset pack has."""
 
-    def __init__(self, sources):
-        super().__init__(missing_tileset_message(sources))
+    def __init__(self, sources, pack=""):
+        super().__init__(missing_tileset_message(sources, pack))
         self.sources = sources
+        self.pack = pack
 
 
 class Tile:
@@ -122,12 +126,12 @@ class Tile:
 class Tilesets:
     """The level's tilesets, in the level's order, like the engine's TileFactory."""
 
-    def __init__(self, descriptions):
+    def __init__(self, descriptions, pack=""):
         self.sets = []
         missing = [d["source"] for d in descriptions if d["source"] not in _rules()]
         if missing:
             # without its rules a wall would be floor: refuse the level like the game (bug B24)
-            raise MissingTileset(missing)
+            raise MissingTileset(missing, pack)
         for d in descriptions:
             rules = _rules()[d["source"]]
             tiles = {int(k): Tile(int(k), v) for k, v in rules["tiles"].items()}
@@ -254,7 +258,7 @@ class Level:
             if spec and not any(t["source"] == spec[0] for t in tilesets):
                 tilesets.append({"firstgid": next_gid, "source": spec[0]})
                 next_gid += 10000
-        self.tilesets = Tilesets(tilesets)
+        self.tilesets = Tilesets(tilesets, self.prop("pack") or "")
         self.width, self.height = data.get("width", 30), data.get("height", 20)
         self.tw, self.th = data.get("tilewidth", TILE), data.get("tileheight", TILE)
         self.layers = []            # (data, collision) of the tile layers

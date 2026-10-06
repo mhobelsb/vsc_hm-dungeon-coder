@@ -9,6 +9,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Added
 
 - **Item tiles from the asset packs**: a pack's `pack.json` names the tiles of the items the engine creates itself (`"items"`: `Pebble`, `Crystal`, `Crystal:orange`, each `{"tileset", "tile"}`), the first pack wins. The start inventory (`hero_inventory`) in the game and the simulator, and the crystals `K` and pebbles `o` of text maps, take their tiles from there instead of a fixed tileset. The bundled assets have their own `pack.json`; the Python package a copy (`packs/items.json`), checked equal by a unit test. An item type no pack names isn't given (the game warns).
+- **A level names its asset pack** (map property `pack`; text-map styles can set it, so generated levels carry it): when a tileset is missing, game and simulator say which pack to get.
+- **Pack manifest**: `pack.json` may give `engine` (the oldest Dungeon Coder that draws the pack correctly), `styles` and `worlds`. At game start the extension warns about a configured pack that needs a newer extension; `python -m dungeoncoder` does the same.
+- **ARCHITECTURE.md**: how the engine works inside (from Benedikt Dietrich's notes for 0.1.0, updated).
 - **Demo pack 1.1**: grille tiles (closed, open) and an `items` entry for its pebble and crystals, so the demo pack alone plays levels with a start inventory.
 - **Style learner**: `tools/levels/learn_styles.py` (`npm run learn:styles`, `--check`) learns text-map style packs from hand-built levels by JSON recipes (`<folder>/learn/<style>.json`: source levels and options, figure sheet, abyss, items, decoration, large props) and writes each pack to the folder above its recipes. `api/python/dungeoncoder/packs/learn/` holds the recipes of the CC0 worlds, so the engine rebuilds its own styles (checked in `npm run test:tools`).
 - `Game.generate(..., style=...)`: the text-map style of a generated level (default `maze`).

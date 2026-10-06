@@ -28,6 +28,8 @@ Recipe fields:
   hero, abyss       the figure sheet and the tileset with the abyss tiles
   sweets            [tileset, local id] of the sweets (*), unless the style's items name one
   items, guard      a world's item classes for K, *, o, and the figure number of the agents W
+  pack              the asset pack the art comes from: levels built in this style name it (map
+                    property pack), so a missing tileset's message can say which pack to get
   decor             decoration and exits as data (paths may be {"frame": {tileset, rows}}), or
   decor_file        a file in the levels folder with them
   big_props         large props for blocks of x, a file in the levels folder
@@ -230,6 +232,7 @@ def learn(recipe, big=None):
     # tiles of class Abyss, the plainest first (tiles_dungeon local 3, as in falling.json)
     dungeon = config.get("abyss", "../tilesets/tiles_dungeon_v1.2_16x16.json")
     pack.world = style if "items" in config else None
+    pack.pack = config.get("pack")
     pack.guard_sprite = config.get("guard", pack.guard_sprite)
     for symbol, cls in config.get("items", {}).items():         # a world's own items
         pack.items[symbol] = (dungeon, tileset(dungeon).find(cls)[0], cls)

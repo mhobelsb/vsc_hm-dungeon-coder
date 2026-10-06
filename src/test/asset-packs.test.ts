@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { readFileSync } from 'fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -69,6 +70,16 @@ suite('A pack named in the settings but not cloned', () => {
         const workspace = vscode.workspace.workspaceFolders![0].uri.fsPath;
         const notCloned = path.join(workspace, '..', 'dungeon-coder-assets');
         assert.deepStrictEqual(missingFolders([DEMO_PACK, notCloned]), [notCloned]);
+    });
+});
+
+suite('Pack manifest (G6)', () => {
+    test('a pack that needs a newer engine is named, one without "engine" fits every version', () => {
+        const { versionAtLeast, packsNeedingNewerEngine } = require('../extension') as typeof import('../extension');
+        assert.ok(versionAtLeast('0.10.0', '0.9.3') && versionAtLeast('1.0', '1.0.0') && !versionAtLeast('0.1.0', '0.2.0'));
+        const folder = mkdtempSync(path.join(os.tmpdir(), 'dc-pack-'));
+        writeFileSync(path.join(folder, 'pack.json'), JSON.stringify({ name: 'future', engine: '99.0.0' }));
+        assert.deepStrictEqual(packsNeedingNewerEngine([DEMO_PACK, folder], '0.1.0'), ['future (needs 99.0.0)']);
     });
 });
 

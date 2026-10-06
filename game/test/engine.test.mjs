@@ -188,6 +188,10 @@ test('a tileset no asset pack has refuses the level with a message (bug B24)', a
     data.tilesets[0] = { ...data.tilesets[0], source: '../tilesets/gibt_es_nicht.json' };
     await assert.rejects(Level.create(data), error => error instanceof MissingTilesetError
         && error.sources.length === 1 && /gibt_es_nicht.*dungeonCoder\.assetPacks/.test(error.message));
+    // a level that names its asset pack (map property pack, G5): the message says which pack to get
+    data.properties = [{ name: 'pack', type: 'string', value: 'dungeon-coder-assets' }];
+    await assert.rejects(Level.create(data), error => error instanceof MissingTilesetError
+        && error.pack === 'dungeon-coder-assets' && /needs the asset pack "dungeon-coder-assets"/.test(error.message));
 });
 
 test('start inventory: the item tiles come from the pack manifest (pack.json "items", gap G3)', async () => {

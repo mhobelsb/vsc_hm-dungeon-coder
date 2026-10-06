@@ -4,12 +4,32 @@ Prints what a program of yours will use: the Python, this package, where the gam
 whether it answers and fits, the asset packs, and whether the simulator runs. Each line starts with
 ok, note or PROBLEM; a PROBLEM line says what to do.
 """
+import json
 import os
 import sys
 
 
 def line(state, text):
     print(f"{state:8} {text}")
+
+
+def _manifest(folder):
+    """A pack's pack.json (name, version, engine: the oldest Dungeon Coder it needs, ...), or {}."""
+    try:
+        with open(os.path.join(folder, "pack.json"), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _at_least(have, need):
+    """Version have >= need ("major.minor.patch", missing parts count as 0)."""
+    def parts(version):
+        return [int(p) if p.isdigit() else 0 for p in str(version).split(".")]
+    a, b = parts(have), parts(need)
+    width = max(len(a), len(b))
+    return a + [0] * (width - len(a)) >= b + [0] * (width - len(b))
 
 
 def main():
@@ -53,7 +73,15 @@ def main():
     if packs:
         for pack in packs:
             if os.path.isdir(pack):
-                line("ok", f"asset pack {pack}")
+                manifest = _manifest(pack)
+                need = manifest.get("engine")
+                if isinstance(need, str) and not _at_least(dungeoncoder.__version__, need):
+                    problems += 1
+                    line("PROBLEM", f"asset pack {pack} needs Dungeon Coder {need} or newer, this is "
+                                    f"{dungeoncoder.__version__}: update the extension and the Python package")
+                else:
+                    about = ", ".join(f"{k} {manifest[k]}" for k in ("name", "version") if manifest.get(k))
+                    line("ok", f"asset pack {pack}" + (f" ({about})" if about else ""))
             else:
                 problems += 1
                 line("PROBLEM", f"asset pack {pack} doesn't exist: clone it there (see the exercise sheet)")

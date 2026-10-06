@@ -163,6 +163,7 @@ class Pack:
         self.tile_size = 16     # pixels per field in the style's levels (their tilewidth)
         self.items = {}         # symbol -> (source, local, class): a world's own items for K, * and o
         self.world = None       # name of the world (not the dungeon): the game shows its end screens
+        self.pack = None        # the asset pack the style's art comes from (map property pack, G5)
         self.guard_sprite = GUARD_SPRITE    # the figure number of the agents "W"
         # decoration (optional; tiles are (source, local)):
         self.props = []         # obstacles x: [their tile, tile drawn into the field behind them or None]
@@ -262,6 +263,7 @@ class Pack:
             **({"tile_size": self.tile_size} if self.tile_size != 16 else {}),
             **({"items": {k: list(v) for k, v in self.items.items()}} if self.items else {}),
             **({"world": self.world} if self.world else {}),
+            **({"pack": self.pack} if self.pack else {}),
             **({"guard_sprite": self.guard_sprite} if self.guard_sprite != GUARD_SPRITE else {}),
             **({"props": [[list(b), list(t) if t else None] for b, t in self.props]} if self.props else {}),
             **({"big_props": [{"w": p["w"], "h": p["h"], "fill": p["fill"], "parts": [list(t) for t in p["parts"]]}
@@ -299,6 +301,7 @@ class Pack:
         pack.tile_size = data.get("tile_size", 16)
         pack.items = {k: tuple(v) for k, v in data.get("items", {}).items()}
         pack.world = data.get("world")
+        pack.pack = data.get("pack")
         pack.guard_sprite = data.get("guard_sprite", GUARD_SPRITE)
         pack.props = [(tuple(b), tuple(t) if t else None) for b, t in data.get("props", [])]
         pack.big_props = [{"w": p["w"], "h": p["h"], "fill": p.get("fill", False), "parts": [tuple(t) for t in p["parts"]]}
@@ -692,6 +695,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
         obj["properties"] = [{"name": "controls", "type": "object", "value": cell_to_id[dst]}]
 
     properties = [{"name": "world", "type": "string", "value": pack.world}] if pack.world else []
+    if pack.pack:                   # which asset pack the art needs: named in "missing tileset" (G5)
+        properties.append({"name": "pack", "type": "string", "value": pack.pack})
     for key, values in header.items():
         if key in HEADER_KEYS:
             continue

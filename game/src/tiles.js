@@ -359,7 +359,10 @@ export class TileFactory {
         return null;
     }
 
-    static async create(tilesetsDescription, pathPrefix = "") {
+    /**
+     * @param {string} pack the asset pack the level names (map property `pack`), for the message
+     */
+    static async create(tilesetsDescription, pathPrefix = "", pack = "") {
         const tileFactory = new TileFactory();
         const tilesetPromises = tilesetsDescription.map(ts => {
             return Tileset.create(ts.source, ts.firstgid, pathPrefix);
@@ -368,7 +371,7 @@ export class TileFactory {
         // a tileset no pack has would leave walls without rules: refuse the level (bug B24)
         const missing = tilesetsDescription.filter((ts, i) => !loadedTilesets[i]).map(ts => ts.source);
         if (missing.length > 0) {
-            throw new MissingTilesetError(missing);
+            throw new MissingTilesetError(missing, pack);
         }
         loadedTilesets.forEach(tileset => {
             tileFactory.add(tileset);
@@ -379,15 +382,17 @@ export class TileFactory {
 
 /** A level names tilesets that no asset pack has. The message is the one the student sees. */
 export class MissingTilesetError extends Error {
-    constructor(sources) {
-        super(missingTilesetMessage(sources));
+    constructor(sources, pack = "") {
+        super(missingTilesetMessage(sources, pack));
         this.name = 'MissingTilesetError';
         this.sources = sources;
+        this.pack = pack;
     }
 }
 
 /** Same wording as the simulator (dungeoncoder/sim.py, missing_tileset_message). */
-export function missingTilesetMessage(sources) {
+export function missingTilesetMessage(sources, pack = "") {
+    const needs = pack ? `This level needs the asset pack "${pack}": get it (the exercise sheet says how) and add it ` : 'Add the asset pack ';
     return `Missing tileset ${sources.join(', ')}: no asset pack has it. `
-        + 'Add the asset pack to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).';
+        + `${needs}to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).`;
 }
