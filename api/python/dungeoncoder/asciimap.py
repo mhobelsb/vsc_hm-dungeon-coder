@@ -319,7 +319,8 @@ class Pack:
                      if f"{style}.json" not in NOT_STYLES and os.path.exists(os.path.join(d, f"{style}.json"))), None)
         if path is None:
             styles = sorted(f[:-5] for f in os.listdir(PACK_DIR) if f.endswith(".json") and f not in NOT_STYLES)
-            raise MapError(f"unknown style {style!r}; available: {', '.join(styles)}")
+            raise MapError(f"unknown style {style!r}; available: {', '.join(styles)} (more styles come with "
+                           "asset packs: setting dungeonCoder.assetPacks, outside VS Code DC_ASSET_PACKS)")
         with open(path, encoding="utf-8") as f:
             return cls.from_json(json.load(f))
 

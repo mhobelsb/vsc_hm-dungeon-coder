@@ -133,32 +133,34 @@ def _check_size(width, height):
         raise MapError(f"a level must be between 7x7 and {GRID_W}x{GRID_H}, got {width}x{height}")
 
 
-def level_text(seed, kind="maze", width=15, height=11, loops=0, pillars=None, start="east", **properties):
+def level_text(seed, kind="maze", width=15, height=11, loops=0, pillars=None, start="east", style="maze",
+               **properties):
     """The generated level as a map text (asciimap format). Keyword arguments that
-    aren't options become map properties, e.g. fog="dark"."""
+    aren't options become map properties, e.g. fog="dark". style: the text-map style it is
+    drawn in (default maze, which comes with the course's asset pack)."""
     if kind not in KINDS:
         raise MapError(f"unknown kind {kind!r}; available: {', '.join(KINDS)}")
     if kind == "maze":
-        return maze_text(seed, width, height, loops, start, **properties)
+        return maze_text(seed, width, height, loops, start, style=style, **properties)
     grid = rooms_grid(seed, width, height) if kind == "rooms" else pillars_grid(seed, width, height, pillars)
     goal = _inner_goal(random.Random(seed * 7919 + 1), grid, (1, 1))
     if goal is None:
         raise MapError(f"seed {seed}: no place for the exit")
     grid[1][1] = "H"
     grid[goal[1]][goal[0]] = "Z"
-    header = [f"start: {start}", "style: maze", f"kind: {kind}", f"seed: {seed}"]
+    header = [f"start: {start}", f"style: {style}", f"kind: {kind}", f"seed: {seed}"]
     header += [f"{key}: {str(value).lower() if isinstance(value, bool) else value}"
                for key, value in properties.items() if value is not None]
     return "\n".join(header + ["---"] + ["".join(row) for row in grid]) + "\n"
 
 
-def maze_text(seed, width=15, height=11, loops=0, start="east", **properties):
+def maze_text(seed, width=15, height=11, loops=0, start="east", style="maze", **properties):
     """The maze as a map text for asciimap: hero top left, goal bottom right.
     Further keyword arguments become map properties, e.g. fog="dark"."""
     grid = maze_grid(seed, width, height, loops)
     grid[1][1] = "H"
     grid[height - 2][width - 2] = "Z"
-    header = [f"start: {start}", "style: maze", f"seed: {seed}"]
+    header = [f"start: {start}", f"style: {style}", f"seed: {seed}"]
     header += [f"{key}: {str(value).lower() if isinstance(value, bool) else value}"
                for key, value in properties.items() if value is not None]
     return "\n".join(header + ["---"] + ["".join(row) for row in grid]) + "\n"

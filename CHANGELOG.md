@@ -10,7 +10,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - **Item tiles from the asset packs**: a pack's `pack.json` names the tiles of the items the engine creates itself (`"items"`: `Pebble`, `Crystal`, `Crystal:orange`, each `{"tileset", "tile"}`), the first pack wins. The start inventory (`hero_inventory`) in the game and the simulator, and the crystals `K` and pebbles `o` of text maps, take their tiles from there instead of a fixed tileset. The bundled assets have their own `pack.json`; the Python package a copy (`packs/items.json`), checked equal by a unit test. An item type no pack names isn't given (the game warns).
 - **Demo pack 1.1**: grille tiles (closed, open) and an `items` entry for its pebble and crystals, so the demo pack alone plays levels with a start inventory.
-- **Style recipes**: `api/python/dungeoncoder/packs/learn/<world>.json` say what each CC0 world style is learned from (source levels, figure sheet, abyss, items); the course's style learner reads them instead of a table in code.
+- **Style learner**: `tools/levels/learn_styles.py` (`npm run learn:styles`, `--check`) learns text-map style packs from hand-built levels by JSON recipes (`<folder>/learn/<style>.json`: source levels and options, figure sheet, abyss, items, decoration, large props) and writes each pack to the folder above its recipes. `api/python/dungeoncoder/packs/learn/` holds the recipes of the CC0 worlds, so the engine rebuilds its own styles (checked in `npm run test:tools`).
+- `Game.generate(..., style=...)`: the text-map style of a generated level (default `maze`).
 
 - **Versions**: `GET /version` returns the versions of the extension and of the API (answered by the server, `x-host` in `api/openapi.yaml`). `Game()` warns once per program if the Python package doesn't fit the running extension (another major/minor version, or an extension without `/version`). When the game starts, the extension warns about an outdated copied `dungeoncoder/` folder in the workspace and offers to copy the matching one. "Copy Python API to workspace" now replaces an existing folder instead of copying over it.
 - **Setup check**: `python -m dungeoncoder` prints the Python, the package (copied or installed), where the game is expected and whether it answers and fits, the asset packs, and whether the simulator runs; each line `ok`, `note` or `PROBLEM` with what to do. A missing `httpx` now gives a message that names the Python in use and the fix (select the interpreter, install the packages).
@@ -59,6 +60,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Changed
 
 - The level tools' shared model (`tools/levels/dclevel.py`) asks the simulator for walls and abysses (`Level.wall_tile_at`, `Level.abyss_tile_at`, split out of `is_collision` and `abyss_at` without a change in behaviour), so the rules exist once; its learning views stay its own.
+- The Python package ships only the CC0 worlds' styles and the tile rules of the free tilesets (demo pack, CC0 worlds); the course styles (`dungeon`, `corridor`, `arena`, `bridge`, `maze`) and their rules come with the course's asset pack. An unknown style's message names the available ones and the asset-pack setting. The setup check (`python -m dungeoncoder`) plays its small map in a bundled style.
 - The 11 course levels are no longer bundled (`game/assets/levels/` keeps the four show levels of the CC0 worlds); they live in the private course assets.
 
 ### Fixed

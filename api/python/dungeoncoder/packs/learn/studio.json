@@ -10,6 +10,5 @@
   "K": "Entwurf",
   "*": "Farbfolie",
   "o": "Klebepunkt"
- },
- "export": ["package"]
+ }
 }

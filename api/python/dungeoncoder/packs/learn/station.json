@@ -10,6 +10,5 @@
   "K": "Bett",
   "*": "Probe",
   "o": "Markierung"
- },
- "export": ["package"]
+ }
 }

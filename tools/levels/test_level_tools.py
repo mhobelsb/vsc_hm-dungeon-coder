@@ -65,5 +65,11 @@ else:
             size = img.size
     check("level2png: 15 x 10 cells of 32 px give 480 x 320", size == (480, 320), run.stdout + run.stderr)
 
+# the engine rebuilds its own text-map styles from its recipes (api/python/dungeoncoder/packs/learn/:
+# the CC0 worlds), and they come out as shipped
+run = tool("learn_styles.py", "--check")
+check("learn_styles: the engine's style packs are learned from its recipes as shipped",
+      run.returncode == 0 and "style packs up to date" in run.stdout, run.stdout + run.stderr)
+
 print(f"\n{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

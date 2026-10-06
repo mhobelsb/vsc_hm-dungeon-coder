@@ -11,6 +11,5 @@
   "*": "Kiste",
   "o": "Marke"
  },
- "guard": 12,
- "export": ["package"]
+ "guard": 12
 }

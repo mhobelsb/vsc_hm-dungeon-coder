@@ -341,7 +341,8 @@ class Game:
 
         Example: Game.generate(seed=7, width=21, height=15, loops=3, fog="dark")
         kind "maze": width and height odd (default 15x11), loops = extra openings
-        (cycles and free-standing walls); other keywords become map properties.
+        (cycles and free-standing walls); style = the text-map style (default "maze",
+        from the course's asset pack); other keywords become map properties.
         The map text is available as generator.maze_text(seed, ...)."""
         try:
             text = generator.generate_text(seed, kind, **options)

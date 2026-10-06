@@ -65,7 +65,8 @@ def main():
     import contextlib
     import io
     with contextlib.redirect_stdout(io.StringIO()):
-        _, hero = spiel("start: east\n---\n#####\n#H.Z#\n#####\n")
+        # a style that ships with the package (the course styles come with the course's asset pack)
+        _, hero = spiel("start: east\nstyle: station\n---\n#####\n#H.Z#\n#####\n")
         ok = hero.move() and hero.move() and hero.is_at_goal()
     line("ok" if ok else "PROBLEM", "the simulator plays a small map" if ok else "the simulator failed on a small map")
     problems += not ok
