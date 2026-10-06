@@ -1,8 +1,16 @@
+# What the .vsix must NOT contain. It needs: dist/ (the extension), game/ (the webview: index.html,
+# src/, assets/), api/openapi.yaml (request validation), api/python/dungeoncoder/ (copied into the
+# workspace by "Copy Python API to workspace"), README, CHANGELOG, LICENSE. Check with: npx @vscode/vsce ls
+
+# development
 .vscode/**
 .vscode-test/**
+.codegen-venv/**
 out/**
 node_modules/**
 src/**
+test-fixtures/**
+tools/**
 .gitignore
 .yarnrc
 webpack.config.js
@@ -12,4 +20,28 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
-test-fixtures/**
+**/__pycache__/**
+**/*.pyc
+
+# the game's unit tests and the source levels of the text-map styles (not loaded at run time)
+game/test/**
+game/assets/levels/**
+game/assets/*.tiled-project
+game/assets/*.tiled-session
+
+# source art: layered files and sheets no tileset uses
+**/*.xcf
+game/assets/images/REFERENCE SHEET.png
+game/assets/images/Elemental Dungeons (Fire) v1.0 (100%).png
+game/assets/images/Halloween_tileset.png
+game/assets/images/Halloween_tileset_72x72.png
+game/assets/images/Halloween_tileset_112x112.png
+game/assets/images/tiles_dungeon_v1.2.png
+
+# the demo pack (a pack to configure, not the bundled assets) and the Python package's build files
+packs/**
+api/python/README.md
+api/python/pyproject.toml
+api/python/build/**
+api/python/*.egg-info/**
+api/python/dungeoncoder/packs/learn/**
