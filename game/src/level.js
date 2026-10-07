@@ -85,6 +85,12 @@ export class Level {
         this.itemTiles = itemTiles;
         this.character = this.getObjectByName("MainCharacter");
         this.character?.setTileSize(this.tileWidth, this.tileHeight);
+        // co-op levels (DC-T3c): more heroes, Character objects named Hero2, Hero3, ... (in that order)
+        const extra = this.objectFactory.gameObjects
+            .filter(o => o.type === "Character" && /^Hero\d+$/.test(o.name ?? ""))
+            .sort((a, b) => parseInt(a.name.slice(4), 10) - parseInt(b.name.slice(4), 10));
+        extra.forEach(hero => hero.setTileSize(this.tileWidth, this.tileHeight));
+        this.heroes = this.character ? [this.character, ...extra] : extra;
         this.goal = this.getObjectByType("Goal");
         this.slots = this.findSlots();
         this.giveStartInventory();
@@ -255,6 +261,23 @@ export class Level {
         return brightness;
     }
 
+    /**
+     * A hero stands on an exit (and has finished its step). With one hero, only the level's
+     * first Goal counts (as always); in a co-op level (several heroes), every Goal does.
+     */
+    isOnGoal(hero) {
+        if (this.heroes.length <= 1) {
+            return hero === this.character && this.isHeroOnGoal();
+        }
+        return !hero.isMoving() && this.objectFactory.gameObjects.some(
+            o => o.type === "Goal" && o.x === hero.x && o.y === hero.y);
+    }
+
+    /** Any hero is falling or dead: the level is lost. */
+    isAnyHeroLost() {
+        return this.heroes.some(h => h.isFalling() || h.isDead());
+    }
+
     /** The hero stands on the goal field (and has finished its step). */
     isHeroOnGoal() {
         if (this.character && this.goal) {
@@ -302,6 +325,12 @@ export class Level {
         }
         if (wanted.includes("stable") && !this.isRowStable()) {
             missing.push("equal values in start order");
+        }
+        if (wanted.includes("all_heroes")) {
+            const away = this.heroes.filter(h => !this.isOnGoal(h)).length;
+            if (away > 0) {
+                missing.push(`${away} heroes not at an exit`);
+            }
         }
         return missing;
     }
@@ -353,6 +382,15 @@ export class Level {
         const top = tiles[tiles.length - 1];
         return (top !== undefined && top.type === "Abyss")
             || this.getObjectsAtPosition(x, y).some(o => o.type === "Abyss");
+    }
+
+    /** Manhattan distance from a cell to the (first) goal, or null without a goal: the amulet (DC-T1b). */
+    goalDistance(col, row) {
+        if (!this.goal) {
+            return null;
+        }
+        const [gc, gr] = this.cellOf(this.goal);
+        return Math.abs(gc - col) + Math.abs(gr - row);
     }
 
     /** A field anyone can walk on: inside, no collision, no abyss tile. */
@@ -442,12 +480,12 @@ export class Level {
         return null;
     }
 
-    /** The goal is reached and every win condition is met. */
+    /** The goal is reached (by the main hero) and every win condition is met. */
     isComplete() {
-        if (this.character && this.character.isDead()) {
+        if (this.heroes.some(h => h.isDead())) {
             return false;                  // caught by a guard on the goal field
         }
-        return this.isHeroOnGoal() && this.unmetWinConditions().length === 0;
+        return (this.character ? this.isOnGoal(this.character) : false) && this.unmetWinConditions().length === 0;
     }
 
     isAbyss(x, y) {

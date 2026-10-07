@@ -410,18 +410,47 @@ export class CharacterInterface {
         this.statistics = statistics;
     }
 
-    /** A sensor looked at the cell in front: count it and light it in the fog. */
-    senseFront() {
+    /**
+     * A sensor looked at a cell (default: the one in front): count it, light it in the fog and
+     * mark it on screen with its answer (DC-T1j). Returns the answer, so sensors can end with it.
+     */
+    sensed(result, cell = this.character.frontCell()) {
         this.statistics.addSensorCall();
         if (this.game.fog) {
-            this.game.fog.markSensed(...this.character.frontCell());
+            this.game.fog.markSensed(...cell);
         }
+        this.game.sensing?.mark(...cell, result);
+        return result;
+    }
+
+    /** move() calls left in a level with the map property `max_moves` (DC-T1d), else null. */
+    movesLeft() {
+        const budget = this.level.getProperty('max_moves');
+        if (!Number.isInteger(budget)) {
+            return null;
+        }
+        return Math.max(0, budget - this.statistics.number_of_moves - this.statistics.number_of_bumps);
+    }
+
+    /** Another hero of a co-op level stands on the cell, or is walking into it. */
+    isHeroAt(col, row) {
+        return this.level.heroes.some(h => h !== this.character && (
+            (h.currentCell()[0] === col && h.currentCell()[1] === row)
+            || (h.isMoving() && Math.floor(h.targetX / h.tileWidth) === col
+                && Math.floor((h.targetY - 1) / h.tileHeight) === row)));
     }
 
     move() {
+        if (this.movesLeft() === 0) {
+            // the budget is spent: the hero collapses, the level is lost
+            this.game.outOfMoves = true;
+            this.character.isCharacterDead = true;
+            return false;
+        }
         const target = this.character.frontCell();
         const from = this.character.currentCell();
-        const ret = this.character.move(this.character.getDirection(), this.level);
+        // heroes of a co-op level block each other like walls
+        const ret = !this.isHeroAt(...target) && this.character.move(this.character.getDirection(), this.level);
         // guards take their step on every move, also a blocked one (DC-12)
         if (this.level.stepGuards(from, ret ? target : from)) {
             if (this.character.isMoving()) {
@@ -467,24 +496,30 @@ export class CharacterInterface {
     }
 
     isCollisionInFront() {
-        this.senseFront();
-        return this.character.isCollisionInFront(this.level);
+        return this.sensed(this.character.isCollisionInFront(this.level) || this.isHeroAt(...this.character.frontCell()));
     }
 
     isAbyssInFront() {
-        this.senseFront();
         const front = this.character.getPositionInDirection(this.character.getDirection(), true);
-        return this.level.isAbyssAt(front[0], front[1]);
+        return this.sensed(this.level.isAbyssAt(front[0], front[1]));
     }
 
     isTorchInFront() {
-        this.senseFront();
-        return this.character.isInFront(this.level, "Torch");
+        return this.sensed(this.character.isInFront(this.level, "Torch"));
     }
 
     isSwitchInFront() {
-        this.senseFront();
-        return this.character.isInFront(this.level, "Switch");
+        return this.sensed(this.character.isInFront(this.level, "Switch"));
+    }
+
+    /** Levels with the map property `amulett: true` have an amulet that senses the exit (DC-T1b). */
+    hasAmulet() {
+        return this.level.getBooleanProperty('amulett', false);
+    }
+
+    /** How many fields the exit is away as the crow flies (columns plus rows; walls don't count). */
+    senseGoal() {
+        return this.sensed(this.level.goalDistance(...this.character.currentCell()), this.character.currentCell());
     }
 
     getInventory() {
@@ -498,8 +533,7 @@ export class CharacterInterface {
 
     /** A guard on the field in front (sensor). */
     isEnemyInFront() {
-        this.senseFront();
-        return this.character.isInFront(this.level, "Guard");
+        return this.sensed(this.character.isInFront(this.level, "Guard"));
     }
 
     /** Levels with the map property `orakel: true` have an oracle that knows the way. */
@@ -534,7 +568,9 @@ export class CharacterInterface {
         if (col < 0 || row < 0 || col >= this.level.width || row >= this.level.height) {
             return null;
         }
-        return this.character.itemValueAt(this.level, col, row);
+        const value = this.character.itemValueAt(this.level, col, row);
+        this.game.sensing?.mark(col, row, value !== null);
+        return value;
     }
 
     /** The map property `inventory_size` limits how many items the hero can carry. */
@@ -574,17 +610,19 @@ export class CharacterInterface {
     /** The hero stands on the goal field (the level may still need its win conditions). */
     isAtGoal() {
         this.statistics.addSensorCall();
-        return this.level.isHeroOnGoal();
+        return this.level.isOnGoal(this.character);
     }
 
     /** Counters plus completion state, as described by Statistics in api/openapi.yaml. */
     getStatistics() {
         return {
             ...this.statistics.snapshot(),
-            at_goal: this.level.isHeroOnGoal(),
-            game_over: this.character.isFalling() || this.character.isDead(),
+            at_goal: this.level.isOnGoal(this.character),
+            game_over: this.level.isAnyHeroLost(),
             level_complete: this.level.isComplete(),
             missing: this.level.unmetWinConditions(),
+            moves_left: this.movesLeft(),
+            heroes: this.level.heroes.length,
         };
     }
 }

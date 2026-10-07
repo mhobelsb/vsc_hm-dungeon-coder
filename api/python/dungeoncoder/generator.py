@@ -168,3 +168,46 @@ def maze_text(seed, width=15, height=11, loops=0, start="east", style="maze", **
 
 def generate_text(seed, kind="maze", **options):
     return level_text(seed, kind, **options)
+
+
+RECIPE_KEYS = ("generate", "size", "loops", "seed", "start", "style", "pillars")
+
+
+def from_recipe(header):
+    """The map text for a recipe, a map file whose header says what to generate:
+
+        generate: maze          # maze, rooms or pillars
+        size: 15x11             # width x height (a maze: both odd)
+        loops: 2                # a maze: extra openings
+        seed: random            # a new level per load (DUNGEONCODER_SEED fixes it), or a number
+        fog: explored           # any other key becomes a map property, as in every map
+
+    The map below the header ("---") is ignored. The level's map property `seed` says which
+    level it was."""
+    from .variants import random_seed
+
+    def one(key, default=None):
+        return header.get(key, [default])[0]
+
+    kind = one("generate")
+    size = one("size", "15x11")
+    try:
+        width, height = (int(v) for v in size.lower().split("x"))
+    except ValueError:
+        raise MapError(f"size: expected WIDTHxHEIGHT, e.g. 15x11, got {size!r}") from None
+    seed = one("seed", "random")
+    if str(seed).lower() == "random":
+        seed, _ = random_seed()
+    elif str(seed).lstrip("-").isdigit():
+        seed = int(seed)
+    else:
+        raise MapError(f"seed: a whole number or random, got {seed!r}")
+    options = {"width": width, "height": height, "start": one("start", "east"), "style": one("style", "maze")}
+    if kind == "maze":
+        options["loops"] = int(one("loops", "0"))
+    elif "loops" in header:
+        raise MapError("loops: only for generate: maze")
+    if "pillars" in header:
+        options["pillars"] = int(one("pillars"))
+    extra = {key: values[0] for key, values in header.items() if key not in RECIPE_KEYS}
+    return level_text(seed, kind, **options, **extra)

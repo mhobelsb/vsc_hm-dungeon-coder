@@ -11,6 +11,7 @@ from ... import errors
 from ...models.api_error_response import ApiErrorResponse
 from ...models.boolean_result import BooleanResult
 from ...models.name_param import NameParam
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -18,6 +19,7 @@ from typing import cast
 def _get_kwargs(
     *,
     body: NameParam,
+    hero: int | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -25,11 +27,18 @@ def _get_kwargs(
 
     
 
-    
+    params: dict[str, Any] = {}
+
+    params["hero"] = hero
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
 
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/hero/drop",
+        "params": params,
     }
 
     _kwargs["json"] = body.to_dict()
@@ -75,11 +84,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: NameParam,
+    hero: int | Unset = UNSET,
 
 ) -> Response[ApiErrorResponse | BooleanResult]:
     """ Drop the named item from the hero's inventory.
 
     Args:
+        hero (int | Unset):
         body (NameParam):
 
     Raises:
@@ -93,6 +104,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+hero=hero,
 
     )
 
@@ -106,11 +118,13 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: NameParam,
+    hero: int | Unset = UNSET,
 
 ) -> ApiErrorResponse | BooleanResult | None:
     """ Drop the named item from the hero's inventory.
 
     Args:
+        hero (int | Unset):
         body (NameParam):
 
     Raises:
@@ -125,6 +139,7 @@ def sync(
     return sync_detailed(
         client=client,
 body=body,
+hero=hero,
 
     ).parsed
 
@@ -132,11 +147,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: NameParam,
+    hero: int | Unset = UNSET,
 
 ) -> Response[ApiErrorResponse | BooleanResult]:
     """ Drop the named item from the hero's inventory.
 
     Args:
+        hero (int | Unset):
         body (NameParam):
 
     Raises:
@@ -150,6 +167,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+hero=hero,
 
     )
 
@@ -163,11 +181,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: NameParam,
+    hero: int | Unset = UNSET,
 
 ) -> ApiErrorResponse | BooleanResult | None:
     """ Drop the named item from the hero's inventory.
 
     Args:
+        hero (int | Unset):
         body (NameParam):
 
     Raises:
@@ -182,5 +202,6 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 body=body,
+hero=hero,
 
     )).parsed

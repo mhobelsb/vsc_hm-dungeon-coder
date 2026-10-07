@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 
@@ -38,6 +39,9 @@ class Statistics:
             game_over (bool): the hero fell into an abyss or was caught by a guard
             level_complete (bool): goal reached and every win condition of the level met
             missing (list[str]): unmet win conditions, e.g. "3 sweets"
+            moves_left (int | None | Unset): move() calls left in a level with the map property max_moves (null without a
+                budget)
+            heroes (int | Unset): number of heroes in the level (co-op levels have more than one)
      """
 
     moves: int
@@ -54,6 +58,8 @@ class Statistics:
     game_over: bool
     level_complete: bool
     missing: list[str]
+    moves_left: int | None | Unset = UNSET
+    heroes: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -91,6 +97,14 @@ class Statistics:
 
 
 
+        moves_left: int | None | Unset
+        if isinstance(self.moves_left, Unset):
+            moves_left = UNSET
+        else:
+            moves_left = self.moves_left
+
+        heroes = self.heroes
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -110,6 +124,10 @@ class Statistics:
             "level_complete": level_complete,
             "missing": missing,
         })
+        if moves_left is not UNSET:
+            field_dict["moves_left"] = moves_left
+        if heroes is not UNSET:
+            field_dict["heroes"] = heroes
 
         return field_dict
 
@@ -147,6 +165,18 @@ class Statistics:
         missing = cast(list[str], d.pop("missing"))
 
 
+        def _parse_moves_left(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        moves_left = _parse_moves_left(d.pop("moves_left", UNSET))
+
+
+        heroes = d.pop("heroes", UNSET)
+
         statistics = cls(
             moves=moves,
             turns=turns,
@@ -162,6 +192,8 @@ class Statistics:
             game_over=game_over,
             level_complete=level_complete,
             missing=missing,
+            moves_left=moves_left,
+            heroes=heroes,
         )
 
 

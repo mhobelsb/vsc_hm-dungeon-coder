@@ -3,7 +3,7 @@
 A map file has an optional header, a line "---", and the map:
 
     start: north             # hero's start direction (default south)
-    hero: 7                  # hero sprite 0-15 (default 7)
+    hero: 7                  # hero sprite 0-15 (default 7); a co-op map: one per hero, "hero: 7 13 1"
     style: dungeon           # tile style: dungeon (default), corridor, arena, bridge, maze;
                              # other worlds: station (a hospital ward), studio (a light studio),
                              # werkstatt (a production hall), gelaende (a survey area)
@@ -15,6 +15,8 @@ A map file has an optional header, a line "---", and the map:
     orakel: true             # the level has an oracle (hero.ask_oracle())
     view: fit                # show only the map, with larger fields (default: full, the 30x20 field)
     deko: 6                  # scatter small details on 6 % of the plain floor and walls (seeded, default 0)
+    region: s 2,2 17,13      # variants: the switches s in this rectangle may lie on any of its
+                             # free fields; Game("karte.txt", seed=17) picks one (variants.py)
     fog: dark                # any other key becomes a map property (bool/int/str)
     ---
     ##########
@@ -22,8 +24,12 @@ A map file has an optional header, a line "---", and the map:
     #....D...Z
     ##########
 
+A header with "generate: maze" (or rooms, pillars) makes the file a recipe: the level is generated,
+with "size: 15x11", "loops: 2" and "seed: random" (a new level per load) or a number (generator.py).
+
 Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
          H  hero      Z  goal      T/t  torch (burning/off, on a wall)
+         2 3 4  more heroes (a co-op level: Game.get_heroes(), win: all_heroes)
          s  switch    D  door      G  grille    C  chest    J  jug    *  sweets
          K  crystal   o  pebble    W  guard (see guards:)
 Decoration (looks only; where a style has no pictures for it, x is a wall and , " are floor):
@@ -65,11 +71,14 @@ OBJECT_CLASSES = {"s": "Switch", "C": "Chest", "J": "Jug", "Z": "Goal", "*": "Sw
 NEIGHBOURS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 WEIGHTS = [1, 2, 1, 2, 2, 1, 2, 1]     # orthogonal neighbours matter more than diagonal ones
 DIRECTIONS = ("north", "east", "south", "west")
-HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards", "view", "deko")
+HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards", "view", "deko",
+               "region", "generate", "size")
 PROP, PATH, DETAIL = "x", ",", '"'      # decoration symbols
 OFFSETS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 VIEWS = ("full", "fit")
 GUARD_SPRITE = 3            # the characters tileset's sprite number used for guards
+EXTRA_HEROES = ("2", "3", "4")              # co-op heroes, after H
+EXTRA_HERO_SPRITES = ["13", "1", "10"]      # their sprites unless "hero:" names them
 # items that aren't learned from the levels: K a crystal, o a pebble. Their tiles come from the
 # asset packs' manifests (pack.json "items", as the engine's start inventory: sim.item_tiles);
 # the colour of a crystal (header colors:) picks the item "Crystal" or "Crystal:<colour>"
@@ -524,7 +533,9 @@ def build(header, rows, pack, seed=0, variety=0.0):
 
     # objects
     objects, cell_to_id = [], {}
-    number = header.get("hero", ["7"])[0]
+    numbers = header.get("hero", ["7"])[0].replace(",", " ").split() or ["7"]
+    numbers += EXTRA_HERO_SPRITES[len(numbers) - 1:]
+    number = numbers[0]
     direction = header.get("start", ["south"])[0]
     if direction not in DIRECTIONS:
         raise MapError(f"start must be one of {', '.join(DIRECTIONS)}, not {direction!r}")
@@ -537,6 +548,11 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 tile = pack.hero.get(f"{direction}_{number}")
                 if not tile:
                     raise MapError(f"no hero sprite {number!r} (hero: 0 to 15)")
+            elif ch in EXTRA_HEROES:
+                cls, name = "Character", f"Hero{ch}"     # the engine finds co-op heroes by name
+                tile = pack.hero.get(f"{direction}_{numbers[int(ch) - 1]}")
+                if not tile:
+                    raise MapError(f"no hero sprite {numbers[int(ch) - 1]!r} for hero {ch} (hero: 0 to 15)")
             elif ch in pack.items:
                 source, local, cls = pack.items[ch]       # the world's own item for this symbol
                 tile = (source, local)
@@ -694,6 +710,27 @@ def build(header, rows, pack, seed=0, variety=0.0):
         obj = tiled_objects[cell_to_id[src] - 1]
         obj["properties"] = [{"name": "controls", "type": "object", "value": cell_to_id[dst]}]
 
+    # variants: "region: s 2,2 17,13" - the objects s inside the rectangle may lie on any of its
+    # free fields (Game(path, seed=17), variants.py): a Region rectangle and a property per object
+    for n, spec in enumerate(header.get("region", []), start=1):
+        try:
+            symbol, a, b = spec.split()
+            (c0, r0), (c1, r1) = (tuple(int(v) for v in corner.split(",")) for corner in (a, b))
+        except ValueError:
+            raise MapError(f"region: expected 'SYMBOL x1,y1 x2,y2', got {spec!r}") from None
+        c0, c1, r0, r1 = min(c0, c1), max(c0, c1), min(r0, r1), max(r0, r1)
+        inside = [i for i, o in enumerate(objects) if o["symbol"] == symbol
+                  and c0 <= o["cell"][0] - ox <= c1 and r0 <= o["cell"][1] - oy <= r1]
+        if not inside:
+            raise MapError(f"region {spec!r}: no {symbol!r} inside the rectangle")
+        name = f"region{n}"
+        for i in inside:
+            tiled_objects[i].setdefault("properties", []).append({"name": "region", "type": "string", "value": name})
+        tiled_objects.append({"height": (r1 - r0 + 1) * pack.tile_size, "id": len(tiled_objects) + 1, "name": name,
+                              "rotation": 0, "type": "Region", "visible": False,
+                              "width": (c1 - c0 + 1) * pack.tile_size,
+                              "x": (c0 + ox) * pack.tile_size, "y": (r0 + oy) * pack.tile_size})
+
     properties = [{"name": "world", "type": "string", "value": pack.world}] if pack.world else []
     if pack.pack:                   # which asset pack the art needs: named in "missing tileset" (G5)
         properties.append({"name": "pack", "type": "string", "value": pack.pack})
@@ -767,8 +804,17 @@ def fit_view(level, terrain):
 
 def level_from_text(text, style=None):
     """The level (Tiled JSON dict) for the text of a map file. The style comes from
-    the argument, else from the header ("style: bridge"), else "dungeon"."""
+    the argument, else from the header ("style: bridge"), else "dungeon".
+    A map with the header "generate: maze" is a recipe: the level is generated (generator.py),
+    a new one per load with "seed: random" (the seed is in the map property `seed`)."""
     header, rows = parse_text(text)
+    if "generate" in header:
+        try:
+            from . import generator       # noqa: PLC0415 - generator imports this module
+        except ImportError:               # this file loaded on its own (tools/ascii2level.py)
+            raise MapError("a recipe (generate:) needs the dungeoncoder package") from None
+        text = generator.from_recipe(header)
+        header, rows = parse_text(text)
     style = style or header.get("style", ["dungeon"])[0]
     return build(header, rows, Pack.load(style))[0]
 

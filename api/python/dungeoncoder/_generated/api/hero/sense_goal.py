@@ -9,7 +9,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.api_error_response import ApiErrorResponse
-from ...models.boolean_result import BooleanResult
+from ...models.nullable_integer_result import NullableIntegerResult
 from ...types import UNSET, Unset
 from typing import cast
 
@@ -34,7 +34,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/hero/is_at_goal",
+        "url": "/hero/sense_goal",
         "params": params,
     }
 
@@ -43,9 +43,9 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ApiErrorResponse | BooleanResult | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ApiErrorResponse | NullableIntegerResult | None:
     if response.status_code == 200:
-        response_200 = BooleanResult.from_dict(response.json())
+        response_200 = NullableIntegerResult.from_dict(response.json())
 
 
 
@@ -64,7 +64,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ApiErrorResponse | BooleanResult]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ApiErrorResponse | NullableIntegerResult]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,9 +78,9 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
 
-) -> Response[ApiErrorResponse | BooleanResult]:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> Response[ApiErrorResponse | NullableIntegerResult]:
+    """ The amulet - how many fields the goal is away as the crow flies (columns plus rows, walls not
+    counted). Needs the map property `amulett`.
 
     Args:
         hero (int | Unset):
@@ -90,7 +90,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ApiErrorResponse | BooleanResult]
+        Response[ApiErrorResponse | NullableIntegerResult]
      """
 
 
@@ -110,9 +110,9 @@ def sync(
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
 
-) -> ApiErrorResponse | BooleanResult | None:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> ApiErrorResponse | NullableIntegerResult | None:
+    """ The amulet - how many fields the goal is away as the crow flies (columns plus rows, walls not
+    counted). Needs the map property `amulett`.
 
     Args:
         hero (int | Unset):
@@ -122,7 +122,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ApiErrorResponse | BooleanResult
+        ApiErrorResponse | NullableIntegerResult
      """
 
 
@@ -137,9 +137,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
 
-) -> Response[ApiErrorResponse | BooleanResult]:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> Response[ApiErrorResponse | NullableIntegerResult]:
+    """ The amulet - how many fields the goal is away as the crow flies (columns plus rows, walls not
+    counted). Needs the map property `amulett`.
 
     Args:
         hero (int | Unset):
@@ -149,7 +149,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ApiErrorResponse | BooleanResult]
+        Response[ApiErrorResponse | NullableIntegerResult]
      """
 
 
@@ -169,9 +169,9 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
 
-) -> ApiErrorResponse | BooleanResult | None:
-    """ Whether the hero stands on the level's goal field (the level may still need its win conditions, see
-    /game/statistics).
+) -> ApiErrorResponse | NullableIntegerResult | None:
+    """ The amulet - how many fields the goal is away as the crow flies (columns plus rows, walls not
+    counted). Needs the map property `amulett`.
 
     Args:
         hero (int | Unset):
@@ -181,7 +181,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ApiErrorResponse | BooleanResult
+        ApiErrorResponse | NullableIntegerResult
      """
 
 

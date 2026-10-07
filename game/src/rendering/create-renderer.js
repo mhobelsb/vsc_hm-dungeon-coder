@@ -6,6 +6,7 @@ import { LevelRenderer } from './level-renderer.js';
 import { HudRenderer } from './hud-renderer.js';
 import { GameRenderer } from './game-renderer.js';
 import { FogRenderer } from './fog-renderer.js';
+import { SensingRenderer } from './sensing-renderer.js';
 
 /**
  * Composition root for the rendering/ classes: wires each renderer's
@@ -20,9 +21,10 @@ export function createRenderer(ctx, canvasWidth, canvasHeight, pathPrefix) {
     const levelRenderer = new LevelRenderer(ctx, layerRenderer);
     const hudRenderer = new HudRenderer(ctx, canvasWidth, canvasHeight, pathPrefix);
     const fogRenderer = new FogRenderer(ctx);
+    const sensingRenderer = new SensingRenderer(ctx);
 
     return new GameRenderer({
         ctx, canvasWidth, canvasHeight,
-        tileRenderer, characterRenderer, gameObjectRenderer, layerRenderer, levelRenderer, hudRenderer, fogRenderer,
+        tileRenderer, characterRenderer, gameObjectRenderer, layerRenderer, levelRenderer, hudRenderer, fogRenderer, sensingRenderer,
     });
 }

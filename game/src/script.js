@@ -1,6 +1,7 @@
 import { Game, GAME_WIDTH, GAME_HEIGHT } from './game.js';
 import { COMMANDS } from './commands.js';
 import { MissingTilesetError } from './tiles.js';
+import { CallLog } from './call-log.js';
 
 let vscode = null;
 
@@ -108,6 +109,10 @@ function loadFileAsync(file) {
 
         [COMMANDS.MOVE]: (game, character) => {
             const result = character.move();
+            if (!result && game.outOfMoves) {
+                const budget = game.level.getProperty('max_moves');
+                return { success: false, message: `No moves left: this level allows ${budget} move() calls (map property max_moves). The hero collapses.`, result };
+            }
             return { success: result, message: result ? "Hero moved successfully." : "Moving failed. Way is blocked.", result };
         },
 
@@ -121,8 +126,9 @@ function loadFileAsync(file) {
             return { success: true, message: "Hero turned left successfully.", result };
         },
 
-        [COMMANDS.IS_MOVING]: (game, character) => {
-            const result = character.isMoving();
+        [COMMANDS.IS_MOVING]: (game) => {
+            // any hero: the host waits for the step of whichever hero just moved
+            const result = game.isAnyHeroMoving();
             return { success: true, message: result ? "Hero is moving." : "Hero is standing.", result };
         },
 
@@ -191,6 +197,14 @@ function loadFileAsync(file) {
             return { success: true, message: result === null ? "The oracle is silent." : `The oracle says: ${result}.`, result };
         },
 
+        [COMMANDS.SENSE_GOAL]: (game, character) => {
+            if (!character.hasAmulet()) {
+                return { success: false, message: "There is no amulet in this level (map property amulett).", result: null };
+            }
+            const result = character.senseGoal();
+            return { success: true, message: result === null ? "The amulet finds no exit." : `The exit is ${result} field(s) away as the crow flies.`, result };
+        },
+
         [COMMANDS.READ_ITEM_VALUE]: (game, character) => {
             const result = character.readItemValue();
             return { success: true, message: result === null ? "There is no item with a value here." : `The item here has the value ${result}.`, result };
@@ -230,29 +244,44 @@ function loadFileAsync(file) {
         COMMANDS.MOVE, COMMANDS.TURN_LEFT, COMMANDS.INTERACT, COMMANDS.PICKUP, COMMANDS.DROP,
     ]);
 
+    const callLog = new CallLog(document.getElementById('call-log'));
+
     async function process_message(game, message, send_response = send_response_websocket) {
-        const character = game.getCharacterInterface();
-        console.log(`Received command "${message.method}"`);
+        // co-op levels: the query parameter `hero` picks the hero (0 = MainCharacter)
+        const index = message.method !== COMMANDS.LOAD_LEVEL && Number.isInteger(message.params?.hero) ? message.params.hero : 0;
+        const character = game.getCharacterInterface(index);
+        if (message.method !== COMMANDS.IS_MOVING) {
+            console.log(`Received command "${message.method}"`);
+        }
 
         const handler = HANDLERS[message.method];
         if (!handler) {
             send_response(message.id, { error: { message: `Unknown method: "${message.method}"` } });
             return;
         }
+        const answer = (payload) => {
+            callLog.add(message.method, message.params, payload);
+            send_response(message.id, payload);
+        };
+        if (index > 0 && !character) {
+            const count = game.level?.heroes?.length ?? 0;
+            answer({ result: { success: false, message: `There is no hero ${index} in this level (it has ${count}: 0 to ${count - 1}).`, result: null } });
+            return;
+        }
 
         // Once a level is complete or lost, the world no longer updates, so
         // an action would start and never finish. Refuse it right away.
         if (ACTIONS_NEEDING_RUNNING_LEVEL.has(message.method) && !game.isRunning()) {
-            send_response(message.id, { result: { success: false, message: "The level is over (goal reached or game over). Load a level to continue.", result: false } });
+            answer({ result: { success: false, message: "The level is over (goal reached or game over). Load a level to continue.", result: false } });
             return;
         }
 
         try {
             const result = await handler(game, character, message.params);
-            send_response(message.id, { result });
+            answer({ result });
         } catch (error) {
             console.error(`Request "${message.method}" failed:`, error);
-            send_response(message.id, { error: { message: error.message } });
+            answer({ error: { message: error.message } });
         }
     }
 
@@ -296,6 +325,13 @@ function loadFileAsync(file) {
             process_message(game, event.data, send_response_vscode);
         });
     }
+
+    // L shows or hides the list of the program's last calls
+    window.addEventListener('keydown', (event) => {
+        if (event.key.toLowerCase() === 'l' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            callLog.toggle();
+        }
+    });
 
     window.addEventListener("resize", resizeCanvas); 
     resizeCanvas(); // initial fit

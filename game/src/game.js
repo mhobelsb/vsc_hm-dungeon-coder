@@ -5,6 +5,7 @@ import { Statistics } from './statistics.js';
 import { createRenderer } from './rendering/create-renderer.js';
 import { GAME_STATE } from './game-state.js';
 import { Fog } from './fog.js';
+import { Sensing } from './sensing.js';
 
 /** The view before a level is loaded, in game pixels: 30 x 20 cells of 16 px. */
 export const GAME_WIDTH = 480;
@@ -49,6 +50,10 @@ export class Game {
         this.statistics = new Statistics();
         this.lastLevelData = null;
         this.fog = null;
+        this.sensing = null;
+        this.characterInterfaces = [];
+        /** The hero tried a move with the budget spent (map property max_moves). */
+        this.outOfMoves = false;
     }
 
     /**
@@ -80,7 +85,10 @@ export class Game {
             this.setViewSize(width, height);
         }
         this.character = this.level.getObjectByName("MainCharacter");
-        this.characterInterface = new CharacterInterface(this, this.level, this.character, this.statistics);
+        this.characterInterfaces = this.level.heroes.map(hero => new CharacterInterface(this, this.level, hero, this.statistics));
+        this.characterInterface = this.characterInterfaces[0] ?? new CharacterInterface(this, this.level, this.character, this.statistics);
+        this.sensing = Sensing.fromLevel(this.level);
+        this.outOfMoves = false;
         this.inputManager.setCharacter(this.character);
         this.inputManager.setStatistics(this.statistics);
         this.fog = Fog.fromLevel(this.level);
@@ -117,12 +125,17 @@ export class Game {
      * animation, but actions are refused from the first moment (B19).
      */
     isRunning() {
-        return this.currentGameState === GAME_STATE.PLAYING
-            && !(this.character && (this.character.isFalling() || this.character.isDead()));
+        return this.currentGameState === GAME_STATE.PLAYING && !(this.level && this.level.isAnyHeroLost());
     }
 
-    getCharacterInterface() {
-        return this.characterInterface;
+    /** The interface of hero `index` (0 = MainCharacter; co-op levels have more), or undefined. */
+    getCharacterInterface(index = 0) {
+        return index === 0 ? this.characterInterface : this.characterInterfaces[index];
+    }
+
+    /** Some hero is still walking (a step ends only when its animation does). */
+    isAnyHeroMoving() {
+        return (this.level?.heroes ?? []).some(hero => hero.isMoving());
     }
 
     isComplete() {
@@ -139,9 +152,10 @@ export class Game {
                 if (this.level) {
                     this.level.update(this.FIXED_TIME_STEP);
                     this.fog.update(this.FIXED_TIME_STEP);
+                    this.sensing.update(this.FIXED_TIME_STEP);
                     // a level without a hero must not end the game loop for good (bug B23)
-                    if (this.character) {
-                        this.fog.markPresent(...this.character.currentCell());
+                    for (const hero of this.level.heroes) {
+                        this.fog.markPresent(...hero.currentCell());
                     }
                 }
             }
@@ -155,6 +169,9 @@ export class Game {
             remainingTime: this.remainingTime,
             fog: this.fog,
             character: this.character,
+            sensing: this.sensing,
+            movesLeft: this.characterInterface?.movesLeft() ?? null,
+            outOfMoves: this.outOfMoves,
         });
 
         // State transitions are game logic, not rendering, so they stay
@@ -163,7 +180,7 @@ export class Game {
         // the renderer never needs the character itself.
         switch (this.currentGameState) {
             case GAME_STATE.PLAYING:
-                if (this.character.isDead()) {
+                if (this.level.heroes.some(hero => hero.isDead())) {
                     this.currentGameState = GAME_STATE.GAME_OVER;
                 } else if (this.level.isComplete()) {
                     this.currentGameState = GAME_STATE.LEVEL_COMPLETE;

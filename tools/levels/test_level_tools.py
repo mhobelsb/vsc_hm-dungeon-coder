@@ -44,6 +44,27 @@ for name in ("demo_gang.json", "demo_raum.json", "demo32_raum.json"):
 run = tool("check_level.py", level("demo_raum.json"), level("demo_gang.json"))
 check("check_level: two different levels have different logic", run.returncode != 0 and "ANDERS" in run.stdout)
 
+# a co-op hero and a variant region on the demo level: both tools know them
+import json  # noqa: E402
+with open(level("demo_raum.json"), encoding="utf-8") as f:
+    data = json.load(f)
+objects = next(layer for layer in data["layers"] if layer["type"] == "objectgroup")["objects"]
+main = next(o for o in objects if o.get("name") == "MainCharacter")
+tw = data["tilewidth"]
+objects.append(dict(main, id=900, name="Hero2", x=main["x"] + tw))
+objects.append({"id": 901, "name": "region1", "type": "Region", "x": main["x"], "y": main["y"] - 2 * tw,
+                "width": 2 * tw, "height": tw, "visible": False})
+extra = os.path.join(tempfile.mkdtemp(), "team.json")
+with open(extra, "w", encoding="utf-8") as f:
+    json.dump(data, f)
+run = tool("check_level.py", extra)
+check("check_level: a co-op hero is no second MainCharacter", "FEHLER" not in run.stdout and "Team-Level" in run.stdout,
+      run.stdout[-500:])
+check("check_level: a region nobody names is reported", "Region region1: kein Objekt" in run.stdout, run.stdout[-500:])
+emitted = tool("level2ascii.py", "--emit", extra).stdout
+check("level2ascii: the co-op hero is 2", any("2" in line and "H" in line for line in emitted.split("---")[1].split("\n")),
+      emitted)
+
 script = os.path.join(tempfile.mkdtemp(), "skript.py")
 with open(script, "w", encoding="utf-8") as f:
     f.write(f"from dungeoncoder import Game\nhero = Game({level('demo_gang.json')!r}).get_hero()\n"

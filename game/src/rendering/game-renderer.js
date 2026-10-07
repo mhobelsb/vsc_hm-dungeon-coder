@@ -11,7 +11,7 @@ import { GAME_STATE } from '../game-state.js';
  * create-renderer.js again.
  */
 export class GameRenderer {
-    constructor({ ctx, canvasWidth, canvasHeight, tileRenderer, characterRenderer, gameObjectRenderer, layerRenderer, levelRenderer, hudRenderer, fogRenderer }) {
+    constructor({ ctx, canvasWidth, canvasHeight, tileRenderer, characterRenderer, gameObjectRenderer, layerRenderer, levelRenderer, hudRenderer, fogRenderer, sensingRenderer }) {
         this.ctx = ctx;
         this.canvasWidth = canvasWidth;
         this.canvasHeight = canvasHeight;
@@ -22,6 +22,7 @@ export class GameRenderer {
         this.levelRenderer = levelRenderer;
         this.hudRenderer = hudRenderer;
         this.fogRenderer = fogRenderer;
+        this.sensingRenderer = sensingRenderer;
     }
 
     /** The view's size in game pixels (the level's size; Game.setViewSize). */
@@ -35,13 +36,20 @@ export class GameRenderer {
         this.hudRenderer.drawWaitingScreen();
     }
 
-    /** Clears the canvas, draws the level's world content, the fog of war, then the HUD's darkness overlay on top. */
-    drawPlayingScreen(level, fog, character) {
+    /**
+     * Clears the canvas, draws the level's world content, the fog of war, the HUD's darkness
+     * overlay, then what the sensors just looked at (visible in the dark too) and the move budget.
+     */
+    drawPlayingScreen(level, fog, character, sensing, movesLeft) {
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         this.levelRenderer.drawLevel(level);
         this.fogRenderer.draw(fog, level, character);
         this.hudRenderer.drawDarkOverlay(level);
-        if (level.isHeroOnGoal()) {
+        this.sensingRenderer.draw(sensing, level);
+        if (movesLeft !== null && movesLeft !== undefined) {
+            this.hudRenderer.drawMovesLeft(movesLeft);
+        }
+        if (level.character && level.isOnGoal(level.character)) {
             const missing = level.unmetWinConditions();
             if (missing.length > 0) {
                 this.hudRenderer.drawGoalHint(missing);
@@ -50,13 +58,13 @@ export class GameRenderer {
     }
 
     /** Draws the "Game Over" screen shown when the character has died. */
-    drawGameOverScreen(remainingTime, world) {
-        this.hudRenderer.drawGameOverScreen(remainingTime, world);
+    drawGameOverScreen(remainingTime, world, seed, outOfMoves) {
+        this.hudRenderer.drawGameOverScreen(remainingTime, world, seed, outOfMoves);
     }
 
     /** Draws the "Level Complete" summary screen shown when a level is finished successfully. */
-    drawLevelCompleteScreen(statistics, remainingTime, world) {
-        this.hudRenderer.drawLevelCompleteScreen(statistics, remainingTime, world);
+    drawLevelCompleteScreen(statistics, remainingTime, world, seed) {
+        this.hudRenderer.drawLevelCompleteScreen(statistics, remainingTime, world, seed);
     }
 
     /**
@@ -69,19 +77,22 @@ export class GameRenderer {
      * @param {{level, statistics, remainingTime, fog, character}} scene
      *   Only the fields relevant to the current gameState need to be set.
      */
-    draw(gameState, { level, statistics, remainingTime, fog, character }) {
+    draw(gameState, { level, statistics, remainingTime, fog, character, sensing, movesLeft, outOfMoves }) {
+        // a generated level or a variant names its seed (map property `seed`): on the end
+        // screens, so a failure can be reproduced (DC-T1p, DC-T1k)
+        const seed = level?.getProperty('seed');
         switch (gameState) {
             case GAME_STATE.WAITING_FOR_LEVEL:
                 this.drawWaitingScreen();
                 break;
             case GAME_STATE.PLAYING:
-                this.drawPlayingScreen(level, fog, character);
+                this.drawPlayingScreen(level, fog, character, sensing, movesLeft);
                 break;
             case GAME_STATE.GAME_OVER:
-                this.drawGameOverScreen(remainingTime, level?.getProperty('world'));
+                this.drawGameOverScreen(remainingTime, level?.getProperty('world'), seed, outOfMoves);
                 break;
             case GAME_STATE.LEVEL_COMPLETE:
-                this.drawLevelCompleteScreen(statistics, remainingTime, level?.getProperty('world'));
+                this.drawLevelCompleteScreen(statistics, remainingTime, level?.getProperty('world'), seed);
                 break;
         }
     }

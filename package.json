@@ -38,6 +38,25 @@
       {
         "command": "vscode-dungeon-coder.copyPythonAPI",
         "title": "Dungeon Coder: Copy Python API to workspace"
+      },
+      {
+        "command": "vscode-dungeon-coder.loadLevel",
+        "title": "Dungeon Coder: Load level into the game",
+        "icon": "$(play)"
+      },
+      {
+        "command": "vscode-dungeon-coder.runOnAllLevels",
+        "title": "Dungeon Coder: Run program on all levels (simulator)",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "vscode-dungeon-coder.replayTrace",
+        "title": "Dungeon Coder: Replay trace in the game"
+      },
+      {
+        "command": "vscode-dungeon-coder.refreshLevels",
+        "title": "Refresh",
+        "icon": "$(refresh)"
       }
     ],
     "configuration": {
@@ -59,6 +78,53 @@
           "description": "Port of the game's local API. Change it (e.g. to 3001) to run next to another Dungeon Coder; Python scripts in the workspace find it automatically (.dungeoncoder-port)."
         }
       }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "dungeonCoder.levels",
+          "name": "Dungeon Coder Levels"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "vscode-dungeon-coder.refreshLevels",
+          "when": "view == dungeonCoder.levels",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vscode-dungeon-coder.loadLevel",
+          "when": "view == dungeonCoder.levels && viewItem == dungeonCoderLevel",
+          "group": "inline"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "vscode-dungeon-coder.runOnAllLevels",
+          "when": "resourceLangId == python",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "vscode-dungeon-coder.replayTrace",
+          "when": "resourceFilename =~ /\\.trace\\.json$/"
+        },
+        {
+          "command": "vscode-dungeon-coder.loadLevel",
+          "when": "resourceExtname == .json || resourceExtname == .txt"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "vscode-dungeon-coder.refreshLevels",
+          "when": "false"
+        }
+      ]
     }
   },
   "scripts": {

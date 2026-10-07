@@ -116,7 +116,11 @@ export class ObjectLayer extends BaseLayer {
         this.visible = visible;
         this.objects = [];
         objects.forEach((objectDescription) => {
-            this.objects.push(objectFactory.create(objectDescription, tileFactory));
+            // a Region rectangle only describes level variants (dungeoncoder/variants.py);
+            // the Python client removes them, a level opened directly may still have them
+            if (objectDescription.type !== "Region") {
+                this.objects.push(objectFactory.create(objectDescription, tileFactory));
+            }
         });
     }
 

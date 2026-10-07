@@ -27,7 +27,7 @@ from dclevel import FLOOR, OBJECT_SYMBOLS, Level
 
 def to_ascii(level):
     grid = [[level.terrain(c, r) for c in range(level.width)] for r in range(level.height)]
-    notes, header = [], {}
+    notes, header, sprites = [], {}, {}
     objects = level.objects()
     by_id = {o["obj"]["id"]: o for o in objects}
     for o in objects:
@@ -35,10 +35,12 @@ def to_ascii(level):
         cls = o["cls"]
         state = o["ts"].props(o["local"]).get("state") if o["ts"] else None
         if cls == "Character":
-            symbol = "H"
+            n = Level.hero_number(o["obj"]) or 1
+            symbol = "H" if n == 1 else str(n)          # co-op heroes Hero2, Hero3, ...
             if state:   # e.g. "standing_south_7"
                 _, direction, number = state.split("_")
-                header["start"], header["hero"] = direction, number
+                header["start"] = direction
+                sprites[n] = number
         elif cls == "Torch":
             symbol = "t" if state == "off" else "T"
         else:
@@ -60,6 +62,13 @@ def to_ascii(level):
                 notes.append(f"  {cls} at ({col},{row}) controls missing object id {o['props']['controls']}")
         if 0 <= row < level.height and 0 <= col < level.width:
             grid[row][col] = symbol
+    if sprites:
+        header["hero"] = " ".join(sprites[n] for n in sorted(sprites))
+    for name, (c0, r0, c1, r1) in level.regions().items():
+        symbols = sorted({grid[o["cell"][1]][o["cell"][0]] for o in objects if o["props"].get("region") == name})
+        for symbol in symbols:
+            header.setdefault("region", []).append(f"{symbol} {c0},{r0} {c1},{r1}")
+        notes.append(f"  Region {name} ({c0},{r0})-({c1},{r1}): {', '.join(symbols) or 'nothing'} may lie anywhere in it")
     for name, value in level.properties().items():
         header[name] = str(value).lower() if isinstance(value, bool) else value
     return ["".join(r) for r in grid], notes, header

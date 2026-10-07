@@ -214,3 +214,78 @@ test('the bundled assets name the same items for the game and for the Python pac
     const python = await read('../../api/python/dungeoncoder/packs/items.json');
     assert.deepEqual(python.items, game.items);
 });
+
+test('sensing (DC-T1j): a sensor marks the cell it looked at, with its answer', async () => {
+    const { Sensing } = await import('../src/sensing.js');
+    const { Level } = await import('../src/level.js');
+    const { CharacterInterface } = await import('../src/character.js');
+    const { Statistics } = await import('../src/statistics.js');
+    const { levelData } = await import('./helpers.mjs');
+    const level = await Level.create(levelData(['#####', '#Hs.#', '#####']));
+    const sensing = new Sensing();
+    const hero = new CharacterInterface({ fog: null, sensing }, level, level.character, new Statistics());
+    assert.equal(hero.isSwitchInFront(), true);
+    assert.deepEqual([...sensing.marks.values()].map(m => [m.col, m.row, m.positive]), [[2, 1, true]]);
+    assert.equal(hero.isAbyssInFront(), false);
+    assert.equal(sensing.marks.get('2,1').positive, false);
+    sensing.update(Sensing.FLASH_MS + 1);
+    assert.equal(sensing.marks.size, 0);
+    const off = new Sensing(false);
+    off.mark(1, 1, true);
+    assert.equal(off.marks.size, 0);
+});
+
+test('call log (DC-T1j): one line per call, as Python writes values', async () => {
+    const { CallLog } = await import('../src/call-log.js');
+    const ok = (result, success = true, message = '') => ({ result: { success, result, message } });
+    assert.equal(CallLog.describe('move', null, ok(true)), 'move()  ✓');
+    assert.equal(CallLog.describe('move', null, ok(false, false, 'Moving failed. Way is blocked.')), 'move()  ✗ blocked');
+    assert.equal(CallLog.describe('is_switch_in_front', null, ok(false)), 'is_switch_in_front()  → False');
+    assert.equal(CallLog.describe('get_items_at_position', null, ok(['Sweets'])), "get_items_at_position()  → ['Sweets']");
+    assert.equal(CallLog.describe('pickup', { name: 'Sweets', hero: 1 }, ok(true)), "heroes[1]: pickup('Sweets')  ✓");
+    assert.equal(CallLog.describe('is_moving', null, ok(false)), null);
+    const log = new CallLog(null);
+    for (let i = 0; i < 12; i++) {
+        log.add('turn_left', null, ok(true));
+    }
+    assert.equal(log.entries.length, CallLog.LENGTH);
+    log.add('load_level', {}, ok(true));
+    assert.deepEqual(log.entries, ['— level loaded —']);
+});
+
+test('co-op (DC-T3c): Hero2 is a second hero, heroes block each other, all_heroes', async () => {
+    const { Level } = await import('../src/level.js');
+    const { CharacterInterface } = await import('../src/character.js');
+    const { Statistics } = await import('../src/statistics.js');
+    const { levelData, advance } = await import('./helpers.mjs');
+    const data = levelData(['######', '#H..Z#', '#...Z#', '######'], { properties: { win: 'all_heroes' } });
+    const objects = data.layers[2].objects;
+    const main = objects.find(o => o.name === 'MainCharacter');
+    objects.push({ ...main, id: 99, name: 'Hero2', y: main.y + 16 });
+    const level = await Level.create(data);
+    assert.equal(level.heroes.length, 2);
+    const statistics = new Statistics();
+    const [a, b] = level.heroes.map(h => new CharacterInterface({ fog: null }, level, h, statistics));
+    b.turnLeft();                       // east -> north: hero 1 is in front
+    assert.equal(b.isCollisionInFront(), true);
+    assert.equal(b.move(), false);
+    for (let i = 0; i < 3; i++) {
+        b.turnLeft();
+    }
+    for (let i = 0; i < 3; i++) {
+        a.move();
+        b.move();
+        advance(level, 600);
+    }
+    assert.deepEqual(level.unmetWinConditions(), []);
+    assert.equal(level.isComplete(), true);
+});
+
+test('variants: a Region rectangle never becomes a game object', async () => {
+    const { Level } = await import('../src/level.js');
+    const { levelData } = await import('./helpers.mjs');
+    const data = levelData(['#####', '#H.s#', '#####']);
+    data.layers[2].objects.push({ id: 50, name: 'region1', type: 'Region', x: 16, y: 16, width: 48, height: 16, visible: false });
+    const level = await Level.create(data);
+    assert.equal(level.objectFactory.gameObjects.some(o => o.type === 'Region'), false);
+});

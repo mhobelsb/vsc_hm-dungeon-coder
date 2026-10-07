@@ -270,12 +270,18 @@ class Level:
                 self.layers.append((layer.get("data", []), collision))
             elif layer.get("type") == "objectgroup":
                 for d in layer.get("objects", []):
-                    self.objects.append(Obj(d, self.tilesets))
+                    if d.get("type") != "Region":       # describes level variants only (variants.py)
+                        self.objects.append(Obj(d, self.tilesets))
         self.character = next((o for o in self.objects if o.name == "MainCharacter"), None)
+        # co-op levels (DC-T3c): more heroes, Character objects named Hero2, Hero3, ... (in that order)
+        extra = sorted((o for o in self.objects if o.type == "Character" and o.name[:4] == "Hero" and o.name[4:].isdigit()),
+                       key=lambda o: int(o.name[4:]))
+        self.heroes = ([self.character] if self.character else []) + extra
         self.goal = next((o for o in self.objects if o.type == "Goal"), None)
         self.slots = self._find_slots()
         self.inventory = []
         self.caught = False
+        self.out_of_moves = False
         self._give_start_inventory(inventory)
         self.update()
 
@@ -427,6 +433,19 @@ class Level:
         return bool(self.character and self.goal and self.character.x == self.goal.x
                     and self.character.y == self.goal.y)
 
+    def on_goal(self, hero):
+        """With one hero only the first Goal counts; in a co-op level every Goal (engine: Level.isOnGoal)."""
+        if len(self.heroes) <= 1:
+            return hero is self.character and self.hero_on_goal()
+        return any(o.type == "Goal" and o.x == hero.x and o.y == hero.y for o in self.objects)
+
+    def goal_distance(self, col, row):
+        """The amulet: Manhattan distance to the (first) goal (engine: Level.goalDistance)."""
+        if not self.goal:
+            return None
+        gc, gr = self.cell_of(self.goal)
+        return abs(gc - col) + abs(gr - row)
+
     def items_on_slots(self):
         return [[o for o in self.objects_at(c * self.tw + self.tw / 2, r * self.th + self.th / 2)
                  if o.value is not None and o.visible is not False] for c, r in self.slots]
@@ -460,12 +479,16 @@ class Level:
             missing.append("sorted row")
         if "stable" in wanted and not self.row_stable():
             missing.append("equal values in start order")
+        if "all_heroes" in wanted:
+            away = sum(1 for h in self.heroes if not self.on_goal(h))
+            if away:
+                missing.append(f"{away} heroes not at an exit")
         return missing
 
     def complete(self):
-        if self.caught:
-            return False                    # caught by a guard on the goal field
-        return self.hero_on_goal() and not self.unmet()
+        if self.caught or self.out_of_moves:
+            return False                    # caught by a guard on the goal field, or collapsed
+        return bool(self.character) and self.on_goal(self.character) and not self.unmet()
 
 
 def parse_start_inventory(text):
@@ -492,6 +515,7 @@ class Simulator:
 
     def __init__(self, level_override=None):
         self.level = None
+        self.current = None         # the hero the current command is for (co-op levels)
         self.last_level_data = None
         self.running = False
         self.falling = False
@@ -501,7 +525,7 @@ class Simulator:
     # -- the hero's state lives in the character object: x, y (bottom-left) and its tile state
     @property
     def hero(self):
-        return self.level.character
+        return self.current or self.level.character
 
     def direction(self):
         parts = str(self.hero.state or "").split("_")
@@ -526,9 +550,9 @@ class Simulator:
                 or any(t.type == name for t in self.level.tiles_at(px, py)))
 
     def _tick(self):
-        """After every command: pattern doors, then falling, being caught or completion end the level."""
+        """After every command: pattern doors, then falling, being caught, collapsing or completion end the level."""
         self.level.update()
-        if self.falling or self.level.caught or self.level.complete():
+        if self.falling or self.level.caught or self.level.out_of_moves or self.level.complete():
             self.running = False
 
     def _count(self, name):
@@ -555,11 +579,17 @@ class Simulator:
 
     @staticmethod
     def _read_level(path):
+        """The level that replaces every loaded one (grading); a level with variants becomes the
+        variant DUNGEONCODER_SEED names (else the level as drawn)."""
+        from .variants import prepare
         if path.endswith(".txt"):
             from .asciimap import level_from_file
-            return level_from_file(path)
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
+            data = level_from_file(path)
+        else:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        seed = os.environ.get("DUNGEONCODER_SEED", "").strip()
+        return prepare(data, int(seed) if seed.lstrip("-").isdigit() else None)[0]
 
     def handle(self, method, params):
         """(success, message, result) like the webview's handlers."""
@@ -572,8 +602,13 @@ class Simulator:
             if self.last_level_data is None:
                 return (False, "No level loaded.", False)
             return (True, "Level reset.", self.load_level(self.last_level_data))
-        if self.level is None or self.hero is None:
+        if self.level is None or self.level.character is None:
             raise RuntimeError("No level loaded.")
+        index = (params or {}).get("hero", 0) or 0
+        if index >= len(self.level.heroes):
+            count = len(self.level.heroes)
+            return (False, f"There is no hero {index} in this level (it has {count}: 0 to {count - 1}).", None)
+        self.current = self.level.heroes[index]
         if method in ("move", "turn_left", "interact", "pickup", "drop") and not self.running:
             return (False, "The level is over (goal reached or game over). Load a level to continue.", False)
         result = getattr(self, "cmd_" + method)(params or {})
@@ -581,10 +616,24 @@ class Simulator:
             self._tick()
         return result
 
+    def moves_left(self):
+        budget = self.level.prop("max_moves")
+        if not isinstance(budget, int) or isinstance(budget, bool):
+            return None
+        return max(0, budget - self.stats["moves"] - self.stats["bumps"])
+
+    def _hero_at(self, col, row):
+        """Another hero stands on the field (heroes block each other like walls)."""
+        return any(h is not self.hero and self.level.cell_of(h) == (col, row) for h in self.level.heroes)
+
     def cmd_move(self, _):
+        if self.moves_left() == 0:
+            self.level.out_of_moves = True
+            return (False, f"No moves left: this level allows {self.level.prop('max_moves')} move() calls "
+                           "(map property max_moves). The hero collapses.", False)
         px, py = self._front()
         start = self.level.cell_of(self.hero)
-        if self.level.is_collision(px, py):
+        if self.level.is_collision(px, py) or self._hero_at(int(px // self.level.tw), int(py // self.level.th)):
             if self.level.step_guards(start, start):
                 self.level.caught = True
             self._count("bumps")
@@ -634,10 +683,16 @@ class Simulator:
         return self._sensor(self.direction() == "north")
 
     def cmd_is_at_goal(self, _):
-        return self._sensor(self.level.hero_on_goal())
+        return self._sensor(self.level.on_goal(self.hero))
 
     def cmd_is_collision_in_front(self, _):
-        return self._sensor(self.level.is_collision(*self._front()))
+        px, py = self._front()
+        return self._sensor(self.level.is_collision(px, py) or self._hero_at(int(px // self.level.tw), int(py // self.level.th)))
+
+    def cmd_sense_goal(self, _):
+        if not self.level.bool_prop("amulett"):
+            return (False, "There is no amulet in this level (map property amulett).", None)
+        return self._sensor(self.level.goal_distance(*self.level.cell_of(self.hero)))
 
     def cmd_is_abyss_in_front(self, _):
         return self._sensor(self.level.abyss_at(*self._front()))
@@ -666,9 +721,10 @@ class Simulator:
 
     def cmd_get_statistics(self, _):
         return (True, "Statistics of the current level.",
-                {**self.stats, "at_goal": self.level.hero_on_goal(), "game_over": self.falling or self.level.caught,
+                {**self.stats, "at_goal": self.level.on_goal(self.hero),
+                 "game_over": self.falling or self.level.caught or self.level.out_of_moves,
                  "level_complete": self.level.complete(),
-                 "missing": self.level.unmet()})
+                 "missing": self.level.unmet(), "moves_left": self.moves_left(), "heroes": len(self.level.heroes)})
 
     def _inventory_full(self):
         size = self.level.prop("inventory_size")

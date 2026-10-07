@@ -34,6 +34,25 @@
         border-radius: 5px;
         font-size: 0.9em;
     }
+    /* the program's last calls (game/src/call-log.js); L hides it */
+    #call-log {
+        position: fixed;
+        top: 6px;
+        right: 6px;
+        max-width: 45vw;
+        margin: 0;
+        padding: 4px 8px;
+        background: rgba(0, 0, 0, 0.72);
+        color: #ddd;
+        font: 11px/1.35 monospace;
+        white-space: pre;
+        overflow: hidden;
+        border-radius: 4px;
+        pointer-events: none;
+    }
+    #call-log[data-empty="true"] {
+        display: none;
+    }
     input[type="file"] {
             padding: 10px;
             border: 1px solid #ccc;
@@ -48,6 +67,7 @@
         <input type="file" id="json-file-input" accept=".json">
         <canvas id="gameCanvas" tabindex="-1" width="640" height="480"></canvas>
     </div>
+    <pre id="call-log" data-empty="true"></pre>
     <script nonce="${nonce}">
         const rawGameFolderUri = '${gameFolderUri}'; 
 

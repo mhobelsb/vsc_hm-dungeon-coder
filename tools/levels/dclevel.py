@@ -210,10 +210,12 @@ class Level:
 
     # --- objects -----------------------------------------------------------
     def objects(self):
-        """[dict(obj, cls, cell, ts, local, props)] for all tile objects."""
+        """[dict(obj, cls, cell, ts, local, props)] for all tile objects (not the Region rectangles)."""
         out = []
         for layer in self.object_layers:
             for obj in layer["objects"]:
+                if obj.get("type") == "Region":
+                    continue
                 ts, local = self.resolve(obj.get("gid", 0))
                 cls = obj.get("type") or (ts.cls(local) if ts else "")
                 if obj.get("name") == "MainCharacter":
@@ -222,6 +224,27 @@ class Level:
                 props = {p["name"]: p["value"] for p in obj.get("properties", [])}
                 out.append({"obj": obj, "cls": cls, "cell": cell, "ts": ts, "local": local, "props": props})
         return out
+
+    def regions(self):
+        """{name: (col0, row0, col1, row1)} of the Region rectangles (level variants, dungeoncoder/variants.py)."""
+        out = {}
+        for layer in self.object_layers:
+            for obj in layer["objects"]:
+                if obj.get("type") == "Region":
+                    out[obj.get("name", "")] = (int(obj["x"] // self.tile_w), int(obj["y"] // self.tile_h),
+                                                int((obj["x"] + obj["width"] - 1) // self.tile_w),
+                                                int((obj["y"] + obj["height"] - 1) // self.tile_h))
+        return out
+
+    @staticmethod
+    def hero_number(obj):
+        """1 for the MainCharacter, n for a co-op hero named Hero<n>, else None."""
+        name = obj.get("name") or ""
+        if name == "MainCharacter":
+            return 1
+        if name[:4] == "Hero" and name[4:].isdigit():
+            return int(name[4:])
+        return None
 
     def properties(self):
         return {p["name"]: p["value"] for p in self.data.get("properties", [])}

@@ -11,6 +11,7 @@ from ... import errors
 from ...models.api_error_response import ApiErrorResponse
 from ...models.distance_param import DistanceParam
 from ...models.nullable_integer_result import NullableIntegerResult
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -18,6 +19,7 @@ from typing import cast
 def _get_kwargs(
     *,
     body: DistanceParam,
+    hero: int | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -25,11 +27,18 @@ def _get_kwargs(
 
     
 
-    
+    params: dict[str, Any] = {}
+
+    params["hero"] = hero
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
 
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/hero/peek_item_value",
+        "params": params,
     }
 
     _kwargs["json"] = body.to_dict()
@@ -75,12 +84,14 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: DistanceParam,
+    hero: int | Unset = UNSET,
 
 ) -> Response[ApiErrorResponse | NullableIntegerResult]:
     """ Value of the item `distance` fields ahead (1 = the field in front); null if there is none. Needs the
     map property `fernrohr`.
 
     Args:
+        hero (int | Unset):
         body (DistanceParam):
 
     Raises:
@@ -94,6 +105,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+hero=hero,
 
     )
 
@@ -107,12 +119,14 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: DistanceParam,
+    hero: int | Unset = UNSET,
 
 ) -> ApiErrorResponse | NullableIntegerResult | None:
     """ Value of the item `distance` fields ahead (1 = the field in front); null if there is none. Needs the
     map property `fernrohr`.
 
     Args:
+        hero (int | Unset):
         body (DistanceParam):
 
     Raises:
@@ -127,6 +141,7 @@ def sync(
     return sync_detailed(
         client=client,
 body=body,
+hero=hero,
 
     ).parsed
 
@@ -134,12 +149,14 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: DistanceParam,
+    hero: int | Unset = UNSET,
 
 ) -> Response[ApiErrorResponse | NullableIntegerResult]:
     """ Value of the item `distance` fields ahead (1 = the field in front); null if there is none. Needs the
     map property `fernrohr`.
 
     Args:
+        hero (int | Unset):
         body (DistanceParam):
 
     Raises:
@@ -153,6 +170,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+hero=hero,
 
     )
 
@@ -166,12 +184,14 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: DistanceParam,
+    hero: int | Unset = UNSET,
 
 ) -> ApiErrorResponse | NullableIntegerResult | None:
     """ Value of the item `distance` fields ahead (1 = the field in front); null if there is none. Needs the
     map property `fernrohr`.
 
     Args:
+        hero (int | Unset):
         body (DistanceParam):
 
     Raises:
@@ -186,5 +206,6 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 body=body,
+hero=hero,
 
     )).parsed

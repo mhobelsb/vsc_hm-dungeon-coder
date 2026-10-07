@@ -78,14 +78,33 @@ def check(level, path, report):
                 report.warn(f"Ebene {layer['name']!r}: {zero} Kachel(n) mit der lokalen Nummer 0 – die zählen "
                             "im Spiel NICHT als Wand")
     objs = objects(level)
-    heroes = [o for o in objs if o["cls"] == "Character"]
+    heroes = [o for o in objs if o["obj"].get("name") == "MainCharacter"]
     if len(heroes) != 1:
         report.error(f"{len(heroes)} Figur(en) mit dem Namen MainCharacter, nötig ist genau eine")
+    team = [o for o in objs if o["cls"] == "Character" and (Level.hero_number(o["obj"]) or 0) > 1]
+    if team:
+        report.warn(f"Team-Level: {len(team) + 1} Heldinnen/Helden (MainCharacter, "
+                    + ", ".join(o["obj"]["name"] for o in team) + "); jedes Ziel zählt")
     goals = [o for o in objs if o["cls"] == "Goal"]
     if not goals:
         report.warn("kein Ziel (Objekt der Klasse Goal): das Level kann nicht gewonnen werden")
-    elif len(goals) > 1:
+    elif len(goals) > 1 and not team:
         report.warn(f"{len(goals)} Ziele: das Spiel nimmt nur das erste")
+    for name, (c0, r0, c1, r1) in level.regions().items():
+        movers = [o for o in objs if o["props"].get("region") == name]
+        taken = {o["cell"] for o in objs if o["props"].get("region") != name}
+        free = [(c, r) for r in range(r0, r1 + 1) for c in range(c0, c1 + 1)
+                if (c, r) not in taken and level.terrain(c, r) == FLOOR]
+        if not movers:
+            report.warn(f"Region {name}: kein Objekt nennt sie (Eigenschaft region)")
+        elif len(free) < len(movers):
+            report.error(f"Region {name}: {len(free)} freie Bodenfelder für {len(movers)} Objekt(e)")
+        else:
+            report.warn(f"Varianten: Region {name} ({c0},{r0})-({c1},{r1}), {len(movers)} Objekt(e) auf "
+                        f"{len(free)} freien Feldern; Game(..., seed=N) wählt eine")
+    for o in objs:
+        if o["props"].get("region") and o["props"]["region"] not in level.regions():
+            report.error(f"{o['cls']} (id {o['id']}): region {o['props']['region']!r} gibt es nicht")
     ids = {o["id"]: o for o in objs}
     for o in objs:
         x, y = o["obj"]["x"], o["obj"]["y"]
@@ -164,7 +183,8 @@ def show(level, objs):
     for o in objs:
         c, r = o["cell"]
         if 0 <= c < level.width and 0 <= r < level.height:
-            symbol = "H" if o["cls"] == "Character" else OBJECT_SYMBOLS.get(o["cls"], "?")
+            n = Level.hero_number(o["obj"]) if o["cls"] == "Character" else None
+            symbol = ("H" if n in (None, 1) else str(n)) if o["cls"] == "Character" else OBJECT_SYMBOLS.get(o["cls"], "?")
             if o["cls"] == "Torch":
                 symbol = "T" if o["state"] == "burning" else "t"
             grid[r][c] = symbol

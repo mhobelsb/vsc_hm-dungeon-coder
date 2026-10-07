@@ -8,6 +8,11 @@ import { Server } from 'http';
 import { COMMANDS, COMMAND_LIST, ROUTES } from '../game/src/commands.js';
 import { API_HOST, API_PORT } from '../game/src/api-config.js';
 import type { components } from './generated/api-types.js';
+import { registerPanel } from './panel';
+
+// After these, the status bar shows the level's counters again (src/panel.ts).
+const COUNTED_ACTIONS = new Set<string>([COMMANDS.MOVE, COMMANDS.TURN_LEFT, COMMANDS.INTERACT, COMMANDS.PICKUP,
+    COMMANDS.DROP, COMMANDS.LOAD_LEVEL, COMMANDS.RESET_LEVEL]);
 
 // Upper bound for one move() step: the animation takes MOVE_DURATION_MS / pace
 // (Character.moveDuration in game/src/character.js), plus generous slack.
@@ -64,6 +69,7 @@ export class DungeonCoderServer {
     private port = API_PORT;
     private readonly pendingWebviewRequests = new Map<string, (response: WebviewRpcResponse) => void>();
     private readonly registeredCommands = new Set<string>();
+    private readonly statisticsListeners: ((stats: any) => void)[] = [];
 
     private constructor() { }
 
@@ -101,6 +107,45 @@ export class DungeonCoderServer {
         return rpcResponse.result;
     }
 
+    /** True while the game tab is open. */
+    public isRunning(): boolean {
+        return this.webviewPanel !== undefined;
+    }
+
+    /**
+     * Loads a level into the game (the side panel, DC-T2h). Right after the tab opened, the game
+     * may not listen yet: then the request is sent again, for up to 10 s.
+     */
+    public async loadLevel(level: object): Promise<{ success: boolean; message: string }> {
+        for (let attempt = 0; attempt < 20; attempt++) {
+            const answer = await Promise.race([
+                this.sendMessageToWebview(COMMANDS.LOAD_LEVEL, level),
+                this.delay(500).then(() => undefined),
+            ]);
+            if (answer) {
+                this.reportStatistics();
+                return { success: answer.success, message: answer.message };
+            }
+        }
+        return { success: false, message: 'The game did not answer. Is the Dungeon Coder tab open?' };
+    }
+
+    /** Called with the game's statistics after every action of a program (status bar). */
+    public onStatistics(listener: (stats: any) => void) {
+        this.statisticsListeners.push(listener);
+    }
+
+    private reportStatistics() {
+        if (this.statisticsListeners.length === 0 || !this.webviewPanel) {
+            return;
+        }
+        this.sendMessageToWebview(COMMANDS.GET_STATISTICS).then(answer => {
+            if (answer.success) {
+                this.statisticsListeners.forEach(listener => listener(answer.result));
+            }
+        }, () => undefined);
+    }
+
     /** Unified Express route registration helper */
     private registerRoute(
         app: Application,
@@ -116,7 +161,7 @@ export class DungeonCoderServer {
         this.registeredCommands.add(command);
         (app as any)[method](route, async (req: Request, res: Response) => {
             try {
-                const data = options?.includeBody ? req.body : null;
+                const data = withHero(options?.includeBody ? req.body : null, req.query.hero);
                 const response = await this.sendMessageToWebview(command, data);
 
                 if (!response.success) {
@@ -133,6 +178,9 @@ export class DungeonCoderServer {
                 }
 
                 this.sendApiResponse(res, response);
+                if (COUNTED_ACTIONS.has(command)) {
+                    this.reportStatistics();
+                }
             } catch (error: any) {
                 this.handleApiError(res, error);
             }
@@ -409,6 +457,17 @@ export class DungeonCoderServer {
     }
 }
 
+/**
+ * The request's parameters plus the hero index of a co-op level (query parameter `hero`,
+ * already checked against api/openapi.yaml): {...body, hero}. Without one, the body as it is.
+ */
+export function withHero(body: any, hero: unknown): any {
+    if (hero === undefined || hero === null || hero === '') {
+        return body;
+    }
+    return { ...(body ?? {}), hero: Number(hero) };
+}
+
 /** The versions of this extension and of its API (package.json, api/openapi.yaml), for GET /version. */
 function versions(extensionPath: string): { extension: string; api: string } {
     const extension = JSON.parse(readFileSync(path.join(extensionPath, 'package.json'), 'utf8')).version;
@@ -598,6 +657,17 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(startGame);
     context.subscriptions.push(copyPythonDisposable);
+
+    registerPanel(context, {
+        ensureRunning: async () => {
+            if (!server.isRunning()) {
+                await vscode.commands.executeCommand('vscode-dungeon-coder.startGame');
+            }
+            return server.isRunning();
+        },
+        loadLevel: level => server.loadLevel(level),
+        onStatistics: listener => server.onStatistics(listener),
+    });
 
 }
 

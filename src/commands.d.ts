@@ -18,6 +18,7 @@ declare module '*commands.js' {
         readonly IS_ENEMY_IN_FRONT: 'is_enemy_in_front';
         readonly ASK_ORACLE: 'ask_oracle';
         readonly READ_ITEM_VALUE: 'read_item_value';
+        readonly SENSE_GOAL: 'sense_goal';
         readonly PEEK_ITEM_VALUE: 'peek_item_value';
         readonly GET_INVENTORY: 'get_inventory';
         readonly IS_COLLISION_IN_FRONT: 'is_collision_in_front';

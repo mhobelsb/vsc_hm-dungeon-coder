@@ -130,7 +130,11 @@ function sendApiResponse(res, response) {
 function registerRoute(method, route, command, options = {}) {
     app[method](route, async (req, res) => {
         try {
-            const params = options.includeBody ? req.body : null;
+            // co-op levels: the query parameter `hero` picks the hero (as in src/extension.ts, withHero)
+            let params = options.includeBody ? req.body : null;
+            if (req.query.hero !== undefined && req.query.hero !== '') {
+                params = { ...(params ?? {}), hero: Number(req.query.hero) };
+            }
             const response = await sendToClient(command, params);
             if (response.success && options.onSuccess) {
                 // onSuccess may return a replacement response, e.g. a failed move poll.

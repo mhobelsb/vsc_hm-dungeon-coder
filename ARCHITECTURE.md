@@ -74,6 +74,7 @@ game/src/
     game-object-factory.js  object class -> JS class
     character.js            Character (the hero) and CharacterInterface (what the HANDLERS call)
     fog.js, statistics.js, input.js   fog of war, the counters, keyboard play
+    sensing.js, call-log.js visible sensing marks, the list of the last calls (HTML, key L)
     rendering/              drawing only (section 4.5)
 game/assets/                the bundled assets: tilesets/, images/, levels/ (the CC0 worlds' show
                             levels), pack.json
@@ -96,10 +97,15 @@ the last content (the webview keeps it). Text maps (`.txt`) are turned into a Ti
   tile on it a wall (except local id 0 of a tileset). A field whose **topmost** tile has the class `Abyss`
   is an abyss: walking onto it means falling, then Game Over.
 - **One object layer** holds the hero (the object named `MainCharacter`), the `Goal` and the objects. An
-  object's class is its own `type`/`class`, else the class of its tile.
+  object's class is its own `type`/`class`, else the class of its tile. A co-op level has further heroes,
+  `Character` objects named `Hero2`, `Hero3`, … (`Level.heroes`; every hero route takes the query parameter
+  `hero`, the index). With one hero only the first `Goal` counts; with several, every `Goal`.
+  `Region` rectangles describe level variants; the Python client moves the objects whose property `region`
+  names one and removes the rectangles (`dungeoncoder/variants.py`), the engine ignores any left over.
 - **Map properties** switch on the mechanics: `fog`, `keyboard`, `win`, `inventory_size`, `hero_inventory`,
-  `fernrohr`, `orakel`, `torch_light`, `world` (end screens of a world), `pack` (the asset pack the art comes
-  from, named in the "missing tileset" message).
+  `fernrohr`, `orakel`, `amulett`, `max_moves`, `show_sensing`, `torch_light`, `world` (end screens of a world),
+  `pack` (the asset pack the art comes from, named in the "missing tileset" message), `seed` (a generated
+  level or a variant: shown on the end screens), `variants: random` (a new variant per load).
 
 ### 4.2 Coordinates
 
@@ -138,7 +144,7 @@ A fixed-step loop (60 per second) over `requestAnimationFrame`:
 
 ```
 WAITING_FOR_LEVEL --loadLevel()--> PLAYING
-PLAYING --hero dead / caught--> GAME_OVER
+PLAYING --a hero dead / caught / out of moves--> GAME_OVER
 PLAYING --level complete--> LEVEL_COMPLETE
 GAME_OVER / LEVEL_COMPLETE --after the end screen--> WAITING_FOR_LEVEL
 ```
@@ -149,8 +155,10 @@ Transitions happen in `Game.gameLoop()`; which screen to draw is decided only in
 
 Drawing only, no game logic; the model classes have no `draw()` methods. `create-renderer.js` builds the
 renderer graph; `game-renderer.js` picks the screen by the game state; `hud-renderer.js` draws the title, end
-screens, texts and the darkness overlay; `fog-renderer.js` the fog. New visuals go into a renderer, not into a
-model class.
+screens, texts, the move budget and the darkness overlay; `fog-renderer.js` the fog; `sensing-renderer.js` a
+frame around each cell a sensor just looked at. The list of the last calls is HTML next to the canvas
+(`call-log.js`, fed by `process_message` in `script.js`). New visuals go into a renderer, not into a model
+class.
 
 ### 4.6 The message envelope
 
@@ -204,6 +212,10 @@ takes the same code path. Switch it on with `dungeoncoder.use_simulator()` or `D
 **Every rule change in the engine goes into the simulator too**, and the conformance suite (in the course
 workspace) runs the same scripts in both and compares every call.
 
+Things that are decided in Python, before a level reaches either, need no simulator twin: generated levels
+(`generator.py`, also as a text map with the header `generate:`), variants (`variants.py`) and traces
+(`trace.py`: `_call` records every call; `replay.py` plays a trace again, in the game or in the simulator).
+
 ## 7. Two ways to run
 
 1. **The extension** (F5, "Run Extension"): an Extension Development Host window; run "Dungeon Coder: Enter
@@ -222,7 +234,7 @@ both.
 |---|---|
 | `npm run test:engine` | the rules in Node, no browser, demo pack only (`game/test/`) |
 | `npm run test:tools` | the level tools and the style learner on the demo pack |
-| `npm test` | VS Code tests: a fixture workspace with the demo pack, loading levels over REST, versions |
+| `npm test` | VS Code tests: a fixture workspace with the demo pack, loading levels over REST, versions, the side panel |
 | `npm run lint` | `src/`, `game/src/`, `tools/` |
 | `npm run check:version` | `package.json`, `openapi.yaml` and the Python package agree |
 

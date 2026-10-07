@@ -110,8 +110,23 @@ export class HudRenderer {
         ctx.fillText(`Goal reached, but still missing: ${missing.join(', ')}`, this.canvasWidth / 2, 19 * s);
     }
 
+    /** The move budget (map property max_moves) while playing: top left, small. */
+    drawMovesLeft(movesLeft) {
+        const ctx = this.ctx;
+        const s = this.scale;
+        const text = `Moves left: ${movesLeft}`;
+        ctx.font = this.font();
+        const width = ctx.measureText(text).width + 10 * s;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(4 * s, 4 * s, width, 16 * s);
+        ctx.fillStyle = movesLeft > 0 ? '#ffcc00' : '#ff5555';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 9 * s, 12 * s);
+    }
+
     /** Draws the "Game Over" screen shown when the character has died. */
-    drawGameOverScreen(remainingTime, world) {
+    drawGameOverScreen(remainingTime, world, seed, outOfMoves) {
         const ctx = this.ctx;
         this.drawScreenImage(this.worldImage(world, 'halt', this.gameOverImage));
 
@@ -120,12 +135,16 @@ export class HudRenderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const text = `Continue in ${Math.ceil(remainingTime / 1000)}s.`;
+        let text = outOfMoves ? 'Out of moves (max_moves).\n' : '';
+        if (seed !== undefined && seed !== null) {
+            text += `Seed: ${seed}\n`;
+        }
+        text += `Continue in ${Math.ceil(remainingTime / 1000)}s.`;
         this.drawMultilineText(text, this.canvasWidth / 2, this.canvasHeight / 2, FONT_SIZE * 1.2 * this.scale);
     }
 
     /** Draws the "Level Complete" summary screen shown when a level is finished successfully. */
-    drawLevelCompleteScreen(statistics, remainingTime, world) {
+    drawLevelCompleteScreen(statistics, remainingTime, world, seed) {
         const ctx = this.ctx;
         this.drawScreenImage(this.worldImage(world, 'geschafft', this.dungeonCompleteImage));
 
@@ -138,6 +157,9 @@ export class HudRenderer {
         text += `Turns: ${statistics.number_of_turns}\n`;
         if (statistics.number_of_keyboard_moves > 0) {
             text += `Keyboard moves: ${statistics.number_of_keyboard_moves}\n`;
+        }
+        if (seed !== undefined && seed !== null) {
+            text += `Seed: ${seed}\n`;
         }
         text += `Continue in ${Math.ceil(remainingTime / 1000)}s.`;
 

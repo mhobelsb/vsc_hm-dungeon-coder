@@ -13,7 +13,7 @@ except ImportError:         # the most common first problem: the script runs wit
         "pip install -r requirements.txt (or: pip install -r dungeoncoder/requirements.txt), "
         "then check the setup with: python -m dungeoncoder") from None
 
-from . import asciimap, generator
+from . import asciimap, generator, trace, variants
 from ._api_config import BASE_URL as _CONFIGURED_BASE_URL, HOST
 from ._generated import Client
 from ._generated.errors import UnexpectedStatus
@@ -35,6 +35,7 @@ from ._generated.api.hero import (
     is_enemy_in_front as _is_enemy_in_front_api,
     is_collision_in_front as _is_collision_in_front_api,
     is_facing_north as _is_facing_north_api,
+    sense_goal as _sense_goal_api,
     is_switch_in_front as _is_switch_in_front_api,
     is_torch_in_front as _is_torch_in_front_api,
     move as _move_api,
@@ -100,11 +101,13 @@ def use_simulator(on: bool = True) -> None:
     _simulator = Simulator() if on else None
 
 
-def _simulated(client, sync_detailed_fn, body=None):
+def _simulated(client, sync_detailed_fn, body=None, hero=None):
     """What the generated call would return if the extension host had answered."""
     module = sys.modules[sync_detailed_fn.__module__]
     method = sync_detailed_fn.__module__.rsplit(".", 1)[1]
     params = body.to_dict() if body is not None else {}
+    if hero:
+        params["hero"] = hero
     status, payload = _simulator.request(method, params)
     return module._build_response(client=client, response=httpx.Response(status, json=payload))
 
@@ -145,6 +148,20 @@ def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, *
     unexpected response, the server's own error message is printed so a
     student can see *why* a call failed (e.g. a bad argument type).
     """
+    result = _call_unrecorded(client, sync_detailed_fn, default=default, explain_refusal=explain_refusal, **kwargs)
+    body = kwargs.get("body")
+    method = sync_detailed_fn.__module__.rsplit(".", 1)[1]
+    params = body.to_dict() if body is not None else None
+    if kwargs.get("hero"):
+        params = {**(params or {}), "hero": kwargs["hero"]}
+    if method == "load_level" and _simulator is not None and _simulator.level_override:
+        params = _simulator.last_level_data      # grading: the level that was really played
+        trace.loading(_simulator.level_override)
+    trace.record(method, params, result)
+    return result
+
+
+def _call_unrecorded(client: Client, sync_detailed_fn, *, default, explain_refusal=False, **kwargs):
     try:
         if _simulator is not None:
             response = _simulated(client, sync_detailed_fn, **kwargs)
@@ -183,11 +200,16 @@ class Hero:
     """
     BASE_URL = DEFAULT_BASE_URL
 
-    def __init__(self, base_url: str = BASE_URL):
+    def __init__(self, base_url: str = BASE_URL, index: int = 0):
         self._base_url = base_url
         self._client = Client(base_url=base_url, timeout=httpx.Timeout(1))
         self._pace = 1.0
         self._action_client = self._make_action_client()
+        self._index = index                 # which hero in a co-op level (0 = MainCharacter)
+
+    def _call(self, client, fn, **kwargs):
+        """_call for this hero: heroes after the first one send their index (query parameter hero)."""
+        return _call(client, fn, **kwargs, **({"hero": self._index} if self._index else {}))
 
     def _make_action_client(self) -> Client:
         """Client for requests that wait for an animation; its timeout follows the pace."""
@@ -195,69 +217,75 @@ class Hero:
         return Client(base_url=self._base_url, timeout=httpx.Timeout(1, read=read_timeout))
 
     def configure(self, name: str, typeNumber: int) -> bool:
-        return _call(self._client, _configure_api.sync_detailed, default=False,
+        return self._call(self._client, _configure_api.sync_detailed, default=False,
                      body=ConfigureParams(name=name, type_number=typeNumber))
 
     def move(self) -> bool:
-        """Moves the hero one field forward. Returns False if the way is blocked."""
-        return _call(self._action_client, _move_api.sync_detailed, default=False)
+        """Moves the hero one field forward. Returns False if the way is blocked (a wall, or
+           another hero), or if a level with a move budget (max_moves) has no moves left."""
+        return self._call(self._action_client, _move_api.sync_detailed, default=False, explain_refusal="No moves left")
 
     def turn_left(self) -> bool:
         """Turns the hero 90 degrees to the left."""
-        return _call(self._action_client, _turn_left_api.sync_detailed, default=False)
+        return self._call(self._action_client, _turn_left_api.sync_detailed, default=False)
 
     def interact(self) -> bool:
         """Interacts with the object in front of the hero (torch, switch, chest, ...).
            Returns True if something reacted, False if there is nothing to interact with."""
-        return _call(self._client, _interact_api.sync_detailed, default=False)
+        return self._call(self._client, _interact_api.sync_detailed, default=False)
 
     def is_collision_in_front(self) -> bool:
         """Checks if there is a collision in front of the hero."""
-        return _call(self._client, _is_collision_in_front_api.sync_detailed, default=False)
+        return self._call(self._client, _is_collision_in_front_api.sync_detailed, default=False)
 
     def is_switch_in_front(self) -> bool:
         """Checks if there is a switch in front of the hero."""
-        return _call(self._client, _is_switch_in_front_api.sync_detailed, default=False)
+        return self._call(self._client, _is_switch_in_front_api.sync_detailed, default=False)
 
     def is_facing_north(self) -> bool:
         """Checks if the hero is facing north."""
-        return _call(self._client, _is_facing_north_api.sync_detailed, default=False)
+        return self._call(self._client, _is_facing_north_api.sync_detailed, default=False)
 
     def is_abyss_in_front(self) -> bool:
         """Checks if there is an abyss in front of the hero."""
-        return _call(self._client, _is_abyss_in_front_api.sync_detailed, default=False)
+        return self._call(self._client, _is_abyss_in_front_api.sync_detailed, default=False)
 
     def is_torch_in_front(self) -> bool:
         """Checks if there is a torch in front of the hero."""
-        return _call(self._client, _is_torch_in_front_api.sync_detailed, default=False)
+        return self._call(self._client, _is_torch_in_front_api.sync_detailed, default=False)
+
+    def sense_goal(self) -> int | None:
+        """The amulet: how many fields the exit is away as the crow flies (columns plus rows,
+           walls don't count), or None. Only levels with an amulet answer."""
+        return self._call(self._client, _sense_goal_api.sync_detailed, default=None, explain_refusal=True)
 
     def is_at_goal(self) -> bool:
         """Checks if the hero stands on the goal field. Some levels also need
            win conditions (e.g. all sweets collected): see Game.get_statistics()."""
-        return _call(self._client, _is_at_goal_api.sync_detailed, default=False)
+        return self._call(self._client, _is_at_goal_api.sync_detailed, default=False)
 
     def get_items_at_position(self) -> list[str]:
         """Returns the items at the hero's current position."""
-        return _call(self._client, _get_items_at_position_api.sync_detailed, default=[])
+        return self._call(self._client, _get_items_at_position_api.sync_detailed, default=[])
 
     def get_inventory(self) -> list[str]:
         """Returns the list of items in the hero's inventory."""
-        return _call(self._client, _get_inventory_api.sync_detailed, default=[])
+        return self._call(self._client, _get_inventory_api.sync_detailed, default=[])
 
     def is_enemy_in_front(self) -> bool:
         """Checks if a guard stands on the field in front of the hero."""
-        return _call(self._client, _is_enemy_in_front_api.sync_detailed, default=False)
+        return self._call(self._client, _is_enemy_in_front_api.sync_detailed, default=False)
 
     def ask_oracle(self) -> str | None:
         """Asks the oracle the way to the exit: the direction of the first step of a
            shortest way ("north", "east", "south" or "west"), or None if the hero stands
            on the exit or there is no way. Only levels with an oracle answer."""
-        return _call(self._client, _ask_oracle_api.sync_detailed, default=None, explain_refusal=True)
+        return self._call(self._client, _ask_oracle_api.sync_detailed, default=None, explain_refusal=True)
 
     def read_item_value(self) -> int | None:
         """Returns the value of the item on the hero's field, e.g. a crystal's weight,
            or None if no item with a value lies there. Values are never shown on screen."""
-        return _call(self._client, _read_item_value_api.sync_detailed, default=None)
+        return self._call(self._client, _read_item_value_api.sync_detailed, default=None)
 
     def peek_item_value(self, distance: int) -> int | None:
         """Returns the value of the item `distance` fields ahead in the direction the
@@ -266,7 +294,7 @@ class Hero:
         if type(distance) != int or distance < 1:
             print("Error: distance must be a whole number of at least 1.")
             return None
-        return _call(self._client, _peek_item_value_api.sync_detailed, default=None,
+        return self._call(self._client, _peek_item_value_api.sync_detailed, default=None,
                      explain_refusal=True, body=DistanceParam(distance=distance))
 
     def pickup(self, name: str) -> bool:
@@ -275,7 +303,7 @@ class Hero:
         if type(name) != str:
             print("Error: You have to pass a single string with the item to pickup.")
             return False
-        return _call(self._client, _pickup_api.sync_detailed, default=False, body=NameParam(name=name),
+        return self._call(self._client, _pickup_api.sync_detailed, default=False, body=NameParam(name=name),
                      explain_refusal="The inventory is full")
 
     def drop(self, name: str) -> bool:
@@ -284,7 +312,7 @@ class Hero:
         if type(name) != str:
             print("Error: You have to pass a single string with the item to drop.")
             return False
-        return _call(self._client, _drop_api.sync_detailed, default=False, body=NameParam(name=name))
+        return self._call(self._client, _drop_api.sync_detailed, default=False, body=NameParam(name=name))
 
     def set_pace(self, factor: float) -> bool:
         """Sets the hero's speed: 1 is normal, 2 twice as fast, 0.5 half as fast."""
@@ -294,7 +322,7 @@ class Hero:
         if factor <= 0:
             print("Error: Factor has to be greater than 0.")
             return False
-        ok = _call(self._client, _set_pace_api.sync_detailed, default=False, body=PaceParams(factor=factor))
+        ok = self._call(self._client, _set_pace_api.sync_detailed, default=False, body=PaceParams(factor=factor))
         if ok:
             self._pace = factor
             self._action_client = self._make_action_client()
@@ -312,11 +340,17 @@ class Game:
 
     BASE_URL = DEFAULT_BASE_URL
 
-    def __init__(self, level_file):
+    def __init__(self, level_file, seed: int | None = None):
+        """Loads the level. `seed` picks a variant of a level that has some (objects that may
+        lie anywhere in a region, see variants.py): the same seed, the same variant."""
         _check_version(self.BASE_URL)
+        if seed is not None and (type(seed) != int):
+            print("Error: seed must be a whole number.")
+            sys.exit(1)
         self.__level = self.Level(self.BASE_URL)
         try:
-            loaded = self.__level.load(level_file)
+            trace.loading(level_file)
+            loaded = self.__level.load(level_file, seed)
         except FileNotFoundError:
             print(f"Error: Level file '{level_file}' not found. "
                   f"Please check the path and that you opened the right folder in VS Code "
@@ -328,22 +362,32 @@ class Game:
         except asciimap.MapError as err:
             print(f"Error: Map file '{level_file}': {err}")
             sys.exit(1)
+        except ValueError as err:           # a variant that doesn't fit its region
+            print(f"Error: Level '{level_file}', seed {seed}: {err}")
+            sys.exit(1)
         if not loaded:
             print(f"Error: Level '{level_file}' could not be loaded (see the message above). "
                   f"Did you start Dungeon Coder (\"Dungeon Coder: Enter the dungeon\")?")
             sys.exit(1)
 
         self.__hero = Hero(self.BASE_URL)
+        self.__heroes = None
+        self.seed = self.__level.seed
+        """The seed of this level (a generated level or a variant), or None."""
 
     @classmethod
-    def generate(cls, seed: int, kind: str = "maze", **options) -> "Game":
+    def generate(cls, seed: int | None = None, kind: str = "maze", **options) -> "Game":
         """Loads a generated level; the same seed always gives the same level.
+        Without a seed, a new level each time: its seed is printed and kept in game.seed.
 
         Example: Game.generate(seed=7, width=21, height=15, loops=3, fog="dark")
         kind "maze": width and height odd (default 15x11), loops = extra openings
         (cycles and free-standing walls); style = the text-map style (default "maze",
         from the course's asset pack); other keywords become map properties.
         The map text is available as generator.maze_text(seed, ...)."""
+        if seed is None:
+            seed, _ = variants.random_seed()
+            print(f"Level {kind} no. {seed} (the same again: Game.generate(seed={seed}))")
         try:
             text = generator.generate_text(seed, kind, **options)
         except asciimap.MapError as err:
@@ -357,12 +401,31 @@ class Game:
     def get_hero(self):
         return self.__hero
 
+    def get_heroes(self) -> list:
+        """All heroes of the level, the first one is get_hero(). A co-op level has several;
+        each moves on its own, and heroes block each other like walls."""
+        if self.__heroes is None:
+            count = self.get_statistics().get("heroes", 1) or 1
+            self.__heroes = [self.__hero] + [Hero(self.BASE_URL, i) for i in range(1, count)]
+        return self.__heroes
+
+    def save_trace(self, path: str) -> bool:
+        """Writes every call made on this level so far, with what came back, to a JSON file
+        (a trace: `python -m dungeoncoder replay FILE` plays it again in the game)."""
+        if not trace.runs:
+            print("Error: no level loaded, nothing to save.")
+            return False
+        self.get_statistics()
+        trace.write(path, [trace.runs[-1]])
+        return True
+
     def get_statistics(self) -> dict:
         """Counters of the current level since it was loaded, e.g.
         {"moves": 12, "turns": 5, "bumps": 1, "keyboard_moves": 0, "interactions": 2,
          "pickups": 0, "drops": 0, "sensor_calls": 30, "at_goal": False,
-         "level_complete": False, "missing": ["3 sweets"]}.
-        "missing" lists the level's win conditions that are not met yet."""
+         "level_complete": False, "missing": ["3 sweets"], "moves_left": None, "heroes": 1}.
+        "missing" lists the level's win conditions that are not met yet; "moves_left" the
+        move() calls left in a level with a budget (max_moves)."""
         result = _call(self.__level._client, _get_statistics_api.sync_detailed, default=None)
         return result.to_dict() if result is not None else {}
 
@@ -372,8 +435,9 @@ class Game:
         """
         def __init__(self, base_url):
             self._client = Client(base_url=base_url, timeout=httpx.Timeout(1))
+            self.seed = None
 
-        def load(self, filename):
+        def load(self, filename, seed=None):
             """
             Loads a level from a Tiled JSON file, or builds it from an ASCII map
             (a file ending in .txt, see asciimap.py for the format).
@@ -385,10 +449,25 @@ class Game:
                 raise FileNotFoundError(filename)
 
             if filename.endswith(".txt"):
-                level_data = asciimap.level_from_file(filename)
+                with open(filename, encoding="utf-8") as f:
+                    text = f.read()
+                header, _ = asciimap.parse_text(text)
+                level_data = asciimap.level_from_text(text)
+                random_recipe = "generate" in header and header.get("seed", ["random"])[0].lower() == "random"
             else:
                 with open(filename, 'r') as f:
                     level_data = json.load(f)
+                random_recipe = False
+            level_data, self.seed, chosen = variants.prepare(level_data, seed)
+            if self.seed is None:               # a generated level carries its seed as a map property
+                self.seed = next((p.get("value") for p in level_data.get("properties", []) or []
+                                  if p.get("name") == "seed" and isinstance(p.get("value"), int)), None)
+            if random_recipe:
+                self.seed = next((p.get("value") for p in level_data.get("properties", []) if p.get("name") == "seed"), None)
+                print(f"Level no. {self.seed} (the same again: 'seed: {self.seed}' in {os.path.basename(filename)}, "
+                      f"or DUNGEONCODER_SEED={self.seed})")
+            elif chosen:
+                print(f"Level variant {self.seed} (the same again: Game(\"{filename}\", seed={self.seed}))")
 
             # a refused level (e.g. a missing asset pack) prints the game's explanation
             return _call(self._client, _load_level_api.sync_detailed, default=False,
