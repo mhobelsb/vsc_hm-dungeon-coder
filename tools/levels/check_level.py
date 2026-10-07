@@ -43,8 +43,7 @@ class Report:
 
 def load(path):
     level = Level(path)
-    with open(path, encoding="utf-8") as f:
-        level.raw = json.load(f)
+    level.raw = json.loads(json.dumps(level.data))     # a copy (a text map has no JSON file)
     return level
 
 

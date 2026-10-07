@@ -90,8 +90,12 @@ def flip(img, gid):
 
 
 def render(level_path, lighting=False):
-    with open(level_path) as f:
-        level = json.load(f)
+    if level_path.endswith(".txt"):
+        from dclevel import text_level       # a text map, built as Game("karte.txt") would
+        level = text_level(level_path)
+    else:
+        with open(level_path) as f:
+            level = json.load(f)
     tw, th = level["tilewidth"], level["tileheight"]
     canvas = Image.new("RGBA", (level["width"] * tw, level["height"] * th), (21, 16, 38, 255))
     tilesets = sorted((Tileset(t["source"], t["firstgid"]) for t in level["tilesets"]), key=lambda t: t.firstgid)

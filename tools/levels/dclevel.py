@@ -41,6 +41,19 @@ OBJECT_SYMBOLS = {
 
 _tileset_cache = {}
 _sim_module = None
+_asciimap_module = None
+
+
+def text_level(path):
+    """The Tiled level for a text map (.txt), built by the engine's text-map builder
+    (dungeoncoder/asciimap.py, loaded by path like the simulator; style packs from the asset packs)."""
+    global _asciimap_module
+    if _asciimap_module is None:
+        spec = importlib.util.spec_from_file_location(
+            "dclevel_asciimap", os.path.join(HERE, "..", "..", "api", "python", "dungeoncoder", "asciimap.py"))
+        _asciimap_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_asciimap_module)
+    return _asciimap_module.level_from_file(path)
 
 
 def sim():
@@ -117,8 +130,11 @@ class Level:
         # learning_abyss=True: the pre-B21 view (any Abyss tile makes an abyss), used only to learn
         # tile styles, so the learned packs stay as they were
         self.learning_abyss = learning_abyss
-        with open(path) as f:
-            self.data = json.load(f)
+        if path.endswith(".txt"):
+            self.data = text_level(path)      # a text map: built as Game("karte.txt") would
+        else:
+            with open(path) as f:
+                self.data = json.load(f)
         d = self.data
         self.width, self.height = d["width"], d["height"]
         self.tile_w, self.tile_h = d["tilewidth"], d["tileheight"]
