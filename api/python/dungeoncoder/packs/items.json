@@ -1,19 +1,67 @@
 {
- "name": "bundled-items",
- "version": "0.1",
- "description": "The items of the engine bundled assets (a copy of game/assets/pack.json, items; checked by tests): the simulator falls back to them when no pack in DC_ASSET_PACKS names an item",
- "items": {
-  "Pebble": {
-   "tileset": "Icon sheet (16x16).json",
-   "tile": 155
-  },
-  "Crystal": {
-   "tileset": "Icon sheet (16x16).json",
-   "tile": 109
-  },
-  "Crystal:orange": {
-   "tileset": "Icon sheet (16x16).json",
-   "tile": 106
+  "name": "bundled-items",
+  "version": "0.1",
+  "description": "The items of the engine bundled assets (a copy of game/assets/pack.json, items; checked by tests): the simulator falls back to them when no pack in DC_ASSET_PACKS names an item",
+  "items": {
+    "Pebble": {
+      "tileset": "Icon sheet (16x16).json",
+      "tile": 155
+    },
+    "Crystal": {
+      "tileset": "Icon sheet (16x16).json",
+      "tile": 109
+    },
+    "Crystal:orange": {
+      "tileset": "Icon sheet (16x16).json",
+      "tile": 106
+    },
+    "Bett": {
+      "tileset": "welt_station_tiles.json",
+      "tile": 15
+    },
+    "Probe": {
+      "tileset": "welt_station_tiles.json",
+      "tile": 16
+    },
+    "Markierung": {
+      "tileset": "welt_station_tiles.json",
+      "tile": 17
+    },
+    "Entwurf": {
+      "tileset": "welt_studio_tiles.json",
+      "tile": 15
+    },
+    "Farbfolie": {
+      "tileset": "welt_studio_tiles.json",
+      "tile": 16
+    },
+    "Klebepunkt": {
+      "tileset": "welt_studio_tiles.json",
+      "tile": 17
+    },
+    "Teil": {
+      "tileset": "welt_werkstatt_tiles.json",
+      "tile": 15
+    },
+    "Kiste": {
+      "tileset": "welt_werkstatt_tiles.json",
+      "tile": 16
+    },
+    "Marke": {
+      "tileset": "welt_werkstatt_tiles.json",
+      "tile": 17
+    },
+    "Messpunkt": {
+      "tileset": "welt_gelaende_tiles.json",
+      "tile": 15
+    },
+    "Bodenprobe": {
+      "tileset": "welt_gelaende_tiles.json",
+      "tile": 16
+    },
+    "Pflock": {
+      "tileset": "welt_gelaende_tiles.json",
+      "tile": 17
+    }
   }
- }
 }

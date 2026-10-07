@@ -1,10 +1,67 @@
 {
- "name": "bundled",
- "version": "0.1",
- "description": "The extension's own assets (the fallback after the configured packs). Until the public release they are the course art; then the demo pack replaces them, with its own items (docs: public release, step 3)",
- "items": {
-  "Pebble": {"tileset": "Icon sheet (16x16).json", "tile": 155},
-  "Crystal": {"tileset": "Icon sheet (16x16).json", "tile": 109},
-  "Crystal:orange": {"tileset": "Icon sheet (16x16).json", "tile": 106}
- }
+  "name": "bundled",
+  "version": "0.1",
+  "description": "The extension's own assets (the fallback after the configured packs). Until the public release they are the course art; then the demo pack replaces them, with its own items (docs: public release, step 3)",
+  "items": {
+    "Pebble": {
+      "tileset": "Icon sheet (16x16).json",
+      "tile": 155
+    },
+    "Crystal": {
+      "tileset": "Icon sheet (16x16).json",
+      "tile": 109
+    },
+    "Crystal:orange": {
+      "tileset": "Icon sheet (16x16).json",
+      "tile": 106
+    },
+    "Bett": {
+      "tileset": "welt_station_tiles.json",
+      "tile": 15
+    },
+    "Probe": {
+      "tileset": "welt_station_tiles.json",
+      "tile": 16
+    },
+    "Markierung": {
+      "tileset": "welt_station_tiles.json",
+      "tile": 17
+    },
+    "Entwurf": {
+      "tileset": "welt_studio_tiles.json",
+      "tile": 15
+    },
+    "Farbfolie": {
+      "tileset": "welt_studio_tiles.json",
+      "tile": 16
+    },
+    "Klebepunkt": {
+      "tileset": "welt_studio_tiles.json",
+      "tile": 17
+    },
+    "Teil": {
+      "tileset": "welt_werkstatt_tiles.json",
+      "tile": 15
+    },
+    "Kiste": {
+      "tileset": "welt_werkstatt_tiles.json",
+      "tile": 16
+    },
+    "Marke": {
+      "tileset": "welt_werkstatt_tiles.json",
+      "tile": 17
+    },
+    "Messpunkt": {
+      "tileset": "welt_gelaende_tiles.json",
+      "tile": 15
+    },
+    "Bodenprobe": {
+      "tileset": "welt_gelaende_tiles.json",
+      "tile": 16
+    },
+    "Pflock": {
+      "tileset": "welt_gelaende_tiles.json",
+      "tile": 17
+    }
+  }
 }
