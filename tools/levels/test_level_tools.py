@@ -2,6 +2,7 @@
 
     python3 tools/levels/test_level_tools.py        (npm run test:tools; level2png needs Pillow)
 """
+import json
 import os
 import subprocess
 import sys
@@ -120,6 +121,37 @@ with tempfile.TemporaryDirectory() as root:
     check("... and above the script's folder, from anywhere", packs(root + "/..") == str([near, far]), packs(root + "/.."))
     check("an empty DC_ASSET_PACKS means no packs, a set one is used as it is",
           packs(opened, DC_ASSET_PACKS="") == "[]" and packs(opened, DC_ASSET_PACKS=far) == str([far]))
+
+# show_calls and show_sensing from the program: Game(..., show_calls=...) and the class variables
+# Game.SHOW_CALLS / Game.SHOW_SENSING put them into the level the game gets (parameter before
+# class variable before the level)
+probe = r"""
+import json, sys
+import dungeoncoder
+import dungeoncoder.dungeoncoder as dc
+from dungeoncoder import Game
+dungeoncoder.use_simulator()
+sent, real = [], dc._simulated
+def spy(client, fn, body=None, hero=None):
+    if body is not None and fn.__module__.endswith('load_level'):
+        sent.append({p['name']: p['value'] for p in body.to_dict().get('properties', []) or []
+                     if p['name'] in ('show_calls', 'show_sensing')})
+    return real(client, fn, body=body, hero=hero)
+dc._simulated = spy
+level = sys.argv[1]
+Game(level)
+Game(level, show_calls=True)
+Game.SHOW_SENSING = False
+Game(level)
+Game(level, show_sensing=True)
+print(json.dumps(sent))
+"""
+api = os.path.normpath(os.path.join(HERE, "..", "..", "api", "python"))
+run = subprocess.run([sys.executable, "-c", probe, level("demo_raum.json")], capture_output=True, text=True,
+                     env=dict(ENV, PYTHONPATH=api))
+expected = [{}, {"show_calls": True}, {"show_sensing": False}, {"show_sensing": True}]
+check("Game: show_calls/show_sensing as parameters and as Game.SHOW_CALLS/SHOW_SENSING reach the level",
+      run.stdout.strip() == json.dumps(expected), run.stdout + run.stderr)
 
 print(f"\n{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

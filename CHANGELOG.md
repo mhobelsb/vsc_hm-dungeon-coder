@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-08
+
+### Added
+
+- **`show_calls` and `show_sensing` from the program**: `Game(level, show_calls=True, show_sensing=False)` sets them for one level, the class variables `Game.SHOW_CALLS` and `Game.SHOW_SENSING` for every level loaded afterwards (also by helper modules and `Game.generate`); a parameter wins over the class variable, which wins over the level's own property; `None` (the default) leaves it to the level. The Python package writes them into the level it sends, so the game and the simulator are unchanged.
+
 ## [0.2.2] - 2026-10-08
 
 ### Changed

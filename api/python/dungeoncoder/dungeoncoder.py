@@ -339,18 +339,37 @@ class Game:
     """
 
     BASE_URL = DEFAULT_BASE_URL
+    SHOW_CALLS = None
+    """True or False: the list of the program's last calls in the game's corner, for every level
+    loaded after this (level property show_calls); None: as the level says (off unless it says on)."""
+    SHOW_SENSING = None
+    """True or False: the frames around the cells a sensor looked at, for every level loaded after
+    this (level property show_sensing); None: as the level says (on unless it says off)."""
 
-    def __init__(self, level_file, seed: int | None = None):
+    def __init__(self, level_file, seed: int | None = None, show_calls: bool | None = None,
+                 show_sensing: bool | None = None):
         """Loads the level. `seed` picks a variant of a level that has some (objects that may
-        lie anywhere in a region, see variants.py): the same seed, the same variant."""
+        lie anywhere in a region, see variants.py): the same seed, the same variant.
+        `show_calls` and `show_sensing` (True or False) switch the list of the last calls and the
+        sensor frames on or off for this level; without them, Game.SHOW_CALLS and
+        Game.SHOW_SENSING decide, and if those are None, the level does."""
         _check_version(self.BASE_URL)
         if seed is not None and (type(seed) != int):
             print("Error: seed must be a whole number.")
             sys.exit(1)
+        display = {}
+        for name, value, default in (("show_calls", show_calls, self.SHOW_CALLS),
+                                     ("show_sensing", show_sensing, self.SHOW_SENSING)):
+            chosen = value if value is not None else default
+            if chosen is not None and type(chosen) != bool:
+                print(f"Error: {name} must be True or False (or None: as the level says).")
+                sys.exit(1)
+            if chosen is not None:
+                display[name] = chosen
         self.__level = self.Level(self.BASE_URL)
         try:
             trace.loading(level_file)
-            loaded = self.__level.load(level_file, seed)
+            loaded = self.__level.load(level_file, seed, display)
         except FileNotFoundError:
             print(f"Error: Level file '{level_file}' not found. "
                   f"Please check the path and that you opened the right folder in VS Code "
@@ -376,7 +395,8 @@ class Game:
         """The seed of this level (a generated level or a variant), or None."""
 
     @classmethod
-    def generate(cls, seed: int | None = None, kind: str = "maze", **options) -> "Game":
+    def generate(cls, seed: int | None = None, kind: str = "maze", show_calls: bool | None = None,
+                 show_sensing: bool | None = None, **options) -> "Game":
         """Loads a generated level; the same seed always gives the same level.
         Without a seed, a new level each time: its seed is printed and kept in game.seed.
 
@@ -396,7 +416,7 @@ class Game:
         path = os.path.join(tempfile.mkdtemp(prefix="dungeoncoder-"), f"{kind}_{seed}.txt")
         with open(path, "w", encoding="utf-8") as f:
             f.write(text)
-        return cls(path)
+        return cls(path, show_calls=show_calls, show_sensing=show_sensing)
 
     def get_hero(self):
         return self.__hero
@@ -437,7 +457,7 @@ class Game:
             self._client = Client(base_url=base_url, timeout=httpx.Timeout(1))
             self.seed = None
 
-        def load(self, filename, seed=None):
+        def load(self, filename, seed=None, display=None):
             """
             Loads a level from a Tiled JSON file, or builds it from an ASCII map
             (a file ending in .txt, see asciimap.py for the format).
@@ -469,6 +489,9 @@ class Game:
             elif chosen:
                 print(f"Level variant {self.seed} (the same again: Game(\"{filename}\", seed={self.seed}))")
 
+            for name, value in (display or {}).items():     # show_calls, show_sensing from the program
+                properties = [p for p in level_data.get("properties", []) or [] if p.get("name") != name]
+                level_data["properties"] = properties + [{"name": name, "type": "bool", "value": value}]
             # a refused level (e.g. a missing asset pack) prints the game's explanation
             return _call(self._client, _load_level_api.sync_detailed, default=False,
                          explain_refusal=True, body=TiledLevel.from_dict(level_data))
