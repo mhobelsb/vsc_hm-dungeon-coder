@@ -16,6 +16,7 @@ tools/**
 webpack.config.js
 vsc-extension-quickstart.md
 ARCHITECTURE.md
+RELEASING.md
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map

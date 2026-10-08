@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-08
+
+The first version of this repository, and the first one on PyPI (`pip install dungeoncoder`). Scripts and levels written for 0.1.0 keep working.
+
 ### Added
 
 - **Amulet** (map property `amulett`): `hero.sense_goal()` returns how many fields the exit is away as the crow flies (columns plus rows; walls don't count), so "always get warmer" can get stuck. Without an amulet the call is refused (`None`).

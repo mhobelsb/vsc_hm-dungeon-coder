@@ -11,7 +11,7 @@
     "email": "benedikt.dietrich@hm.edu"
   },
   "license": "MIT",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.102.0"
   },
@@ -148,7 +148,8 @@
     "test:download": "node -e \"require('@vscode/test-electron').downloadAndUnzipVSCode({cachePath: require('os').homedir() + '/.cache/vscode-test', version: '1.140.0'}).then(console.log)\"",
     "dev:browser": "npm run generate:commands && node tools/dev-server.mjs",
     "check:version": "node tools/check-version.mjs",
-    "build:wheel": "npm run generate:api-config && npm run check:version && python3 -m pip wheel --no-deps -w out/wheel api/python"
+    "build:wheel": "npm run generate:api-config && npm run check:version && python3 -m pip wheel --no-deps -w out/wheel api/python",
+    "build:dist": "npm run generate:api-config && npm run check:version && rm -rf out/dist && python3 -m build --outdir out/dist api/python"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

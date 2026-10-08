@@ -21,4 +21,9 @@ if (distinct.size !== 1) {
     console.error('The versions differ; set them all to the same value.');
     process.exit(1);
 }
+// The Python package ships its own copy of the licence (setuptools only takes files inside api/python).
+if (read('LICENSE.txt') !== read('api/python/LICENSE.txt')) {
+    console.error('api/python/LICENSE.txt differs from LICENSE.txt; copy it again.');
+    process.exit(1);
+}
 console.log(`version ${[...distinct][0]}`);

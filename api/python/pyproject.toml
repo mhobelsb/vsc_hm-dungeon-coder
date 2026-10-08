@@ -1,6 +1,6 @@
 # The Python package `dungeoncoder` as a wheel (P1 in the dev workspace's repo plan).
 # Same version as the extension (package.json); `npm run check:version` compares them.
-# Build: `npm run generate` first (writes _api_config.py), then `npm run build:wheel`.
+# Build: `npm run build:dist` (wheel and sdist in out/dist; RELEASING.md), or `npm run build:wheel`.
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
@@ -12,15 +12,13 @@ description = "Python API for Dungeon Coder: steer the hero from a script, in VS
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+license-files = ["LICENSE.txt"]   # a copy of the repository's LICENSE.txt (npm run check:version compares them)
 dependencies = ["httpx>=0.27", "attrs>=23.1"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Intended Audience :: Education",
     "Topic :: Education",
 ]
-
-[project.urls]
-Homepage = "https://github.com/mhobelsb/vscode-dungeon-coder_v2"
 
 [tool.setuptools.dynamic]
 version = { attr = "dungeoncoder.__version__" }

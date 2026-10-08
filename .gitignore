@@ -16,3 +16,4 @@ game/src/api-config.js
 src/generated/
 # macOS Finder files
 .DS_Store
+api/python/*.egg-info/

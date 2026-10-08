@@ -1,6 +1,6 @@
 # dungeoncoder
 
-The Python API for [Dungeon Coder](https://github.com/mhobelsb/vscode-dungeon-coder_v2), a VS Code extension in which a Python script steers a hero through a pixel-art dungeon.
+The Python API for Dungeon Coder, a VS Code extension in which a Python script steers a hero through a pixel-art dungeon.
 
 ```python
 from dungeoncoder import Game
@@ -14,9 +14,9 @@ while not hero.is_at_goal():
         hero.move()
 ```
 
-- **With the extension:** start the game in VS Code (`Dungeon Coder: Start Game`); the script talks to it over a local REST API.
+- **With the extension:** start the game in VS Code (`Dungeon Coder: Enter the dungeon`); the script talks to it over a local REST API.
 - **Without VS Code:** `dungeoncoder.use_simulator()` (or `DUNGEONCODER_SIM=1`) runs the same script in a pure-Python simulator of the game's rules: no picture, no waiting. `dungeoncoder.testing.spiel(map_text)` gives `(game, hero)` for pytest.
 - **Levels from text maps:** `Game("karte.txt")`.
 - **Setup check:** `python -m dungeoncoder` says which Python and which copy of the package run, whether the game answers and whether its version fits.
 
-The package has the same version as the extension. Install it with `pip install dungeoncoder` (or from this repository: `pip install "git+https://github.com/mhobelsb/vscode-dungeon-coder_v2#subdirectory=api/python"`).
+The package has the same version as the extension. Install it with `pip install dungeoncoder`.
