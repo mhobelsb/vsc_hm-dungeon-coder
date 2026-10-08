@@ -31,7 +31,7 @@ suite('Side panel (DC-T2h)', () => {
 
     test('"Load level" loads a JSON level into the game', async () => {
         const demo = path.resolve(__dirname, '..', '..', 'packs', 'demo', 'levels', 'demo_gang.json');
-        await vscode.commands.executeCommand('vscode-dungeon-coder.loadLevel', vscode.Uri.file(demo));
+        await vscode.commands.executeCommand('hm-dungeon-coder.loadLevel', vscode.Uri.file(demo));
         const response = await fetch(`http://127.0.0.1:${PORT}/game/statistics`);
         const body = await response.json() as { result: { moves: number; heroes: number } };
         assert.strictEqual(response.status, 200);

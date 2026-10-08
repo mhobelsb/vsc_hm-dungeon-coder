@@ -506,7 +506,7 @@ function warnAboutOutdatedPythonApi(extensionPath: string) {
         `The folder "dungeoncoder" in this workspace holds ${which} of the Python API; this Dungeon Coder is ${ours}. `
         + 'Copy the matching one?', 'Copy Python API').then(choice => {
         if (choice) {
-            vscode.commands.executeCommand('vscode-dungeon-coder.copyPythonAPI');
+            vscode.commands.executeCommand('hm-dungeon-coder.copyPythonAPI');
         }
     });
 }
@@ -605,7 +605,7 @@ export function activate(context: vscode.ExtensionContext) {
     const server = DungeonCoderServer.getInstance();
     shareAssetPacks(context);
 
-    const startGame = vscode.commands.registerCommand('vscode-dungeon-coder.startGame', async () => {
+    const startGame = vscode.commands.registerCommand('hm-dungeon-coder.startGame', async () => {
         let ret = await server.createWebview(context);
         ret = ret && server.startServer(context.extensionPath);
         if (ret) {
@@ -617,7 +617,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    let copyPythonDisposable = vscode.commands.registerCommand('vscode-dungeon-coder.copyPythonAPI', async () => {
+    let copyPythonDisposable = vscode.commands.registerCommand('hm-dungeon-coder.copyPythonAPI', async () => {
         const folders = vscode.workspace.workspaceFolders;
         if (!folders || folders.length === 0) {
             vscode.window.showErrorMessage('Please open a workspace or folder first.');
@@ -661,7 +661,7 @@ export function activate(context: vscode.ExtensionContext) {
     registerPanel(context, {
         ensureRunning: async () => {
             if (!server.isRunning()) {
-                await vscode.commands.executeCommand('vscode-dungeon-coder.startGame');
+                await vscode.commands.executeCommand('hm-dungeon-coder.startGame');
             }
             return server.isRunning();
         },

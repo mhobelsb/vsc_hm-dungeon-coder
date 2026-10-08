@@ -1,11 +1,11 @@
 {
-  "name": "vscode-dungeon-coder",
-  "displayName": "Dungeon Coder",
+  "name": "dungeon-coder",
+  "displayName": "HM Dungeon Coder",
   "description": "Code to escape the dungeon",
   "extensionKind": [
     "ui"
   ],
-  "publisher": "hm-benidiet",
+  "publisher": "hm-dungeon-coder",
   "author": {
     "name": "Munich University of Applied Sciences",
     "email": "benedikt.dietrich@hm.edu"
@@ -20,47 +20,40 @@
     "Other"
   ],
   "private": true,
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/hm-benidiet/vscode-dungeon-coder"
-  },
-  "bugs": {
-    "url": "https://github.com/hm-benidiet/vscode-dungeon-coder/issues"
-  },
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "vscode-dungeon-coder.startGame",
-        "title": "Dungeon Coder: Enter the dungeon"
+        "command": "hm-dungeon-coder.startGame",
+        "title": "HM Dungeon Coder: Enter the dungeon"
       },
       {
-        "command": "vscode-dungeon-coder.copyPythonAPI",
-        "title": "Dungeon Coder: Copy Python API to workspace"
+        "command": "hm-dungeon-coder.copyPythonAPI",
+        "title": "HM Dungeon Coder: Copy Python API to workspace"
       },
       {
-        "command": "vscode-dungeon-coder.loadLevel",
-        "title": "Dungeon Coder: Load level into the game",
+        "command": "hm-dungeon-coder.loadLevel",
+        "title": "HM Dungeon Coder: Load level into the game",
         "icon": "$(play)"
       },
       {
-        "command": "vscode-dungeon-coder.runOnAllLevels",
-        "title": "Dungeon Coder: Run program on all levels (simulator)",
+        "command": "hm-dungeon-coder.runOnAllLevels",
+        "title": "HM Dungeon Coder: Run program on all levels (simulator)",
         "icon": "$(run-all)"
       },
       {
-        "command": "vscode-dungeon-coder.replayTrace",
-        "title": "Dungeon Coder: Replay trace in the game"
+        "command": "hm-dungeon-coder.replayTrace",
+        "title": "HM Dungeon Coder: Replay trace in the game"
       },
       {
-        "command": "vscode-dungeon-coder.refreshLevels",
+        "command": "hm-dungeon-coder.refreshLevels",
         "title": "Refresh",
         "icon": "$(refresh)"
       }
     ],
     "configuration": {
-      "title": "Dungeon Coder",
+      "title": "HM Dungeon Coder",
       "properties": {
         "dungeonCoder.assetPacks": {
           "type": "array",
@@ -90,38 +83,38 @@
     "menus": {
       "view/title": [
         {
-          "command": "vscode-dungeon-coder.refreshLevels",
+          "command": "hm-dungeon-coder.refreshLevels",
           "when": "view == dungeonCoder.levels",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "vscode-dungeon-coder.loadLevel",
+          "command": "hm-dungeon-coder.loadLevel",
           "when": "view == dungeonCoder.levels && viewItem == dungeonCoderLevel",
           "group": "inline"
         }
       ],
       "editor/title": [
         {
-          "command": "vscode-dungeon-coder.runOnAllLevels",
+          "command": "hm-dungeon-coder.runOnAllLevels",
           "when": "resourceLangId == python",
           "group": "navigation"
         }
       ],
       "explorer/context": [
         {
-          "command": "vscode-dungeon-coder.replayTrace",
+          "command": "hm-dungeon-coder.replayTrace",
           "when": "resourceFilename =~ /\\.trace\\.json$/"
         },
         {
-          "command": "vscode-dungeon-coder.loadLevel",
+          "command": "hm-dungeon-coder.loadLevel",
           "when": "resourceExtname == .json || resourceExtname == .txt"
         }
       ],
       "commandPalette": [
         {
-          "command": "vscode-dungeon-coder.refreshLevels",
+          "command": "hm-dungeon-coder.refreshLevels",
           "when": "false"
         }
       ]
@@ -149,6 +142,7 @@
     "dev:browser": "npm run generate:commands && node tools/dev-server.mjs",
     "check:version": "node tools/check-version.mjs",
     "build:wheel": "npm run generate:api-config && npm run check:version && python3 -m pip wheel --no-deps -w out/wheel api/python",
+    "package:vsix": "npx @vscode/vsce package --baseImagesUrl https://raw.githubusercontent.com/mhobelsb/vscode-dungeon-coder_v2/main/ -o out/",
     "build:dist": "npm run generate:api-config && npm run check:version && rm -rf out/dist && python3 -m build --outdir out/dist api/python"
   },
   "devDependencies": {

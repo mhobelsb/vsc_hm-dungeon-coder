@@ -65,7 +65,7 @@ def check():
     except httpx.HTTPError:
         answer = None
     if answer is None:
-        line("note", f"no game answers at {url}: start it in VS Code with \"Dungeon Coder: Enter the dungeon\" "
+        line("note", f"no game answers at {url}: start it in VS Code with \"HM Dungeon Coder: Enter the dungeon\" "
                      "(only needed for the game; the simulator works without)")
     elif answer.status_code == 404:
         problems += 1
@@ -78,7 +78,7 @@ def check():
         else:
             problems += 1
             line("PROBLEM", f"the game at {url} is Dungeon Coder {extension}, this package is "
-                            f"{dungeoncoder.__version__}: run \"Dungeon Coder: Copy Python API to workspace\" again")
+                            f"{dungeoncoder.__version__}: run \"HM Dungeon Coder: Copy Python API to workspace\" again")
 
     packs = [p for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]
     if packs:

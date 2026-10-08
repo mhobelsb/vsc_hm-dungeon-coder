@@ -61,7 +61,40 @@ python3 -m venv /tmp/dc-test && /tmp/dc-test/bin/pip install \
 
 After the first upload: replace the token for "all projects" with one scoped to `dungeoncoder`.
 
-## 5. Afterwards
+## 5. The extension (`.vsix`, Marketplace)
+
+The extension is `hm-dungeon-coder.dungeon-coder` ("HM Dungeon Coder"). The legacy extension
+`hm-benidiet.vscode-dungeon-coder` stays on the Marketplace; both can be installed together.
+
+```bash
+npm run compile && npm run lint && npm run compile-tests && npm test
+npm run package:vsix                  # out/dungeon-coder-X.Y.Z.vsix
+npx @vscode/vsce ls                   # what goes in
+```
+
+Everything in the `.vsix` is public once it is on the Marketplace: check that no course graphics are
+in `game/assets/` (only the CC0 `welt_*` and demo tilesets; `docs/public-release.md` of the course
+workspace, steps 2 and 3). The README image is linked to the public repository
+(`--baseImagesUrl` in `package:vsix`); it shows once that repository exists.
+
+To run the tests next to the legacy extension, install it once into the test profile (the path is
+`profile` in `.vscode-test.mjs`):
+
+```bash
+CODE="$HOME/.cache/vscode-test/vscode-darwin-arm64-1.140.0/Visual Studio Code.app/Contents/Resources/app/bin/code"
+P=$(node -e "console.log(require('os').tmpdir())")/dungeon-coder-vscode-test
+"$CODE" --user-data-dir="$P/user-data" --extensions-dir="$P/extensions" --install-extension hm-benidiet.vscode-dungeon-coder
+```
+
+Publishing (once per machine: a Personal Access Token from Azure DevOps with the scope
+"Marketplace → Manage", for the publisher `hm-dungeon-coder`):
+
+```bash
+npx @vscode/vsce login hm-dungeon-coder
+npx @vscode/vsce publish --packagePath out/dungeon-coder-X.Y.Z.vsix
+```
+
+## 6. Afterwards
 
 Tag the release commit: `git tag vX.Y.Z`. The extension (`.vsix`) gets the same version; it is
 built with `npx @vscode/vsce package`.

@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Changed
+
+- **New identity: "HM Dungeon Coder"**, extension ID `hm-dungeon-coder.dungeon-coder` (publisher `hm-dungeon-coder`), so it can be installed next to the legacy "Dungeon Coder" 0.1.0 (`hm-benidiet.vscode-dungeon-coder`), which stays on the Marketplace for legacy use. The commands are now `hm-dungeon-coder.*` and their titles start with "HM Dungeon Coder:" (for example "HM Dungeon Coder: Enter the dungeon"); the settings (`dungeonCoder.*`) are unchanged. Both games default to port 3000, so only one of them runs at a time. A test (`src/test/legacy.test.ts`) activates both and checks both sets of commands, when the legacy extension is in the test profile.
+
 ## [0.2.0] - 2026-10-08
 
 The first version of this repository, and the first one on PyPI (`pip install dungeoncoder`). Scripts and levels written for 0.1.0 keep working.
