@@ -14,7 +14,6 @@ tools/**
 .gitignore
 .yarnrc
 webpack.config.js
-vsc-extension-quickstart.md
 ARCHITECTURE.md
 RELEASING.md
 **/tsconfig.json
@@ -41,3 +40,4 @@ api/python/pyproject.toml
 api/python/build/**
 api/python/*.egg-info/**
 api/python/dungeoncoder/packs/learn/**
+.github/**

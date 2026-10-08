@@ -6,15 +6,16 @@ A VS Code extension in which you steer a hero through a pixel-art dungeon **with
 
 ## Using it
 
-**Install:** Python 3.10+ (developed on 3.15), VS Code 1.102+, this extension, and the VS Code Python extension.
+**Install:** Python 3.10+ (developed on 3.15), VS Code 1.102+, the VS Code Python extension, and this extension: **Dungeon Coder** (`hm-benidiet.vscode-dungeon-coder`) from the Marketplace. Version 0.2 is a pre-release: on the extension's page, choose **Switch to Pre-Release Version** (and **Switch to Release Version** to go back to 0.1).
 
 **First program**, in a folder opened in VS Code:
 
-1. Command palette (`Ctrl/Cmd+Shift+P`) → **Dungeon Coder: Copy Python API to workspace**. This creates the folder `dungeoncoder/`; then `pip install -r dungeoncoder/requirements.txt` (in a virtual environment).
+1. In a virtual environment: `pip install dungeoncoder` (the Python package, [on PyPI](https://pypi.org/project/dungeoncoder/), same version as the extension). Without internet access, command palette (`Ctrl/Cmd+Shift+P`) → **Dungeon Coder: Copy Python API to workspace** puts a copy into the folder instead.
 2. Command palette → **Dungeon Coder: Enter the dungeon**. The game opens in a tab and listens on `http://127.0.0.1:3000`.
 3. Write a level as text (`karte.txt`; `#` wall, `.` floor, `H` hero, `Z` exit) and a script, and run it:
 
 ```text
+style: station
 start: east
 ---
 ######
@@ -32,6 +33,8 @@ while not hero.is_collision_in_front():
     hero.move()
 print(game.get_statistics()["moves"])
 ```
+
+The extension brings only free pictures: a demo pack and four worlds (`station`, a hospital ward; `studio`, a light studio; `werkstatt`, a factory floor; `gelaende`, a survey area). Text maps and `Game.generate(..., style=...)` name one of them; the pixel-art dungeon of the course at Munich University of Applied Sciences comes as its own asset pack (setting `dungeonCoder.assetPacks`, below).
 
 **The hero only senses the field in front of it** (`is_collision_in_front()`, `is_abyss_in_front()`, `is_switch_in_front()`, `is_torch_in_front()`, `is_enemy_in_front()`, `is_at_goal()`, `get_items_at_position()`, …) and acts with `move()`, `turn_left()`, `interact()`, `pickup(name)`, `drop(name)`. There is deliberately no `turn_right()` and no `get_position()`: building those yourself is part of the learning. Every method has a docstring; `help(hero)` lists them. Business outcomes never raise: a blocked step returns `False`.
 
@@ -79,7 +82,7 @@ npm test                # integration tests in a real VS Code (src/test/)
 
 `compile`, `watch` and `package` first run `npm run generate`, which derives from **`api/openapi.yaml`, the single source of truth for the REST API**: `game/src/commands.js` (command registry and route table for both servers), `src/generated/api-types.d.ts`, `game/src/api-config.js` and `api/python/dungeoncoder/_api_config.py`. Only the last one is committed (a `pip install` from git can't run the generator). The low-level Python client `api/python/dungeoncoder/_generated/` is committed (students need no code generator); regenerate it after changing the spec with `npm run generate:python-client` (creates its own venv in `.codegen-venv/`). `npm test` runs the VS Code test runner on `test-fixtures/side-by-side/exercise`, an exercise folder whose `.vscode/settings.json` names an asset pack by a relative path: it starts the game and loads a level of that pack over the REST API.
 
-**The Python package** lives in `api/python/` (`pyproject.toml`) and has the extension's version. Install it with `pip install "git+<repo URL>#subdirectory=api/python"` or from a wheel built by `npm run build:wheel`. The command "Copy Python API to workspace" still copies it into a workspace (offline use); a copied folder sits next to the scripts and wins over an installed package.
+**The Python package** lives in `api/python/` (`pyproject.toml`) and has the extension's version. Install it with `pip install dungeoncoder` (PyPI), or from a wheel built by `npm run build:dist` (`RELEASING.md`). The command "Copy Python API to workspace" still copies it into a workspace (offline use); a copied folder sits next to the scripts and wins over an installed package.
 
 **Run in VS Code:** press **F5** (needs the recommended extension `amodio.tsl-problem-matcher`; without it the window may report "Extension host did not start in 10 seconds"), or `code --extensionDevelopmentPath="$PWD" <folder>` after `npm run compile`. Close the game tab of an installed Dungeon Coder first, since both use port 3000. For the game canvas, use "Developer: Open Webview Developer Tools".
 
@@ -116,4 +119,4 @@ The dev server serves the same REST API and game page as the extension and relay
 
 ## Licence
 
-Code: MIT (`LICENSE.txt`). Demo pack: CC0 (`packs/demo/LICENSE.md`). Based on Dungeon Coder 0.1 by Benedikt Dietrich, Munich University of Applied Sciences.
+Code: MIT (`LICENSE.txt`). Demo pack and the four worlds' pictures: CC0, drawn by `tools/make_demo_pack.py` and `tools/make_world_art.py` (`packs/demo/LICENSE.md`). Based on Dungeon Coder 0.1 by Benedikt Dietrich, Munich University of Applied Sciences.
