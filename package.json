@@ -20,6 +20,14 @@
     "Other"
   ],
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mhobelsb/vsc_hm-dungeon-coder"
+  },
+  "bugs": {
+    "url": "https://github.com/mhobelsb/vsc_hm-dungeon-coder/issues"
+  },
+  "homepage": "https://github.com/mhobelsb/vsc_hm-dungeon-coder#readme",
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
@@ -142,7 +150,7 @@
     "dev:browser": "npm run generate:commands && node tools/dev-server.mjs",
     "check:version": "node tools/check-version.mjs",
     "build:wheel": "npm run generate:api-config && npm run check:version && python3 -m pip wheel --no-deps -w out/wheel api/python",
-    "package:vsix": "npx @vscode/vsce package --baseImagesUrl https://raw.githubusercontent.com/mhobelsb/vscode-dungeon-coder_v2/main/ -o out/",
+    "package:vsix": "npx @vscode/vsce package -o out/",
     "build:dist": "npm run generate:api-config && npm run check:version && rm -rf out/dist && python3 -m build --outdir out/dist api/python"
   },
   "devDependencies": {

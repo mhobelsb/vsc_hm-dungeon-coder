@@ -74,8 +74,9 @@ npx @vscode/vsce ls                   # what goes in
 
 Everything in the `.vsix` is public once it is on the Marketplace: check that no course graphics are
 in `game/assets/` (only the CC0 `welt_*` and demo tilesets; `docs/public-release.md` of the course
-workspace, steps 2 and 3). The README image is linked to the public repository
-(`--baseImagesUrl` in `package:vsix`); it shows once that repository exists.
+workspace, steps 2 and 3). The README image is resolved against the public repository
+(`repository` in `package.json`: https://github.com/mhobelsb/vsc_hm-dungeon-coder, default branch); it shows
+once the image is pushed there.
 
 To run the tests next to the legacy extension, install it once into the test profile (the path is
 `profile` in `.vscode-test.mjs`):

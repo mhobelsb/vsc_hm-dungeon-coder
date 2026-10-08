@@ -1,6 +1,6 @@
 # dungeoncoder
 
-The Python API for Dungeon Coder, a VS Code extension in which a Python script steers a hero through a pixel-art dungeon.
+The Python API for [HM Dungeon Coder](https://github.com/mhobelsb/vsc_hm-dungeon-coder), a VS Code extension in which a Python script steers a hero through a pixel-art dungeon.
 
 ```python
 from dungeoncoder import Game

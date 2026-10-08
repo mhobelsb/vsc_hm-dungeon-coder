@@ -20,6 +20,10 @@ classifiers = [
     "Topic :: Education",
 ]
 
+[project.urls]
+Homepage = "https://github.com/mhobelsb/vsc_hm-dungeon-coder"
+Issues = "https://github.com/mhobelsb/vsc_hm-dungeon-coder/issues"
+
 [tool.setuptools.dynamic]
 version = { attr = "dungeoncoder.__version__" }
 
