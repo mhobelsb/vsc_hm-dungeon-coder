@@ -1,19 +1,19 @@
 {
   "name": "bundled",
-  "version": "0.1",
-  "description": "The extension's own assets (the fallback after the configured packs). Until the public release they are the course art; then the demo pack replaces them, with its own items (docs: public release, step 3)",
+  "version": "0.2",
+  "description": "The extension's own assets, the fallback after the configured packs: the free demo pack (tools/make_demo_pack.py, CC0) and the four CC0 worlds (tools/make_world_art.py). The course art comes from its own asset pack (setting dungeonCoder.assetPacks).",
   "items": {
     "Pebble": {
-      "tileset": "Icon sheet (16x16).json",
-      "tile": 155
+      "tileset": "demo_tiles.json",
+      "tile": 20
     },
     "Crystal": {
-      "tileset": "Icon sheet (16x16).json",
-      "tile": 109
+      "tileset": "demo_tiles.json",
+      "tile": 18
     },
     "Crystal:orange": {
-      "tileset": "Icon sheet (16x16).json",
-      "tile": 106
+      "tileset": "demo_tiles.json",
+      "tile": 19
     },
     "Bett": {
       "tileset": "welt_station_tiles.json",

@@ -76,8 +76,9 @@ game/src/
     fog.js, statistics.js, input.js   fog of war, the counters, keyboard play
     sensing.js, call-log.js visible sensing marks, the list of the last calls (HTML, key L)
     rendering/              drawing only (section 4.5)
-game/assets/                the bundled assets: tilesets/, images/, levels/ (the CC0 worlds' show
-                            levels), pack.json
+game/assets/                the bundled assets, all free: the demo pack's tilesets and screens (copied by
+                            make_demo_pack.py), the four CC0 worlds, the title image; levels/ (the
+                            worlds' show levels), pack.json
 game/test/                  unit tests of the rules in Node (npm run test:engine)
 packs/demo/                 the CC0 demo pack (tools/make_demo_pack.py)
 tools/                      code generators, dev-server.mjs, make_demo_pack.py, make_world_art.py,
@@ -182,7 +183,8 @@ it waits for an API version 2.
 ## 5. Asset packs
 
 The engine loads every tileset, its image and the screens from an ordered list of packs: the folders of the
-setting `dungeonCoder.assetPacks` (dev server: `DC_ASSET_PACKS`), then the bundled `game/assets/`. A pack is a
+setting `dungeonCoder.assetPacks` (dev server: `DC_ASSET_PACKS`), then the bundled `game/assets/`, which
+holds only free pictures (the demo pack and the CC0 worlds); a course brings its own art as a pack. A pack is a
 folder with `tilesets/`, `images/`, optionally `styles/` (text-map styles) and a `pack.json`:
 
 ```json

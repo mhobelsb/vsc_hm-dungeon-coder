@@ -223,14 +223,18 @@ def learn(recipe, big=None):
             context = terrain[r][c] if 0 <= r < level.height and 0 <= c < level.width else FLOOR
             pack.objects[(o["cls"], context)][(o["ts"].source, o["local"])] += 1
 
-    source = config.get("hero", "../tilesets/characters_16x16_spritesheet_no_bkg.json")
+    for key in ("hero", "abyss"):
+        if key not in config:
+            raise SystemExit(f"recipe of style {style}: \"{key}\" is missing (the tileset of the "
+                             + ("hero's figure sheet" if key == "hero" else "abyss tiles") + ")")
+    source = config["hero"]
     for direction in DIRECTIONS:
         for number in range(16):
             ids = tileset(source).find("Character", state=f"standing_{direction}_{number}")
             if ids:
                 pack.hero[f"{direction}_{number}"] = (source, ids[0])
-    # tiles of class Abyss, the plainest first (tiles_dungeon local 3, as in falling.json)
-    dungeon = config.get("abyss", "../tilesets/tiles_dungeon_v1.2_16x16.json")
+    # tiles of class Abyss, the plainest first
+    dungeon = config["abyss"]
     pack.world = style if "items" in config else None
     pack.pack = config.get("pack")
     pack.guard_sprite = config.get("guard", pack.guard_sprite)

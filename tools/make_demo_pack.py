@@ -11,14 +11,19 @@ creates itself (Pebble, Crystal white and orange: pack.json "items") and two dem
 Everything exists twice: with 16 px tiles (demo_*) and with 32 px tiles (demo32_*:
 the same pictures drawn at 32 px, levels of 15 x 10 cells). The 32 px set shows and
 tests that the game handles tilesets of another size.
+
+The demo pack is also the extension's own fallback: its tilesets, pictures and the two end
+screens are copied into game/assets/ (not its title screen: game/assets keeps dungeon_coder.png).
 """
 import json
 import os
+import shutil
 
 from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PACK = os.path.join(HERE, "..", "packs", "demo")
+BUNDLED = os.path.join(HERE, "..", "game", "assets")       # the extension's fallback assets
 T = 16       # the size the pictures are designed in; Pen draws them at a multiple of it
 
 
@@ -311,7 +316,11 @@ def main():
         f.write("# Demo asset pack: CC0 1.0\n\nEvery picture in this pack was drawn by `tools/make_demo_pack.py`.\n"
                 "To the extent possible under law, the authors waive all copyright and related rights to it\n"
                 "(https://creativecommons.org/publicdomain/zero/1.0/).\n")
-    print("demo pack written to", os.path.relpath(PACK))
+    for sub in ("tilesets", "images"):
+        for name in sorted(os.listdir(os.path.join(PACK, sub))):
+            if name != "dungeon_coder.png":
+                shutil.copyfile(os.path.join(PACK, sub, name), os.path.join(BUNDLED, sub, name))
+    print("demo pack written to", os.path.relpath(PACK), "and copied into", os.path.relpath(BUNDLED))
 
 
 if __name__ == "__main__":
