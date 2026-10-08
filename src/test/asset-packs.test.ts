@@ -41,7 +41,7 @@ suite('Asset pack next to the exercise folder (P3)', () => {
     });
 
     test('the relative path starts at the workspace folder', () => {
-        const extension = vscode.extensions.all.find(e => e.id === 'vscode-dungeon-coder.dungeon-coder');
+        const extension = vscode.extensions.all.find(e => e.id === 'hm-benidiet.vscode-dungeon-coder');
         assert.ok(extension, 'extension not found');
         const settings = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks');
         assert.deepStrictEqual(settings, ['../../../packs/demo']);
