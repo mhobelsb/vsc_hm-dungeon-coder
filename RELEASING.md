@@ -63,37 +63,35 @@ After the first upload: replace the token for "all projects" with one scoped to 
 
 ## 5. The extension (`.vsix`, Marketplace)
 
-The extension is `hm-dungeon-coder.dungeon-coder` ("HM Dungeon Coder"). The legacy extension
-`hm-benidiet.vscode-dungeon-coder` stays on the Marketplace; both can be installed together.
+The extension is `hm-benidiet.vscode-dungeon-coder` ("Dungeon Coder"). Its release version 0.1.0 is
+the legacy one the courses use; new versions go out as **pre-releases** until the first regular
+release. VS Code offers a pre-release only to those who choose "Switch to Pre-Release Version"
+(back with "Switch to Release Version"); everyone else keeps the release version.
+
+The Marketplace takes plain `major.minor.patch` numbers only (no `-beta`): the pre-releases are
+0.2.x, the first regular release gets a higher number (e.g. 1.0.0). Once a pre-release user's
+version is lower than the newest release, VS Code moves them to the release.
 
 ```bash
 npm run compile && npm run lint && npm run compile-tests && npm test
-npm run package:vsix                  # out/dungeon-coder-X.Y.Z.vsix
+npm run package:vsix                  # out/vscode-dungeon-coder-X.Y.Z.vsix
 npx @vscode/vsce ls                   # what goes in
 ```
 
-Everything in the `.vsix` is public once it is on the Marketplace: check that no course graphics are
-in `game/assets/` (only the CC0 `welt_*` and demo tilesets; `docs/public-release.md` of the course
-workspace, steps 2 and 3). The README image is resolved against the public repository
-(`repository` in `package.json`: https://github.com/mhobelsb/vsc_hm-dungeon-coder, default branch); it shows
-once the image is pushed there.
+Everything in the `.vsix` is public once it is on the Marketplace: `game/assets/` must hold only free
+pictures (the demo pack, the CC0 `welt_*` worlds, the title image). The course art comes from the
+course's own asset pack. The README image is resolved against the public repository (`repository`
+in `package.json`); it shows once the image is pushed there.
 
-To run the tests next to the legacy extension, install it once into the test profile (the path is
-`profile` in `.vscode-test.mjs`):
-
-```bash
-CODE="$HOME/.cache/vscode-test/vscode-darwin-arm64-1.140.0/Visual Studio Code.app/Contents/Resources/app/bin/code"
-P=$(node -e "console.log(require('os').tmpdir())")/dungeon-coder-vscode-test
-"$CODE" --user-data-dir="$P/user-data" --extensions-dir="$P/extensions" --install-extension hm-benidiet.vscode-dungeon-coder
-```
-
-Publishing (once per machine: a Personal Access Token from Azure DevOps with the scope
-"Marketplace → Manage", for the publisher `hm-dungeon-coder`):
+Publishing (once per machine: a member of the publisher `hm-benidiet` with a Personal Access Token
+from Azure DevOps, scope "Marketplace → Manage"):
 
 ```bash
-npx @vscode/vsce login hm-dungeon-coder
-npx @vscode/vsce publish --packagePath out/dungeon-coder-X.Y.Z.vsix
+npx @vscode/vsce login hm-benidiet
+npx @vscode/vsce publish --pre-release --packagePath out/vscode-dungeon-coder-X.Y.Z.vsix
 ```
+
+A regular release later: the same without `--pre-release`.
 
 ## 6. Afterwards
 

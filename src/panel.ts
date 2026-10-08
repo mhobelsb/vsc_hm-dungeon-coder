@@ -83,7 +83,7 @@ class LevelTree implements vscode.TreeDataProvider<Node> {
         item.resourceUri = node.uri;
         item.contextValue = 'dungeonCoderLevel';
         item.tooltip = `Load into the game: ${vscode.workspace.asRelativePath(node.uri)}`;
-        item.command = { command: 'hm-dungeon-coder.loadLevel', title: 'Load level', arguments: [node.uri] };
+        item.command = { command: 'vscode-dungeon-coder.loadLevel', title: 'Load level', arguments: [node.uri] };
         return item;
     }
 }
@@ -144,8 +144,8 @@ export function registerPanel(context: vscode.ExtensionContext, game: GameAccess
     });
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('hm-dungeon-coder.refreshLevels', () => tree.refresh()),
-        vscode.commands.registerCommand('hm-dungeon-coder.loadLevel', async (uri?: vscode.Uri) => {
+        vscode.commands.registerCommand('vscode-dungeon-coder.refreshLevels', () => tree.refresh()),
+        vscode.commands.registerCommand('vscode-dungeon-coder.loadLevel', async (uri?: vscode.Uri) => {
             uri = uri ?? vscode.window.activeTextEditor?.document.uri;
             if (!uri) {
                 return;
@@ -167,7 +167,7 @@ export function registerPanel(context: vscode.ExtensionContext, game: GameAccess
                 vscode.window.showErrorMessage(`Dungeon Coder: ${path.basename(uri.fsPath)} is not a level (${err.message}).`);
             }
         }),
-        vscode.commands.registerCommand('hm-dungeon-coder.runOnAllLevels', async (uri?: vscode.Uri) => {
+        vscode.commands.registerCommand('vscode-dungeon-coder.runOnAllLevels', async (uri?: vscode.Uri) => {
             uri = uri ?? vscode.window.activeTextEditor?.document.uri;
             if (!uri || !uri.fsPath.endsWith('.py')) {
                 vscode.window.showErrorMessage('Dungeon Coder: open the Python program to run first.');
@@ -186,7 +186,7 @@ export function registerPanel(context: vscode.ExtensionContext, game: GameAccess
             await vscode.workspace.saveAll(false);
             await runInTerminal(`variants ${quote(uri.fsPath)} ${picked.map(p => quote(p.level.fsPath)).join(' ')} --traces .dungeoncoder-traces`);
         }),
-        vscode.commands.registerCommand('hm-dungeon-coder.replayTrace', async (uri?: vscode.Uri) => {
+        vscode.commands.registerCommand('vscode-dungeon-coder.replayTrace', async (uri?: vscode.Uri) => {
             uri = uri ?? vscode.window.activeTextEditor?.document.uri;
             if (!uri || !uri.fsPath.endsWith('.json')) {
                 vscode.window.showErrorMessage('Dungeon Coder: choose a trace file (*.trace.json).');

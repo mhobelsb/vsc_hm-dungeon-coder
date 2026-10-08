@@ -136,7 +136,7 @@ def _check_version(base_url):
     extension = getattr(getattr(response.parsed, "result", None), "extension", None)
     if extension and extension.split(".")[:2] != __version__.split(".")[:2]:
         print(f"Warning: this Python package (dungeoncoder {__version__}, {os.path.dirname(os.path.abspath(__file__))}) "
-              f"doesn't fit the Dungeon Coder extension ({extension}). Run \"HM Dungeon Coder: Copy Python API "
+              f"doesn't fit the Dungeon Coder extension ({extension}). Run \"Dungeon Coder: Copy Python API "
               f"to workspace\" again, or: pip install --upgrade dungeoncoder")
 
 
@@ -367,7 +367,7 @@ class Game:
             sys.exit(1)
         if not loaded:
             print(f"Error: Level '{level_file}' could not be loaded (see the message above). "
-                  f"Did you start Dungeon Coder (\"HM Dungeon Coder: Enter the dungeon\")?")
+                  f"Did you start Dungeon Coder (\"Dungeon Coder: Enter the dungeon\")?")
             sys.exit(1)
 
         self.__hero = Hero(self.BASE_URL)

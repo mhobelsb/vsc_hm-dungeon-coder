@@ -1,11 +1,11 @@
 {
-  "name": "dungeon-coder",
-  "displayName": "HM Dungeon Coder",
+  "name": "vscode-dungeon-coder",
+  "displayName": "Dungeon Coder",
   "description": "Code to escape the dungeon",
   "extensionKind": [
     "ui"
   ],
-  "publisher": "hm-dungeon-coder",
+  "publisher": "hm-benidiet",
   "author": {
     "name": "Munich University of Applied Sciences",
     "email": "martin.hobelsberger@hm.edu"
@@ -33,35 +33,35 @@
   "contributes": {
     "commands": [
       {
-        "command": "hm-dungeon-coder.startGame",
-        "title": "HM Dungeon Coder: Enter the dungeon"
+        "command": "vscode-dungeon-coder.startGame",
+        "title": "Dungeon Coder: Enter the dungeon"
       },
       {
-        "command": "hm-dungeon-coder.copyPythonAPI",
-        "title": "HM Dungeon Coder: Copy Python API to workspace"
+        "command": "vscode-dungeon-coder.copyPythonAPI",
+        "title": "Dungeon Coder: Copy Python API to workspace"
       },
       {
-        "command": "hm-dungeon-coder.loadLevel",
-        "title": "HM Dungeon Coder: Load level into the game",
+        "command": "vscode-dungeon-coder.loadLevel",
+        "title": "Dungeon Coder: Load level into the game",
         "icon": "$(play)"
       },
       {
-        "command": "hm-dungeon-coder.runOnAllLevels",
-        "title": "HM Dungeon Coder: Run program on all levels (simulator)",
+        "command": "vscode-dungeon-coder.runOnAllLevels",
+        "title": "Dungeon Coder: Run program on all levels (simulator)",
         "icon": "$(run-all)"
       },
       {
-        "command": "hm-dungeon-coder.replayTrace",
-        "title": "HM Dungeon Coder: Replay trace in the game"
+        "command": "vscode-dungeon-coder.replayTrace",
+        "title": "Dungeon Coder: Replay trace in the game"
       },
       {
-        "command": "hm-dungeon-coder.refreshLevels",
+        "command": "vscode-dungeon-coder.refreshLevels",
         "title": "Refresh",
         "icon": "$(refresh)"
       }
     ],
     "configuration": {
-      "title": "HM Dungeon Coder",
+      "title": "Dungeon Coder",
       "properties": {
         "dungeonCoder.assetPacks": {
           "type": "array",
@@ -91,38 +91,38 @@
     "menus": {
       "view/title": [
         {
-          "command": "hm-dungeon-coder.refreshLevels",
+          "command": "vscode-dungeon-coder.refreshLevels",
           "when": "view == dungeonCoder.levels",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "hm-dungeon-coder.loadLevel",
+          "command": "vscode-dungeon-coder.loadLevel",
           "when": "view == dungeonCoder.levels && viewItem == dungeonCoderLevel",
           "group": "inline"
         }
       ],
       "editor/title": [
         {
-          "command": "hm-dungeon-coder.runOnAllLevels",
+          "command": "vscode-dungeon-coder.runOnAllLevels",
           "when": "resourceLangId == python",
           "group": "navigation"
         }
       ],
       "explorer/context": [
         {
-          "command": "hm-dungeon-coder.replayTrace",
+          "command": "vscode-dungeon-coder.replayTrace",
           "when": "resourceFilename =~ /\\.trace\\.json$/"
         },
         {
-          "command": "hm-dungeon-coder.loadLevel",
+          "command": "vscode-dungeon-coder.loadLevel",
           "when": "resourceExtname == .json || resourceExtname == .txt"
         }
       ],
       "commandPalette": [
         {
-          "command": "hm-dungeon-coder.refreshLevels",
+          "command": "vscode-dungeon-coder.refreshLevels",
           "when": "false"
         }
       ]

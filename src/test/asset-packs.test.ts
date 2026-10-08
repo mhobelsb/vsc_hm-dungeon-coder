@@ -37,11 +37,11 @@ async function loadLevelWhenReady(level: object): Promise<{ status: number; body
 
 suite('Asset pack next to the exercise folder (P3)', () => {
     suiteSetup(async () => {
-        await vscode.commands.executeCommand('hm-dungeon-coder.startGame');
+        await vscode.commands.executeCommand('vscode-dungeon-coder.startGame');
     });
 
     test('the relative path starts at the workspace folder', () => {
-        const extension = vscode.extensions.all.find(e => e.id === 'hm-dungeon-coder.dungeon-coder');
+        const extension = vscode.extensions.all.find(e => e.id === 'vscode-dungeon-coder.dungeon-coder');
         assert.ok(extension, 'extension not found');
         const settings = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks');
         assert.deepStrictEqual(settings, ['../../../packs/demo']);
