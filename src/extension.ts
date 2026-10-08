@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { existsSync, readFileSync, writeFileSync, constants as fsConstants } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, constants as fsConstants } from 'fs';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import * as OpenApiValidator from 'express-openapi-validator';
 import { Server } from 'http';
@@ -513,9 +513,52 @@ function warnAboutOutdatedPythonApi(extensionPath: string) {
 
 /** The setting dungeonCoder.assetPacks as absolute folders (relative ones start at the workspace folder). */
 function assetPackFolders(): string[] {
-    const folders = vscode.workspace.getConfiguration('dungeonCoder').get<string[]>('assetPacks', []);
+    const settings = vscode.workspace.getConfiguration('dungeonCoder');
+    const folders = settings.get<string[]>('assetPacks', []);
     const base = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-    return folders.map(folder => (path.isAbsolute(folder) ? folder : path.join(base, folder)));
+    const configured = folders.map(folder => (path.isAbsolute(folder) ? folder : path.join(base, folder)));
+    const found = base ? findAssetPacks(base, settings.get<string[]>('findAssetPacks', ['dungeon-coder-assets'])) : [];
+    return [...configured, ...found.filter(folder => !configured.some(c => path.resolve(c) === folder))];
+}
+
+/**
+ * The packs to find without a setting: a folder with one of `names` that has a pack.json, in
+ * `start` or any folder above it, nearest first, then in the folders directly inside `start` (the
+ * opened folder holds the repo with the pack). The Python package searches upward the same way
+ * (api/python/dungeoncoder/sim.py, asset_pack_folders). So a course pack works whatever folder is opened.
+ */
+export function findAssetPacks(start: string, names: string[]): string[] {
+    const found: string[] = [];
+    const take = (candidate: string) => {
+        if (existsSync(path.join(candidate, 'pack.json')) && !found.includes(candidate)) {
+            found.push(candidate);
+        }
+    };
+    let folder = path.resolve(start);
+    for (;;) {
+        for (const name of names) {
+            take(path.join(folder, name));
+        }
+        const parent = path.dirname(folder);
+        if (parent === folder) {
+            break;
+        }
+        folder = parent;
+    }
+    let inside: string[] = [];
+    try {
+        inside = readdirSync(path.resolve(start), { withFileTypes: true })
+            .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
+            .map(entry => entry.name).sort();
+    } catch {
+        // an opened folder that can't be listed has nothing inside to find
+    }
+    for (const child of inside) {
+        for (const name of names) {
+            take(path.join(path.resolve(start), child, name));
+        }
+    }
+    return found;
 }
 
 /** The folders among `folders` that don't exist (a pack named in the settings but not cloned). */
@@ -592,7 +635,7 @@ function shareAssetPacks(context: vscode.ExtensionContext) {
     };
     update();
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
-        if (event.affectsConfiguration('dungeonCoder.assetPacks')) {
+        if (event.affectsConfiguration('dungeonCoder.assetPacks') || event.affectsConfiguration('dungeonCoder.findAssetPacks')) {
             update();
         }
     }));

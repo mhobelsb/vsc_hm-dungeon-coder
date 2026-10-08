@@ -11,7 +11,7 @@
     "email": "martin.hobelsberger@hm.edu"
   },
   "license": "MIT",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "engines": {
     "vscode": "^1.102.0"
   },
@@ -70,6 +70,16 @@
           },
           "default": [],
           "description": "Folders with asset packs (tilesets, images). They are searched before the pictures that come with the extension. Relative paths start at the workspace folder."
+        },
+        "dungeonCoder.findAssetPacks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "dungeon-coder-assets"
+          ],
+          "description": "Asset packs found without a setting: a folder with one of these names (and a pack.json) in the opened folder, any folder above it, or a folder directly inside it is used after the packs of dungeonCoder.assetPacks."
         },
         "dungeonCoder.port": {
           "type": "number",

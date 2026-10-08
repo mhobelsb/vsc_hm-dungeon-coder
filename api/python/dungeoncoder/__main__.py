@@ -80,7 +80,9 @@ def check():
             line("PROBLEM", f"the game at {url} is Dungeon Coder {extension}, this package is "
                             f"{dungeoncoder.__version__}: run \"Dungeon Coder: Copy Python API to workspace\" again")
 
-    packs = [p for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]
+    from dungeoncoder.sim import asset_pack_folders
+    packs = asset_pack_folders()
+    where = "DC_ASSET_PACKS" if os.environ.get("DC_ASSET_PACKS") is not None else "found here or above"
     if packs:
         for pack in packs:
             if os.path.isdir(pack):
@@ -92,13 +94,13 @@ def check():
                                     f"{dungeoncoder.__version__}: update the extension and the Python package")
                 else:
                     about = ", ".join(f"{k} {manifest[k]}" for k in ("name", "version") if manifest.get(k))
-                    line("ok", f"asset pack {pack}" + (f" ({about})" if about else ""))
+                    line("ok", f"asset pack {pack}" + (f" ({about})" if about else "") + f", {where}")
             else:
                 problems += 1
                 line("PROBLEM", f"asset pack {pack} doesn't exist: clone it there (see the exercise sheet)")
     else:
-        line("note", "no asset packs in this terminal (DC_ASSET_PACKS); only text maps of the course need them, "
-                     "the game finds them through its settings")
+        line("note", "no asset packs: none in DC_ASSET_PACKS, no folder dungeon-coder-assets here or above; "
+                     "only levels and text maps of a course need one")
 
     from dungeoncoder.testing import spiel
     import contextlib

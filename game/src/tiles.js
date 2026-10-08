@@ -392,7 +392,8 @@ export class MissingTilesetError extends Error {
 
 /** Same wording as the simulator (dungeoncoder/sim.py, missing_tileset_message). */
 export function missingTilesetMessage(sources, pack = "") {
-    const needs = pack ? `This level needs the asset pack "${pack}": get it (the exercise sheet says how) and add it ` : 'Add the asset pack ';
+    const needs = pack ? `This level needs the asset pack "${pack}": get it (the exercise sheet says how) and put its folder `
+        + `"${pack}" into the opened folder or a folder above it, or add it ` : 'Add the asset pack ';
     return `Missing tileset ${sources.join(', ')}: no asset pack has it. `
         + `${needs}to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).`;
 }

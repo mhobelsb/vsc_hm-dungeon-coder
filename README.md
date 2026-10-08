@@ -57,6 +57,7 @@ python -m dungeoncoder trace TRACE              list a trace with the hero's fie
 | Setting | Default | Meaning |
 |---|---|---|
 | `dungeonCoder.assetPacks` | `[]` | folders with asset packs (tilesets, images, text-map styles), searched before the extension's own pictures; relative paths start at the workspace folder |
+| `dungeonCoder.findAssetPacks` | `["dungeon-coder-assets"]` | asset packs found without a setting: a folder with one of these names and a `pack.json` in the opened folder, any folder above it, or a folder directly inside it (the Python package looks in and above the current folder and the script's, unless `DC_ASSET_PACKS` is set) |
 | `dungeonCoder.port` | `3000` | the API port; scripts in the workspace find it through `.dungeoncoder-port` (or `DUNGEONCODER_PORT`) |
 
 ## Levels and asset packs

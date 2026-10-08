@@ -64,6 +64,32 @@ suite('Asset pack next to the exercise folder (P3)', () => {
     });
 });
 
+suite('Asset packs found without a setting', () => {
+    test('a dungeon-coder-assets with a pack.json in, above or directly inside the opened folder, nearest first', () => {
+        const { findAssetPacks } = require('../extension') as typeof import('../extension');
+        const { mkdirSync } = require('fs') as typeof import('fs');
+        const root = mkdtempSync(path.join(os.tmpdir(), 'dc-find-'));
+        const pack = (folder: string, withManifest = true) => {
+            mkdirSync(folder, { recursive: true });
+            if (withManifest) {
+                writeFileSync(path.join(folder, 'pack.json'), '{"name": "x"}');
+            }
+            return folder;
+        };
+        const far = pack(path.join(root, 'dungeon-coder-assets'));
+        const near = pack(path.join(root, 'semester', 'dungeon-coder-assets'));
+        pack(path.join(root, 'semester', 'loesungen', 'dungeon-coder-assets'), false);   // no pack.json: not a pack
+        const opened = path.join(root, 'semester', 'loesungen', 'dc-03');
+        mkdirSync(opened, { recursive: true });
+        assert.deepStrictEqual(findAssetPacks(opened, ['dungeon-coder-assets']), [near, far]);
+        // the folder holding the repo is opened: the pack lies one level down
+        const holder = path.join(root, 'holder');
+        const inside = pack(path.join(holder, 'repo', 'dungeon-coder-assets'));
+        assert.deepStrictEqual(findAssetPacks(holder, ['dungeon-coder-assets']), [far, inside]);
+        assert.deepStrictEqual(findAssetPacks(opened, ['other-name']), []);
+    });
+});
+
 suite('A pack named in the settings but not cloned', () => {
     test('is reported as missing', () => {
         const { missingFolders } = require('../extension') as typeof import('../extension');

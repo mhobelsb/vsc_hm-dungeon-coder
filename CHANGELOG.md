@@ -6,11 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
-### Changed
+## [0.2.1] - 2026-10-08
 
-- **The bundled assets are free**: `game/assets/` now holds the demo pack (copied by `tools/make_demo_pack.py`: its tilesets, the end screens), the four CC0 worlds and the title image. The bought pixel art of the HM course (the dungeon, Halloween and fire tilesets, the figure sheet, the icon sheet) left the extension and comes from the course's own asset pack (setting `dungeonCoder.assetPacks`). Pebbles and crystals of a start inventory take the demo pack's tiles unless a configured pack names others. Text-map style recipes must now name their figure sheet (`hero`) and abyss tileset (`abyss`); the style learner had course tilesets as defaults.
+### Added
 
-- **Published as a pre-release of the existing extension** `hm-benidiet.vscode-dungeon-coder` ("Dungeon Coder", same ID and commands as 0.1.0): `vsce publish --pre-release`; who wants it chooses "Switch to Pre-Release Version" in VS Code, everyone else keeps 0.1.0, and "Switch to Release Version" goes back. Repository, issues and homepage: https://github.com/mhobelsb/vsc_hm-dungeon-coder; contact martin.hobelsberger@hm.edu.
+- **Asset packs are found without a setting**: a folder named `dungeon-coder-assets` (new setting `dungeonCoder.findAssetPacks`, the list of names) with a `pack.json`, in the opened folder, any folder above it, or a folder directly inside it, is used after the packs of `dungeonCoder.assetPacks`. So a course repo works whatever folder of it is opened (the repo, an exercise, a solution, or the folder holding the repo). The Python package searches the same way when `DC_ASSET_PACKS` isn't set (in and above the current folder and the running script's), so the simulator and text maps find the pack in any terminal; an explicitly set `DC_ASSET_PACKS`, also an empty one, still decides. The message about a missing tileset says so (same words in the game and the simulator).
+
 
 ## [0.2.0] - 2026-10-08
 
@@ -80,6 +81,9 @@ The first version of this repository, and the first one on PyPI (`pip install du
 - The dev server's HTTP port can be changed with `DC_PORT`, so it can run next to an installed Dungeon Coder extension.
 
 ### Changed
+
+- **The bundled assets are free**: `game/assets/` now holds the demo pack (copied by `tools/make_demo_pack.py`: its tilesets, the end screens), the four CC0 worlds and the title image. The bought pixel art of the HM course (the dungeon, Halloween and fire tilesets, the figure sheet, the icon sheet) left the extension and comes from the course's own asset pack (setting `dungeonCoder.assetPacks`). Pebbles and crystals of a start inventory take the demo pack's tiles unless a configured pack names others. Text-map style recipes must now name their figure sheet (`hero`) and abyss tileset (`abyss`); the style learner had course tilesets as defaults.
+- **Published as a pre-release of the existing extension** `hm-benidiet.vscode-dungeon-coder` ("Dungeon Coder", same ID and commands as 0.1.0): `vsce publish --pre-release`; who wants it chooses "Switch to Pre-Release Version" in VS Code, everyone else keeps 0.1.0, and "Switch to Release Version" goes back. Repository, issues and homepage: https://github.com/mhobelsb/vsc_hm-dungeon-coder; contact martin.hobelsberger@hm.edu.
 
 - The level tools' shared model (`tools/levels/dclevel.py`) asks the simulator for walls and abysses (`Level.wall_tile_at`, `Level.abyss_tile_at`, split out of `is_collision` and `abyss_at` without a change in behaviour), so the rules exist once; its learning views stay its own.
 - The Python package ships only the CC0 worlds' styles and the tile rules of the free tilesets (demo pack, CC0 worlds); the course styles (`dungeon`, `corridor`, `arena`, `bridge`, `maze`) and their rules come with the course's asset pack. An unknown style's message names the available ones and the asset-pack setting. The setup check (`python -m dungeoncoder`) plays its small map in a bundled style.

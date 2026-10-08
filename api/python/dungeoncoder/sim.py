@@ -21,6 +21,7 @@ effect here.
 """
 import json
 import os
+import sys
 
 TILE = 16
 PACK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "packs")
@@ -28,6 +29,46 @@ DIRECTIONS_LEFT = {"north": "west", "west": "south", "south": "east", "east": "n
 
 _rules_cache = None
 _items_cache = None
+
+
+# Where the asset packs are, for the simulator, text maps (asciimap) and `python -m dungeoncoder`:
+# DC_ASSET_PACKS if it is set (also when empty: then none); otherwise every folder named like a pack
+# to find (FIND, the default of the extension's setting dungeonCoder.findAssetPacks) that has a
+# pack.json, in the current folder, the folder of the running script, or any folder above them,
+# nearest first. The extension searches the same way for the game (src/extension.ts,
+# findAssetPacks) and passes its packs to the terminals it opens as DC_ASSET_PACKS.
+FIND = ("dungeon-coder-assets",)
+
+
+def found_asset_packs(starts=None):
+    """The packs to find, in the folders `starts` (default: the current folder and the running
+    script's) and above them, nearest first."""
+    if starts is None:
+        starts = [os.getcwd()]
+        script = getattr(sys.modules.get("__main__"), "__file__", None)
+        if script:
+            starts.append(os.path.dirname(os.path.abspath(script)))
+    found = []
+    for start in starts:
+        folder = os.path.abspath(start)
+        while True:
+            for name in FIND:
+                candidate = os.path.join(folder, name)
+                if os.path.isfile(os.path.join(candidate, "pack.json")) and candidate not in found:
+                    found.append(candidate)
+            parent = os.path.dirname(folder)
+            if parent == folder:
+                break
+            folder = parent
+    return found
+
+
+def asset_pack_folders():
+    """The asset packs to use, first wins: DC_ASSET_PACKS if set, else the packs found."""
+    configured = os.environ.get("DC_ASSET_PACKS")
+    if configured is not None:
+        return [p for p in configured.split(os.pathsep) if p]
+    return found_asset_packs()
 
 
 def _rules_from_folder(folder):
@@ -57,7 +98,7 @@ def _rules():
     if _rules_cache is None:
         with open(os.path.join(PACK_DIR, "tilesets.json"), encoding="utf-8") as f:
             _rules_cache = json.load(f)
-        for folder in reversed([p for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]):
+        for folder in reversed(asset_pack_folders()):
             _rules_cache.update(_rules_from_folder(folder))
     return _rules_cache
 
@@ -77,7 +118,7 @@ def item_tiles():
     (engine: game/src/assets.js, loadItemTiles)."""
     global _items_cache
     if _items_cache is None:
-        manifests = [os.path.join(p, "pack.json") for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]
+        manifests = [os.path.join(p, "pack.json") for p in asset_pack_folders()]
         manifests.append(os.path.join(PACK_DIR, "items.json"))
         _items_cache = {}
         for path in manifests:
@@ -94,7 +135,8 @@ def item_tiles():
 def missing_tileset_message(sources, pack=""):
     """Same wording as the game (game/src/tiles.js, missingTilesetMessage); pack: the asset pack
     the level names (map property `pack`)."""
-    needs = (f'This level needs the asset pack "{pack}": get it (the exercise sheet says how) and add it '
+    needs = (f'This level needs the asset pack "{pack}": get it (the exercise sheet says how) and put its folder '
+             f'"{pack}" into the opened folder or a folder above it, or add it '
              if pack else "Add the asset pack ")
     return (f"Missing tileset {', '.join(sources)}: no asset pack has it. "
             f"{needs}to the setting dungeonCoder.assetPacks (outside VS Code: DC_ASSET_PACKS).")

@@ -326,7 +326,7 @@ class Pack:
         """The pack of a style. An asset pack in DC_ASSET_PACKS may bring its own packs
         (styles/<style>.json, first pack wins, as for tilesets in the game): so a private
         pack can draw a style with other art than the one shipped here."""
-        folders = [os.path.join(p, "styles") for p in os.environ.get("DC_ASSET_PACKS", "").split(os.pathsep) if p]
+        folders = [os.path.join(p, "styles") for p in _sim().asset_pack_folders()]
         path = next((os.path.join(d, f"{style}.json") for d in folders + [PACK_DIR]
                      if f"{style}.json" not in NOT_STYLES and os.path.exists(os.path.join(d, f"{style}.json"))), None)
         if path is None:

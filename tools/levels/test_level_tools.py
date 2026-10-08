@@ -92,5 +92,34 @@ run = tool("learn_styles.py", "--check")
 check("learn_styles: the engine's style packs are learned from its recipes as shipped",
       run.returncode == 0 and "style packs up to date" in run.stdout, run.stdout + run.stderr)
 
+# asset packs without DC_ASSET_PACKS (api/python/dungeoncoder/sim.py, asset_pack_folders; like the extension's
+# findAssetPacks): a dungeon-coder-assets with a pack.json in or above the current folder or the
+# script's folder, nearest first; an explicitly set DC_ASSET_PACKS (also an empty one) wins
+with tempfile.TemporaryDirectory() as root:
+    root = os.path.realpath(root)
+    def pack(folder, manifest=True):
+        os.makedirs(folder, exist_ok=True)
+        if manifest:
+            with open(os.path.join(folder, "pack.json"), "w") as f:
+                f.write('{"name": "x"}')
+        return folder
+    far = pack(os.path.join(root, "dungeon-coder-assets"))
+    near = pack(os.path.join(root, "semester", "dungeon-coder-assets"))
+    pack(os.path.join(root, "semester", "loesungen", "dungeon-coder-assets"), manifest=False)
+    opened = os.path.join(root, "semester", "loesungen", "dc-03")
+    os.makedirs(opened)
+    script = os.path.join(opened, "zeige.py")
+    with open(script, "w") as f:
+        f.write("from dungeoncoder.sim import asset_pack_folders\nprint(asset_pack_folders())\n")
+    api = os.path.normpath(os.path.join(HERE, "..", "..", "api", "python"))
+    def packs(cwd, **env):
+        e = {k: v for k, v in os.environ.items() if k != "DC_ASSET_PACKS"}
+        e.update(env, PYTHONPATH=api)
+        return subprocess.run([sys.executable, script], cwd=cwd, capture_output=True, text=True, env=e).stdout.strip()
+    check("asset packs found in and above the current folder, nearest first", packs(opened) == str([near, far]), packs(opened))
+    check("... and above the script's folder, from anywhere", packs(root + "/..") == str([near, far]), packs(root + "/.."))
+    check("an empty DC_ASSET_PACKS means no packs, a set one is used as it is",
+          packs(opened, DC_ASSET_PACKS="") == "[]" and packs(opened, DC_ASSET_PACKS=far) == str([far]))
+
 print(f"\n{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)
