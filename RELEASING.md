@@ -83,15 +83,31 @@ pictures (the demo pack, the CC0 `welt_*` worlds, the title image). The course a
 course's own asset pack. The README image is resolved against the public repository (`repository`
 in `package.json`); it shows once the image is pushed there.
 
-Publishing (once per machine: a member of the publisher `hm-benidiet` with a Personal Access Token
-from Azure DevOps, scope "Marketplace → Manage"):
+**Publishing a pre-release.** Only with these two scripts: a package without the pre-release mark
+would become the release version, which everyone with auto-update gets (the courses still use
+0.1.0). `vsce` writes the mark into the package when packaging; `tools/check-prerelease.mjs` and
+`vsce publish --pre-release` both refuse a package without it.
 
 ```bash
-npx @vscode/vsce login hm-benidiet
-npx @vscode/vsce publish --pre-release --packagePath out/vscode-dungeon-coder-X.Y.Z.vsix
+npx @vscode/vsce login hm-benidiet          # once per machine: your Personal Access Token
+                                            # (Azure DevOps, scope "Marketplace → Manage")
+npm run package:prerelease                  # out/vscode-dungeon-coder-X.Y.Z-pre.vsix
+npm run publish:prerelease                  # checks the mark, the ID and the version, then publishes
 ```
 
-A regular release later: the same without `--pre-release`.
+Never `npx @vscode/vsce publish` without `--pre-release` until the first regular release.
+
+**Afterwards: the release version still works.** A fresh VS Code must install 0.1.0 normally and
+the new version only with `--pre-release` (the test VS Code from `npm run test:download`):
+
+```bash
+CODE="$HOME/.cache/vscode-test/vscode-darwin-arm64-1.140.0/Visual Studio Code.app/Contents/Resources/app/bin/code"
+for flag in "" --pre-release; do
+  P=$(mktemp -d)
+  "$CODE" --user-data-dir="$P/u" --extensions-dir="$P/e" --install-extension hm-benidiet.vscode-dungeon-coder $flag
+  "$CODE" --user-data-dir="$P/u" --extensions-dir="$P/e" --list-extensions --show-versions | grep dungeon
+done
+```
 
 ## 6. Afterwards
 
