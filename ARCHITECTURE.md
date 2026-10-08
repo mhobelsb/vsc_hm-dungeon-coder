@@ -104,7 +104,8 @@ the last content (the webview keeps it). Text maps (`.txt`) are turned into a Ti
   `Region` rectangles describe level variants; the Python client moves the objects whose property `region`
   names one and removes the rectangles (`dungeoncoder/variants.py`), the engine ignores any left over.
 - **Map properties** switch on the mechanics: `fog`, `keyboard`, `win`, `inventory_size`, `hero_inventory`,
-  `fernrohr`, `orakel`, `amulett`, `max_moves`, `show_sensing`, `torch_light`, `world` (end screens of a world),
+  `fernrohr`, `orakel`, `amulett`, `max_moves`, `show_sensing`, `show_calls` (the call log in the corner, off by
+  default), `torch_light`, `world` (end screens of a world),
   `pack` (the asset pack the art comes from, named in the "missing tileset" message), `seed` (a generated
   level or a variant: shown on the end screens), `variants: random` (a new variant per load).
 

@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-08
+
+### Changed
+
+- **The call log is off unless a level switches it on**: the list of the program's last calls in the tab's corner shows only in levels with the map property `show_calls: true` (text maps: the header line `show_calls: true`); every level load decides anew, and key **L** still shows or hides it in any level. Before, it was on in every level.
+
 ## [0.2.1] - 2026-10-08
 
 ### Added

@@ -294,6 +294,7 @@ function loadFileAsync(file) {
     // The game sizes the canvas buffer itself (Game.setViewSize): larger than the view, so
     // text gets crisp. Everything draws in game pixels; the transform does the scaling.
     const game = new Game(canvas, getAssetPath(""));
+    game.onLevelLoaded = (level) => callLog.showFor(level);      // show_calls: true switches the list on
     game.onViewChange = resizeCanvas;
     game.start();
 
@@ -326,7 +327,7 @@ function loadFileAsync(file) {
         });
     }
 
-    // L shows or hides the list of the program's last calls
+    // L shows or hides the list of the program's last calls (shown by default only with show_calls: true)
     window.addEventListener('keydown', (event) => {
         if (event.key.toLowerCase() === 'l' && !event.ctrlKey && !event.metaKey && !event.altKey) {
             callLog.toggle();

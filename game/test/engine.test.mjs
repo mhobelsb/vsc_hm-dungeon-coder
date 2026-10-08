@@ -289,3 +289,21 @@ test('variants: a Region rectangle never becomes a game object', async () => {
     const level = await Level.create(data);
     assert.equal(level.objectFactory.gameObjects.some(o => o.type === 'Region'), false);
 });
+
+test('call log (show_calls): off unless the level switches it on; L still toggles it', async () => {
+    const { CallLog } = await import('../src/call-log.js');
+    const element = { hidden: false };
+    const log = new CallLog(element);
+    const plain = await play(['#####', '#H.Z#', '#####']);
+    log.showFor(plain.level);
+    assert.equal(element.hidden, true);
+    const shown = await play(['#####', '#H.Z#', '#####'], { properties: { show_calls: true } });
+    log.showFor(shown.level);
+    assert.equal(element.hidden, false);
+    log.toggle();
+    assert.equal(element.hidden, true);
+    const off = await play(['#####', '#H.Z#', '#####'], { properties: { show_calls: false } });
+    log.toggle();
+    log.showFor(off.level);                 // each level load decides anew
+    assert.equal(element.hidden, true);
+});

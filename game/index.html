@@ -34,7 +34,7 @@
         border-radius: 5px;
         font-size: 0.9em;
     }
-    /* the program's last calls (game/src/call-log.js); L hides it */
+    /* the program's last calls (game/src/call-log.js): only in levels with show_calls: true; L shows or hides it */
     #call-log {
         position: fixed;
         top: 6px;
@@ -67,7 +67,7 @@
         <input type="file" id="json-file-input" accept=".json">
         <canvas id="gameCanvas" tabindex="-1" width="640" height="480"></canvas>
     </div>
-    <pre id="call-log" data-empty="true"></pre>
+    <pre id="call-log" data-empty="true" hidden></pre>
     <script nonce="${nonce}">
         const rawGameFolderUri = '${gameFolderUri}'; 
 

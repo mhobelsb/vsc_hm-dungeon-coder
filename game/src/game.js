@@ -97,6 +97,9 @@ export class Game {
         const keyboard = this.level.getProperty('keyboard');
         this.inputManager.setEnabled(keyboard === undefined ? !this.fog.isActive() : keyboard !== false);
         this.lastLevelData = levelData;
+        if (this.onLevelLoaded) {
+            this.onLevelLoaded(this.level);
+        }
         console.log("Level successfully loaded.");
         this.currentGameState = GAME_STATE.PLAYING;
         this.remainingTime = 5000;

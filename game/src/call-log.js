@@ -3,7 +3,8 @@ import { COMMANDS } from './commands.js';
 /**
  * The program's last calls, next to the game (DC-T1j): `move()  ✓`, `move()  ✗ blocked`,
  * `is_switch_in_front()  → False`. Connects what the code asked with what happened on screen.
- * An HTML list over the page's corner, not drawn on the canvas; L shows or hides it.
+ * An HTML list over the page's corner, not drawn on the canvas. Off unless the level switches it on
+ * with the map property `show_calls: true` (each level load decides anew); L shows or hides it.
  */
 export class CallLog {
     static LENGTH = 10;
@@ -83,6 +84,17 @@ export class CallLog {
         }
         this.element.textContent = this.entries.join('\n');
         this.element.dataset.empty = this.entries.length === 0 ? 'true' : 'false';
+    }
+
+    /** At a level load: shown only if the level says `show_calls: true`. */
+    showFor(level) {
+        this.setVisible(level.getBooleanProperty('show_calls', false));
+    }
+
+    setVisible(visible) {
+        if (this.element) {
+            this.element.hidden = !visible;
+        }
     }
 
     toggle() {
