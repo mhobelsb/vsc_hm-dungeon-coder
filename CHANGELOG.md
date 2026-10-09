@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-09
+
+### Fixed
+
+- **A briefly busy machine no longer changes a sensor's answer**: sensors, queries (`is_facing_north()`, `get_items_at_position()`, `read_item_value()`, …) and loading a level waited at most 1 s for the game's answer and then returned their default (`False`, `None`, `[]`) with only the message "Timeout error occurred". A program's view of the world could silently go wrong, e.g. a turn too many in `while not hero.is_facing_north(): hero.turn_left()`. They now wait up to 10 s for an answer; connecting still fails at once (1 s) when the game isn't running. Found as an intermittent failure of a model solution in the course's full game run; reproduced by blocking the game page 1.5 s every 3 s.
+
 ## [0.2.3] - 2026-10-08
 
 ### Added

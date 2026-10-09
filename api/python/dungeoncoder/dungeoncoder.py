@@ -79,6 +79,11 @@ DEFAULT_BASE_URL = _discover_base_url()
 # after 5 s + step time (src/extension.ts), so the client waits a bit longer.
 _STEP_SECONDS = 0.5
 _ACTION_TIMEOUT_SLACK = 6.0
+# Sensors, queries and loading a level: the game answers at once, but a busy machine (or a game tab
+# that is briefly blocked) can delay the answer. With a 1 s limit such a call returned its default
+# (False) and a program's view of the world silently went wrong (B25: a turn too many). Connecting
+# stays quick, so a game that isn't running is reported at once.
+_ANSWER_TIMEOUT = httpx.Timeout(10.0, connect=1.0)
 
 
 def _extract_message(response) -> str:
@@ -125,7 +130,7 @@ def _check_version(base_url):
     _version_checked = True
     from . import __version__
     try:
-        response = _get_version_api.sync_detailed(client=Client(base_url=base_url, timeout=httpx.Timeout(1)))
+        response = _get_version_api.sync_detailed(client=Client(base_url=base_url, timeout=_ANSWER_TIMEOUT))
     except Exception:
         return                  # no game running: loading the level says so
     if response.status_code == 404:
@@ -202,7 +207,7 @@ class Hero:
 
     def __init__(self, base_url: str = BASE_URL, index: int = 0):
         self._base_url = base_url
-        self._client = Client(base_url=base_url, timeout=httpx.Timeout(1))
+        self._client = Client(base_url=base_url, timeout=_ANSWER_TIMEOUT)
         self._pace = 1.0
         self._action_client = self._make_action_client()
         self._index = index                 # which hero in a co-op level (0 = MainCharacter)
@@ -454,7 +459,7 @@ class Game:
         A class to manage game levels.
         """
         def __init__(self, base_url):
-            self._client = Client(base_url=base_url, timeout=httpx.Timeout(1))
+            self._client = Client(base_url=base_url, timeout=_ANSWER_TIMEOUT)
             self.seed = None
 
         def load(self, filename, seed=None, display=None):
