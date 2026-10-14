@@ -153,5 +153,38 @@ expected = [{}, {"show_calls": True}, {"show_sensing": False}, {"show_sensing": 
 check("Game: show_calls/show_sensing as parameters and as Game.SHOW_CALLS/SHOW_SENSING reach the level",
       run.stdout.strip() == json.dumps(expected), run.stdout + run.stderr)
 
+# the builder's look rules (T1q): free-standing wall blocks, the outer rim, details gathered around things
+import learn_styles  # noqa: E402
+am = learn_styles.asciimap
+grid = [list(row) for row in ["#######", "#.....#", "#.##..#", "#.##..#", "#....##", "#######"]]
+keep = [row[:] for row in grid]
+changed = am.free_standing_blocks(grid, {(2, 2)})
+check("builder: a free-standing 2 x 2 wall block becomes an obstacle, walls touching others stay",
+      changed == [(2, 2), (2, 3), (3, 2), (3, 3)] and grid[4][5] == "#", f"{changed}")
+check("builder: ... but only where the style has an obstacle picture of that size (a pillar stays a pillar)",
+      am.free_standing_blocks(keep, {(3, 2)}) == [] and keep[2][2] == "#")
+check("builder: the rim is a wall next to the outside, not an inner wall",
+      am.is_rim(am.pattern([list("##"), list("#.")], 0, 0)) and not am.is_rim(am.pattern(
+          [list("###"), list("###"), list("###")], 1, 1)))
+pack = am.Pack()
+pack.stacks[am.pattern([list("###")] * 3, 1, 1)][(("wall", "a.json", 1),)] = 1
+rim_key = am.pattern([list("##"), list("#.")], 0, 0)
+pack.rim[rim_key][(("wall", "a.json", 2),)] = 1
+again = am.Pack.from_json(json.loads(json.dumps(pack.to_json())))
+check("builder: a pack keeps its rim through JSON, and the rim field gets the rim's stack",
+      again.rim == pack.rim and again.choose(rim_key, None, None, None, 0, rim=True) == (("wall", "a.json", 2),))
+rows = ["#" * 22] + ["#" + "." * 20 + "#" for _ in range(10)] + ["#" * 22]
+rows[5] = rows[5][:3] + "C" + rows[5][4:]
+grid = [list(r) for r in rows]
+terrain = [[am.base_terrain(ch) for ch in row] for row in grid]
+layers = {"bg": {}, "floor": {}, "floor2": {}, "wall": {}, "deko": {}}
+deco = am.Pack()
+deco.details = [("d.json", 1)]
+am.decorate(grid, terrain, layers, deco, {"deko": ["20"]})
+near = sum(1 for (c, r) in layers["floor2"] if abs(c - 3) <= 2 and abs(r - 5) <= 2)
+far = len(layers["floor2"]) - near
+check("builder: with deko, details gather around objects (a chest) and the open floor stays calm",
+      near >= 5 and far <= 0.1 * (200 - 25), f"near {near}, far {far}")
+
 print(f"\n{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Changed
+
+- **Text maps look more like levels drawn by hand** (only the look; a level's rules stay the same):
+  - a small free-standing rectangular block of wall (2 to 4 fields, at most 2 x 2, touching no other wall) is drawn as a large obstacle (rubble, a rock) where the style has one of exactly that size, instead of a lone piece of wall; without such a picture it stays a wall (a pillar hall keeps its pillars);
+  - with `deko:`, small details gather around obstacles and objects (a chest, a switch, a door) and the open floor stays calm, instead of being spread evenly;
+  - a style can learn its **outer rim** separately (recipe field `rim`: levels to learn from): the wall fields next to the outside of the map, e.g. water with a rocky shore around a terrain instead of the hedge of its inner walls. Style packs without a rim draw it as before.
+
 ## [0.2.4] - 2026-10-09
 
 ### Fixed

@@ -23,6 +23,9 @@ Recipe fields:
                                        wall pieces are in that range (one construction system out of
                                        a level that mixes several)
   korpus            learn tiles also from <korpus>_korpus_0.json, _1, ... in the levels folder
+  rim               levels (names or paths, like tiles) to learn the outer rim from: how the wall
+                    fields next to the outside of the map look (water with a rocky shore instead of
+                    the hedge of the inner walls). Without it the rim looks like any wall
   objects           the levels to learn object tiles from (single sprites, so from all levels of the look)
   neighbour_fit     prefer stacks that occur next to their neighbours (default true)
   hero, abyss       the figure sheet and the tileset with the abyss tiles
@@ -211,6 +214,8 @@ def learn(recipe, big=None):
             if (c, r + 1) in stack_at:
                 pack.vpairs[(stack, stack_at[(c, r + 1)])] += 1
         _learn_goal_decor(pack, level)
+    for name in config.get("rim", []):
+        learn_rim(pack, Level(os.path.join(levels, name + ".json"), learning_abyss=True))
     for name in config["objects"]:
         level = Level(os.path.join(levels, name + ".json"), learning_abyss=True)
         terrain = [[level.terrain(c, r) for c in range(level.width)] for r in range(level.height)]
@@ -266,6 +271,25 @@ def learn(recipe, big=None):
                               "classes": {local: ts.cls(local) for s, local in sorted(object_tiles)
                                           if s == src and ts.cls(local)}}
     return pack
+
+
+def learn_rim(pack, level):
+    """The outer rim's stacks (asciimap.is_rim: a wall field with a neighbour outside the map),
+    and which stacks sit next to them, so the builder's neighbour fit knows them."""
+    terrain = [[level.terrain(c, r) for c in range(level.width)] for r in range(level.height)]
+    stack_at, rim = {}, set()
+    for r in range(level.height):
+        for c in range(level.width):
+            key = asciimap.pattern(terrain, c, r)
+            stack_at[(c, r)] = tuple((role, ts.source, local) for role, ts, local in level.tiles_at(c, r)
+                                     if role != "over")
+            if asciimap.is_rim(key):
+                pack.rim[key][stack_at[(c, r)]] += 1
+                rim.add((c, r))
+    for (c, r), stack in stack_at.items():
+        for other, pairs in (((c + 1, r), pack.hpairs), ((c, r + 1), pack.vpairs)):
+            if other in stack_at and ((c, r) in rim or other in rim):
+                pairs[(stack, stack_at[other])] += 1
 
 
 def _learn_goal_decor(pack, level):

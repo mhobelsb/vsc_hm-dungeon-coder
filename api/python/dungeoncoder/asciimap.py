@@ -183,24 +183,27 @@ class Pack:
         self.details = []       # small details '"' on the floor
         self.wall_variants = {}  # wall tile -> [decorated variants] (deko:)
         self.exits = {}         # walking direction into the goal -> (source, local, Tiled flip flags)
+        self.rim = collections.defaultdict(collections.Counter)      # like stacks, for the outer rim (is_rim)
 
     # --- choosing tiles ----------------------------------------------------
-    def candidates(self, key):
-        """Stacks seen for this exact pattern; otherwise those of the most similar patterns."""
-        if key in self.stacks:
-            return self.stacks[key]
+    def candidates(self, key, table=None):
+        """Stacks seen for this exact pattern; otherwise those of the most similar patterns.
+        table: where to look (default: the stacks; the rim's for a rim field)."""
+        table = self.stacks if table is None else table
+        if key in table:
+            return table[key]
         center, neigh = key
-        keys = [k for k in self.stacks if k[0] == center]
+        keys = [k for k in table if k[0] == center]
         if not keys:
             return collections.Counter({(): 1})
         best = max(similarity(k[1], neigh) for k in keys)
         merged = collections.Counter()
         for k in keys:
             if similarity(k[1], neigh) == best:
-                merged.update(self.stacks[k])
+                merged.update(table[k])
         return merged
 
-    def choose(self, key, left, up, rng, variety):
+    def choose(self, key, left, up, rng, variety, rim=False):
         """Pick a stack for a cell: first of all it must *fit* the already chosen
         neighbours on the left and above (that pair occurs in the corpus), then it
         should be frequent for this neighbourhood. If no candidate of the pattern fits,
@@ -209,6 +212,9 @@ class Pack:
             return ((left is None or self.hpairs[(left, stack)] > 0)
                     + (up is None or self.vpairs[(up, stack)] > 0))
 
+        if rim and self.rim:        # the outer rim drawn as the style's rim levels draw it (a shore, not a hedge)
+            counter = self.candidates(key, self.rim)
+            return sorted(counter, key=lambda s: (fit(s), counter[s]), reverse=True)[0]
         counter = self.candidates(key)
         ranked = sorted(counter, key=lambda s: (fit(s), counter[s]), reverse=True)
         if fit(ranked[0]) < 2:
@@ -282,6 +288,8 @@ class Pack:
             **({"wall_variants": [[list(k), [list(t) for t in v]] for k, v in self.wall_variants.items()]}
                if self.wall_variants else {}),
             **({"exits": {k: list(v) for k, v in self.exits.items()}} if self.exits else {}),
+            **({"rim": {k[0] + "".join(k[1]): [[ref(s), n] for s, n in counter.items()]
+                        for k, counter in self.rim.items()}} if self.rim else {}),
         }
 
     @classmethod
@@ -319,6 +327,8 @@ class Pack:
         pack.details = [tuple(t) for t in data.get("details", [])]
         pack.wall_variants = {tuple(k): [tuple(t) for t in v] for k, v in data.get("wall_variants", [])}
         pack.exits = {k: tuple(v) for k, v in data.get("exits", {}).items()}
+        for key, entries in data.get("rim", {}).items():
+            pack.rim[(key[0], tuple(key[1:]))] = collections.Counter({table[i]: n for i, n in entries})
         return pack
 
     @classmethod
@@ -335,6 +345,45 @@ class Pack:
                            "asset packs: setting dungeonCoder.assetPacks, outside VS Code DC_ASSET_PACKS)")
         with open(path, encoding="utf-8") as f:
             return cls.from_json(json.load(f))
+
+
+def is_rim(key):
+    """A wall field of the outer rim: a neighbour lies outside the map (VOID)."""
+    return key[0] == WALL and VOID in key[1]
+
+
+def free_standing_blocks(grid, sizes):
+    """Small rectangular blocks of wall (2 to 4 fields, at most 2 x 2) that touch no other wall look
+    like a building error; where the style has a large obstacle of exactly that size (sizes: {(w, h)}),
+    they become an obstacle x and get its picture (rubble, a rock). A block without such a picture
+    stays a wall (a pillar hall keeps its pillars). The rules don't change (an obstacle is a wall);
+    the grid is changed in place, the fields are returned."""
+    h, w = len(grid), len(grid[0])
+    solid = (WALL, "T", "t", PROP)
+    seen, changed = set(), []
+    for r in range(h):
+        for c in range(w):
+            if grid[r][c] != WALL or (c, r) in seen:
+                continue
+            block, todo = set(), [(c, r)]
+            while todo:
+                x, y = todo.pop()
+                if (x, y) in block or not (0 <= x < w and 0 <= y < h) or grid[y][x] != WALL:
+                    continue
+                block.add((x, y))
+                todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+            seen |= block
+            xs, ys = [x for x, _ in block], [y for _, y in block]
+            bw, bh = max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
+            if not (2 <= len(block) <= 4 and bw <= 2 and bh <= 2 and len(block) == bw * bh and (bw, bh) in sizes):
+                continue
+            around = {(x + dx, y + dy) for x, y in block for dx, dy in NEIGHBOURS} - block
+            if any(not (0 <= x < w and 0 <= y < h) or grid[y][x] in solid + (VOID,) for x, y in around):
+                continue
+            for x, y in block:
+                grid[y][x] = PROP
+            changed += sorted(block)
+    return changed
 
 
 def _hash(c, r, salt=0):
@@ -384,6 +433,10 @@ def decorate(grid, terrain, layers, pack, header):
                     group[(x, y)] = (c, r)
                     todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
     big = place_big_props(grid, terrain, layers, pack, group)
+    # small details gather around obstacles and objects (a chest, a switch, rubble); the open floor stays calm
+    anchors = {(c, r) for r in range(h) for c in range(w)
+               if grid[r][c] == PROP or grid[r][c] in OBJECT_CLASSES or grid[r][c] in "DGTKo"}
+    near = {(c + dx, r + dy) for c, r in anchors for dx in range(-2, 3) for dy in range(-2, 3)}
     for r in range(h):
         for c in range(w):
             ch = grid[r][c]
@@ -400,7 +453,8 @@ def decorate(grid, terrain, layers, pack, header):
                 layers["floor2"][(c, r)] = pack.details[_hash(c, r, 2) % len(pack.details)]
             elif not density:
                 continue
-            elif ch == FLOOR and pack.details and (c, r) not in layers["floor2"] and _hash(c, r, 3) % 100 < density:
+            elif ch == FLOOR and pack.details and (c, r) not in layers["floor2"] and _hash(c, r, 3) % 100 < (
+                    min(3 * density, 60) if (c, r) in near else density // 4):
                 layers["floor2"][(c, r)] = pack.details[_hash(c, r, 2) % len(pack.details)]
             elif ch == WALL and layers["wall"].get((c, r)) in pack.wall_variants and _hash(c, r, 4) % 100 < 2 * density:
                 variants = pack.wall_variants[layers["wall"][(c, r)]]
@@ -484,6 +538,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
         for c, ch in enumerate(line):
             grid[r + oy][c + ox] = ch
 
+    if pack.big_props:
+        free_standing_blocks(grid, {(p["w"], p["h"]) for p in pack.big_props})
     terrain = [[base_terrain(ch) for ch in row] for row in grid]
     # an obstacle x stands on floor: its neighbours see floor, it gets the floor's tiles and the
     # obstacle's picture on the wall layer; without pictures for obstacles it is a wall
@@ -499,7 +555,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 left, up = chosen.get((c - 1, r)), chosen.get((c, r - 1))
             else:
                 left = up = None      # no constraint: the most frequent stack for the pattern
-            stack = pack.choose(pattern(looks, c, r), left, up, rng, variety)
+            key = pattern(looks, c, r)
+            stack = pack.choose(key, left, up, rng, variety, rim=is_rim(key))
             if terrain[r][c] == ABYSS and pack.abyss_tiles and not (
                     stack and (stack[-1][1], stack[-1][2]) in {tuple(t) for t in pack.abyss_tiles}):
                 # the game only sees an abyss where an Abyss tile is the topmost tile
