@@ -229,5 +229,15 @@ with tempfile.TemporaryDirectory() as root:
           run.returncode == 0 and run.stdout.strip().endswith("True dungeon style: demo style: demo"),
           run.stdout + run.stderr)
 
+# the game builds an object only if its tileset has a tile for every state of its class (game-objects.js);
+# the demo pack, the fallback of every text map, must have them all (a VerticalGrille once had none)
+sys.path.insert(0, api)
+from dungeoncoder.sim import STATES  # noqa: E402
+with open(os.path.join(DEMO, "tilesets", "demo_tiles.json"), encoding="utf-8") as f:
+    have = {(t.get("type"), p["value"]) for t in json.load(f)["tiles"] for p in t.get("properties", [])
+            if p["name"] == "state"}
+missing = [f"{cls} {state}" for cls, states in STATES.items() for state in states if (cls, state) not in have]
+check("demo pack: a tile for every state of every object class", not missing, ", ".join(missing))
+
 print(f"\n{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

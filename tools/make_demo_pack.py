@@ -4,7 +4,7 @@ so the pack has no third-party licence (CC0, see packs/demo/LICENSE.md).
     python3 tools/make_demo_pack.py          # needs Pillow
 
 The pack has the object classes and states the engine knows (Torch burning/off,
-Switch left/right, Door/VerticalDoor and Grille open/closed, Chest, Jug, Goal, Sweets, Abyss,
+Switch left/right, Door/VerticalDoor and Grille/VerticalGrille open/closed, Chest, Jug, Goal, Sweets, Abyss,
 Character standing/walking in four directions and 16 colours), the item tiles the engine
 creates itself (Pebble, Crystal white and orange: pack.json "items") and three demo levels.
 The third, demo_objekte, has every object a text map can place: the free text-map style
@@ -84,6 +84,8 @@ TILES = [
     (None, {}),                                       # 20: pebble
     ("Grille", {"state": "closed", "collision": True}),  # 21
     ("Grille", {"state": "open"}),                    # 22
+    ("VerticalGrille", {"state": "closed", "collision": True}),  # 23: a grille in a vertical wall line
+    ("VerticalGrille", {"state": "open"}),            # 24
 ]
 # the items the engine creates itself (start inventory, map property hero_inventory) and the
 # text-map builder's crystals and pebbles: pack.json "items" (game/src/assets.js, loadItemTiles)
@@ -179,6 +181,13 @@ def draw_tiles(k=1):
         d.rectangle([x0, y0, x1, y0 + 1], fill=(70, 70, 80))
         for bx in (x0 + 2, x0 + 6, x0 + 10, x0 + 14):
             d.line([(bx, y0), (bx, bottom)], fill=(110, 110, 125))
+    for i, open_ in ((23, False), (24, True)):        # the same, turned: bars across, pushed aside when open
+        x0, y0, x1, y1 = box(i)
+        d.rectangle(box(i), fill=FLOOR)
+        right = x0 + 4 if open_ else x1
+        d.rectangle([x0, y0, x0 + 1, y1], fill=(70, 70, 80))
+        for by in (y0 + 2, y0 + 6, y0 + 10, y0 + 14):
+            d.line([(x0, by), (right, by)], fill=(110, 110, 125))
     return img, cols
 
 
@@ -241,8 +250,8 @@ def level(rows, start="east", props=None, prefix="demo", size=T, width=30, heigh
             c = grid[y][x]
             floor.append(0 if c == " " else floor_gid + (3 if c == "~" else 1))
             walls.append(floor_gid + 2 if c in "#Tt" else 0)      # a torch hangs on a wall
-            # D a door in a vertical wall line, d one in a horizontal line
-            obj = {"Z": 16, "T": 4, "t": 5, "s": 6, "D": 10, "d": 8, "G": 21, "C": 12, "J": 14, "*": 17}.get(c)
+            # D a door in a vertical wall line, d one in a horizontal line; G and g the same for grilles
+            obj = {"Z": 16, "T": 4, "t": 5, "s": 6, "D": 10, "d": 8, "G": 21, "g": 23, "C": 12, "J": 14, "*": 17}.get(c)
             if c == "H":
                 n, k = 7, DIRS.index(start)
                 objects.append({"gid": hero_first + n * 8 + k * 2, "height": T, "id": oid, "name": "MainCharacter",
@@ -305,7 +314,7 @@ def main():
                "#.......D...C#",
                "#.*.....#..~~#",
                "###T##d####t##",
-               "#...G.......Z#",
+               "#...G...g...Z#",
                "##############"]
     big = dict(prefix="demo32", size=32, width=15, height=10)       # 15 x 10 cells of 32 px: the same view
     levels = {
@@ -319,7 +328,7 @@ def main():
         with open(os.path.join(PACK, "levels", name), "w") as f:
             json.dump(data, f)
     with open(os.path.join(PACK, "pack.json"), "w") as f:
-        json.dump({"name": "demo", "version": "1.1", "engine": "0.1.0", "licence": "CC0-1.0",
+        json.dump({"name": "demo", "version": "1.2", "engine": "0.1.0", "licence": "CC0-1.0",
                    "description": "Free demo pack for Dungeon Coder; every picture drawn by tools/make_demo_pack.py",
                    "styles": [], "worlds": [],
                    "items": {item: {"tileset": "demo_tiles.json", "tile": local} for item, local in ITEMS.items()}},

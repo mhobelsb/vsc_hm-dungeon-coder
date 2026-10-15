@@ -1,12 +1,12 @@
 {
  "columns": 8,
  "image": "../images/demo32_tiles.png",
- "imageheight": 96,
+ "imageheight": 128,
  "imagewidth": 256,
  "margin": 0,
  "name": "demo32_tiles",
  "spacing": 0,
- "tilecount": 23,
+ "tilecount": 25,
  "tiledversion": "1.11.2",
  "tileheight": 32,
  "tilewidth": 32,
@@ -228,6 +228,33 @@
   {
    "id": 22,
    "type": "Grille",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "open"
+    }
+   ]
+  },
+  {
+   "id": 23,
+   "type": "VerticalGrille",
+   "properties": [
+    {
+     "name": "state",
+     "type": "string",
+     "value": "closed"
+    },
+    {
+     "name": "collision",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 24,
+   "type": "VerticalGrille",
    "properties": [
     {
      "name": "state",
