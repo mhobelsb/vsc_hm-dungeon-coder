@@ -6,7 +6,10 @@ so the pack has no third-party licence (CC0, see packs/demo/LICENSE.md).
 The pack has the object classes and states the engine knows (Torch burning/off,
 Switch left/right, Door/VerticalDoor and Grille open/closed, Chest, Jug, Goal, Sweets, Abyss,
 Character standing/walking in four directions and 16 colours), the item tiles the engine
-creates itself (Pebble, Crystal white and orange: pack.json "items") and two demo levels.
+creates itself (Pebble, Crystal white and orange: pack.json "items") and three demo levels.
+The third, demo_objekte, has every object a text map can place: the free text-map style
+"demo" is learned from these levels (api/python/dungeoncoder/packs/learn/demo.json); it is the
+fallback for maps without a style when no asset pack brings the course's "dungeon" and "maze".
 
 Everything exists twice: with 16 px tiles (demo_*) and with 32 px tiles (demo32_*:
 the same pictures drawn at 32 px, levels of 15 x 10 cells). The 32 px set shows and
@@ -237,8 +240,9 @@ def level(rows, start="east", props=None, prefix="demo", size=T, width=30, heigh
         for x in range(width):
             c = grid[y][x]
             floor.append(0 if c == " " else floor_gid + (3 if c == "~" else 1))
-            walls.append(floor_gid + 2 if c == "#" else 0)
-            obj = {"Z": 16, "T": 4, "t": 5, "s": 6, "D": 10, "G": 21, "C": 12, "J": 14, "*": 17}.get(c)
+            walls.append(floor_gid + 2 if c in "#Tt" else 0)      # a torch hangs on a wall
+            # D a door in a vertical wall line, d one in a horizontal line
+            obj = {"Z": 16, "T": 4, "t": 5, "s": 6, "D": 10, "d": 8, "G": 21, "C": 12, "J": 14, "*": 17}.get(c)
             if c == "H":
                 n, k = 7, DIRS.index(start)
                 objects.append({"gid": hero_first + n * 8 + k * 2, "height": T, "id": oid, "name": "MainCharacter",
@@ -296,10 +300,18 @@ def main():
     screen("DUNGEON COMPLETE", (230, 200, 80), os.path.join(PACK, "images", "dungeon_complete.jpeg"))
     gang = ["########", "#H....Z#", "########"]
     raum = ["##########", "#H...#...#", "#.##.T...#", "#........#", "#..~~...Z#", "##########"]
+    objekte = ["##############",
+               "#H..s...#..J.#",
+               "#.......D...C#",
+               "#.*.....#..~~#",
+               "###T##d####t##",
+               "#...G.......Z#",
+               "##############"]
     big = dict(prefix="demo32", size=32, width=15, height=10)       # 15 x 10 cells of 32 px: the same view
     levels = {
         "demo_gang.json": level(gang),
         "demo_raum.json": level(raum),
+        "demo_objekte.json": level(objekte),
         "demo32_gang.json": level(gang, **big),
         "demo32_raum.json": level(raum, **big),
     }

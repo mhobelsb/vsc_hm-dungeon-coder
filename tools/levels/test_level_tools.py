@@ -186,5 +186,48 @@ far = len(layers["floor2"]) - near
 check("builder: with deko, details gather around objects (a chest) and the open floor stays calm",
       near >= 5 and far <= 0.1 * (200 - 25), f"near {near}, far {far}")
 
+# the free default style (7a): without an asset pack that brings the course's "dungeon" and "maze", a map
+# without a style and a generated level use "demo" (the demo pack's dungeon), with every symbol; a pack
+# that has styles/dungeon.json keeps "dungeon" the default
+probe = r"""
+import os, sys
+import dungeoncoder
+from dungeoncoder import Game, asciimap, generator
+dungeoncoder.use_simulator()
+rows = ["controls: 4,1 -> 8,2", "values: 5", "guards: 6,5 patrol east", "---",
+        "##############",
+        "#H..s...#..J.#",
+        "#.......D...C#",
+        "#.*..K..#..~~#",
+        "###T##D####t##",
+        "#.o.G.W.....Z#",
+        "##############"]
+path = os.path.join(sys.argv[1], "alles.txt")
+with open(path, "w") as f:
+    f.write("\n".join(rows) + "\n")
+level = asciimap.level_from_file(path)
+hero = Game(path).get_hero()
+print(sorted({t["source"] for t in level["tilesets"]}), hero.move(), asciimap.default_style("dungeon"),
+      generator.maze_text(3).splitlines()[1], generator.from_recipe({"generate": ["rooms"]}).splitlines()[1])
+"""
+with tempfile.TemporaryDirectory() as root:
+    def default(packs):
+        return subprocess.run([sys.executable, "-c", probe, root], capture_output=True, text=True, cwd=root,
+                              env=dict(os.environ, PYTHONPATH=api, DC_ASSET_PACKS=packs))
+    run = default("")
+    check("free default style: a map without a style, with every symbol, builds and plays without any asset pack",
+          run.returncode == 0 and run.stdout.strip().endswith(
+              "['../tilesets/demo_hero.json', '../tilesets/demo_tiles.json'] True demo style: demo style: demo"),
+          run.stdout + run.stderr)
+    course = os.path.join(root, "kurs")
+    os.makedirs(os.path.join(course, "styles"))
+    with open(am.style_path("demo"), encoding="utf-8") as f, \
+            open(os.path.join(course, "styles", "dungeon.json"), "w", encoding="utf-8") as g:
+        g.write(f.read())
+    run = default(course)
+    check("... and a pack that brings dungeon keeps it the default (maze still falls back)",
+          run.returncode == 0 and run.stdout.strip().endswith("True dungeon style: demo style: demo"),
+          run.stdout + run.stderr)
+
 print(f"\n{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

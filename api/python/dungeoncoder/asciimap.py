@@ -4,7 +4,9 @@ A map file has an optional header, a line "---", and the map:
 
     start: north             # hero's start direction (default south)
     hero: 7                  # hero sprite 0-15 (default 7); a co-op map: one per hero, "hero: 7 13 1"
-    style: dungeon           # tile style: dungeon (default), corridor, arena, bridge, maze;
+    style: dungeon           # tile style: dungeon (default), corridor, arena, bridge, maze
+                             # (these five come with the course's asset pack; without it the
+                             # default is demo, the free demo pack's dungeon);
                              # other worlds: station (a hospital ward), studio (a light studio),
                              # werkstatt (a production hall), gelaende (a survey area)
     controls: 8,8 -> 25,10   # switch/torch at (8,8) toggles the object at (25,10); repeatable
@@ -85,6 +87,7 @@ EXTRA_HERO_SPRITES = ["13", "1", "10"]      # their sprites unless "hero:" names
 CRYSTAL_ITEMS = {"weiss": "Crystal", "orange": "Crystal:orange"}
 PACK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "packs")
 NOT_STYLES = ("tilesets.json", "items.json")     # files in packs/ that aren't style packs
+FREE_STYLE = "demo"     # the free demo pack's dungeon: the default when no asset pack has "dungeon"/"maze"
 
 
 def _sim():
@@ -336,15 +339,28 @@ class Pack:
         """The pack of a style. An asset pack in DC_ASSET_PACKS may bring its own packs
         (styles/<style>.json, first pack wins, as for tilesets in the game): so a private
         pack can draw a style with other art than the one shipped here."""
-        folders = [os.path.join(p, "styles") for p in _sim().asset_pack_folders()]
-        path = next((os.path.join(d, f"{style}.json") for d in folders + [PACK_DIR]
-                     if f"{style}.json" not in NOT_STYLES and os.path.exists(os.path.join(d, f"{style}.json"))), None)
+        path = style_path(style)
         if path is None:
             styles = sorted(f[:-5] for f in os.listdir(PACK_DIR) if f.endswith(".json") and f not in NOT_STYLES)
             raise MapError(f"unknown style {style!r}; available: {', '.join(styles)} (more styles come with "
                            "asset packs: setting dungeonCoder.assetPacks, outside VS Code DC_ASSET_PACKS)")
         with open(path, encoding="utf-8") as f:
             return cls.from_json(json.load(f))
+
+
+def style_path(style):
+    """The file of a style pack: from an asset pack in DC_ASSET_PACKS (first pack wins),
+    else from the ones shipped here; None if there is none."""
+    folders = [os.path.join(p, "styles") for p in _sim().asset_pack_folders()]
+    return next((os.path.join(d, f"{style}.json") for d in folders + [PACK_DIR]
+                 if f"{style}.json" not in NOT_STYLES and os.path.exists(os.path.join(d, f"{style}.json"))), None)
+
+
+def default_style(style):
+    """The style for a map that names none ("dungeon") or a generated level ("maze"): that one
+    if an asset pack brings it (the course's pack does), else the free style "demo" shipped here,
+    so a map without a style works without any asset pack."""
+    return style if style_path(style) else FREE_STYLE
 
 
 def is_rim(key):
@@ -861,7 +877,8 @@ def fit_view(level, terrain):
 
 def level_from_text(text, style=None):
     """The level (Tiled JSON dict) for the text of a map file. The style comes from
-    the argument, else from the header ("style: bridge"), else "dungeon".
+    the argument, else from the header ("style: bridge"), else "dungeon" (or "demo" if no
+    asset pack brings "dungeon": default_style).
     A map with the header "generate: maze" is a recipe: the level is generated (generator.py),
     a new one per load with "seed: random" (the seed is in the map property `seed`)."""
     header, rows = parse_text(text)
@@ -872,7 +889,7 @@ def level_from_text(text, style=None):
             raise MapError("a recipe (generate:) needs the dungeoncoder package") from None
         text = generator.from_recipe(header)
         header, rows = parse_text(text)
-    style = style or header.get("style", ["dungeon"])[0]
+    style = style or header.get("style", [None])[0] or default_style("dungeon")
     return build(header, rows, Pack.load(style))[0]
 
 

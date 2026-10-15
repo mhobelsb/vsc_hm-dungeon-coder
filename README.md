@@ -34,7 +34,7 @@ while not hero.is_collision_in_front():
 print(game.get_statistics()["moves"])
 ```
 
-The extension brings only free pictures: a demo pack and four worlds (`station`, a hospital ward; `studio`, a light studio; `werkstatt`, a factory floor; `gelaende`, a survey area). Text maps and `Game.generate(..., style=...)` name one of them; the pixel-art dungeon of the course at Munich University of Applied Sciences comes as its own asset pack (setting `dungeonCoder.assetPacks`, below).
+The extension brings only free pictures: a demo pack and four worlds (`station`, a hospital ward; `studio`, a light studio; `werkstatt`, a factory floor; `gelaende`, a survey area). Text maps (`style:`) and `Game.generate(..., style=...)` name one of them; without a style they use `demo`, the demo pack's plain dungeon, which has a picture for every symbol. The pixel-art dungeon of the course at Munich University of Applied Sciences comes as its own asset pack (setting `dungeonCoder.assetPacks`, below).
 
 **The hero only senses the field in front of it** (`is_collision_in_front()`, `is_abyss_in_front()`, `is_switch_in_front()`, `is_torch_in_front()`, `is_enemy_in_front()`, `is_at_goal()`, `get_items_at_position()`, …) and acts with `move()`, `turn_left()`, `interact()`, `pickup(name)`, `drop(name)`. There is deliberately no `turn_right()` and no `get_position()`: building those yourself is part of the learning. Every method has a docstring; `help(hero)` lists them. Business outcomes never raise: a blocked step returns `False`.
 

@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Added
+
+- **A free default style for text maps**: a map without `style:` and `Game.generate()` without a style used the course's `dungeon` and `maze`, and failed without the course's asset pack ("unknown style"). They now use `dungeon` and `maze` when an asset pack brings them, and otherwise `demo`, the demo pack's plain dungeon (a new style learned from the new demo level `demo_objekte`, which has every object a text map can place; in `demo_raum` the torch now hangs on a wall field, as torches do in text maps). With the course's pack nothing changes.
+- **`npm run package:release` and `npm run publish:release`** for a regular release; `tools/check-vsix.mjs` (replaces `check-prerelease.mjs`) checks a package before either kind of publishing: the pre-release mark (there or not), the ID, the version against `package.json` and against every version on the Marketplace, from 1.0.0 on the even/odd minor convention (releases 1.0.x, 1.2.x; pre-releases 1.1.x), and for a release a CHANGELOG section. `npm run package:vsix` is gone (it built a package without either check). `RELEASING.md` describes both ways and how to go back.
+- `check_level.py` with two levels ignores the map property `pack` (which asset pack has the art), like `handmade`: adding it to an older level doesn't count as a change of the rules.
+
 ### Changed
 
 - **Text maps look more like levels drawn by hand** (only the look; a level's rules stay the same):

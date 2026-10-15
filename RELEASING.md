@@ -63,18 +63,22 @@ After the first upload: replace the token for "all projects" with one scoped to 
 
 ## 5. The extension (`.vsix`, Marketplace)
 
-The extension is `hm-benidiet.vscode-dungeon-coder` ("Dungeon Coder"). Its release version 0.1.0 is
-the legacy one the courses use; new versions go out as **pre-releases** until the first regular
-release. VS Code offers a pre-release only to those who choose "Switch to Pre-Release Version"
-(back with "Switch to Release Version"); everyone else keeps the release version.
+The extension is `hm-benidiet.vscode-dungeon-coder` ("Dungeon Coder"). Its release version was 0.1.0
+until 1.0.0; the versions between (0.2.x) went out as **pre-releases**. VS Code offers a pre-release
+only to those who choose "Switch to Pre-Release Version" (back with "Switch to Release Version");
+everyone else gets the release version, and with auto-update they get each new one.
 
-The Marketplace takes plain `major.minor.patch` numbers only (no `-beta`): the pre-releases are
-0.2.x, the first regular release gets a higher number (e.g. 1.0.0). Once a pre-release user's
-version is lower than the newest release, VS Code moves them to the release.
+**Version numbers.** The Marketplace takes plain `major.minor.patch` numbers only (no `-beta`), and
+VS Code keeps a pre-release user on the pre-release channel only while it has a higher version than
+the newest release. From 1.0.0 on we follow VS Code's convention: **an even minor is a release**
+(1.0.x, 1.2.x), **an odd minor a pre-release** (1.1.x, 1.3.x), each higher than everything before.
+`tools/check-vsix.mjs` checks this and asks the Marketplace for the published versions.
+PyPI has no such channel: the Python package of a pre-release is an ordinary version that `pip`
+installs for everyone whose requirement allows it (`dungeoncoder>=1.0`). Upload it only when it is
+backwards compatible, as every version so far; otherwise wait for the release.
 
 ```bash
 npm run compile && npm run lint && npm run compile-tests && npm test
-npm run package:vsix                  # out/vscode-dungeon-coder-X.Y.Z.vsix
 npx @vscode/vsce ls                   # what goes in
 ```
 
@@ -83,22 +87,31 @@ pictures (the demo pack, the CC0 `welt_*` worlds, the title image). The course a
 course's own asset pack. The README image is resolved against the public repository (`repository`
 in `package.json`); it shows once the image is pushed there.
 
-**Publishing a pre-release.** Only with these two scripts: a package without the pre-release mark
-would become the release version, which everyone with auto-update gets (the courses still use
-0.1.0). `vsce` writes the mark into the package when packaging; `tools/check-prerelease.mjs` and
-`vsce publish --pre-release` both refuse a package without it.
+Once per machine: `npx @vscode/vsce login hm-benidiet` with a Personal Access Token (Azure DevOps,
+scope "Marketplace → Manage"). Publish only with the scripts below: each checks the package first
+(`tools/check-vsix.mjs`: pre-release mark, ID, version, Marketplace, CHANGELOG). Never call
+`npx @vscode/vsce publish` directly.
+
+**A release** reaches everyone with auto-update within hours, also pre-release users (their
+pre-release is now lower than the release). Before it: the courses that use the extension know
+it is coming (no release during an exam period; an exam machine installs a fixed `.vsix`, see the
+course's notes), and the CHANGELOG section says what changes for users.
 
 ```bash
-npx @vscode/vsce login hm-benidiet          # once per machine: your Personal Access Token
-                                            # (Azure DevOps, scope "Marketplace → Manage")
+npm run package:release                     # out/vscode-dungeon-coder-X.Y.Z.vsix, without the pre-release mark
+npm run publish:release                     # checks it, then publishes
+```
+
+**A pre-release** reaches only those who chose pre-releases.
+
+```bash
 npm run package:prerelease                  # out/vscode-dungeon-coder-X.Y.Z-pre.vsix
 npm run publish:prerelease                  # checks the mark, the ID and the version, then publishes
 ```
 
-Never `npx @vscode/vsce publish` without `--pre-release` until the first regular release.
-
-**Afterwards: the release version still works.** A fresh VS Code must install 0.1.0 normally and
-the new version only with `--pre-release` (the test VS Code from `npm run test:download`):
+**Afterwards: check what a fresh VS Code installs**, normally and with `--pre-release` (the test
+VS Code from `npm run test:download`). After a release both give the release (until the next
+pre-release); after a pre-release, only `--pre-release` gives it:
 
 ```bash
 CODE="$HOME/.cache/vscode-test/vscode-darwin-arm64-1.140.0/Visual Studio Code.app/Contents/Resources/app/bin/code"
@@ -109,7 +122,12 @@ for flag in "" --pre-release; do
 done
 ```
 
+**Going back.** A published version can't be replaced; a broken release is fixed by a higher one.
+Users can install an older version themselves ("Install Specific Version…" on the extension's page,
+or `code --install-extension hm-benidiet.vscode-dungeon-coder@0.1.0`); auto-update then has to be off
+for this extension, or it comes back.
+
 ## 6. Afterwards
 
-Tag the release commit: `git tag vX.Y.Z`. The extension (`.vsix`) gets the same version; it is
-built with `npx @vscode/vsce package`.
+Tag the release commit: `git tag vX.Y.Z` and push it with the commit. The extension and the
+Python package have the same version; a release of one is a release of both.

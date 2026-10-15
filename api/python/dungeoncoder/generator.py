@@ -19,7 +19,7 @@ right-hand rule can circle forever.
 """
 import random
 
-from .asciimap import GRID_H, GRID_W, MapError
+from .asciimap import GRID_H, GRID_W, MapError, default_style
 
 KINDS = ("maze", "rooms", "pillars")
 
@@ -133,11 +133,12 @@ def _check_size(width, height):
         raise MapError(f"a level must be between 7x7 and {GRID_W}x{GRID_H}, got {width}x{height}")
 
 
-def level_text(seed, kind="maze", width=15, height=11, loops=0, pillars=None, start="east", style="maze",
+def level_text(seed, kind="maze", width=15, height=11, loops=0, pillars=None, start="east", style=None,
                **properties):
     """The generated level as a map text (asciimap format). Keyword arguments that
     aren't options become map properties, e.g. fog="dark". style: the text-map style it is
-    drawn in (default maze, which comes with the course's asset pack)."""
+    drawn in (default maze, which comes with the course's asset pack; without it demo)."""
+    style = style or default_style("maze")
     if kind not in KINDS:
         raise MapError(f"unknown kind {kind!r}; available: {', '.join(KINDS)}")
     if kind == "maze":
@@ -154,9 +155,10 @@ def level_text(seed, kind="maze", width=15, height=11, loops=0, pillars=None, st
     return "\n".join(header + ["---"] + ["".join(row) for row in grid]) + "\n"
 
 
-def maze_text(seed, width=15, height=11, loops=0, start="east", style="maze", **properties):
+def maze_text(seed, width=15, height=11, loops=0, start="east", style=None, **properties):
     """The maze as a map text for asciimap: hero top left, goal bottom right.
     Further keyword arguments become map properties, e.g. fog="dark"."""
+    style = style or default_style("maze")
     grid = maze_grid(seed, width, height, loops)
     grid[1][1] = "H"
     grid[height - 2][width - 2] = "Z"
@@ -202,7 +204,7 @@ def from_recipe(header):
         seed = int(seed)
     else:
         raise MapError(f"seed: a whole number or random, got {seed!r}")
-    options = {"width": width, "height": height, "start": one("start", "east"), "style": one("style", "maze")}
+    options = {"width": width, "height": height, "start": one("start", "east"), "style": one("style")}
     if kind == "maze":
         options["loops"] = int(one("loops", "0"))
     elif "loops" in header:

@@ -1,0 +1,10 @@
+{
+ "style": "demo",
+ "about": "the free demo pack's dungeon (tools/make_demo_pack.py, CC0): the fallback for maps without a style when no asset pack brings dungeon or maze",
+ "levels": "../../../../../packs/demo/levels",
+ "tiles": [{"level": "demo_objekte"}, {"level": "demo_raum"}, {"level": "demo_gang"}],
+ "objects": ["demo_objekte"],
+ "hero": "../tilesets/demo_hero.json",
+ "abyss": "../tilesets/demo_tiles.json",
+ "sweets": ["../tilesets/demo_tiles.json", 17]
+}

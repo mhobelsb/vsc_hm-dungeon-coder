@@ -24,6 +24,7 @@ from dclevel import ABYSS, FLOOR, OBJECT_SYMBOLS, VOID, WALL, Level, asset_path 
 KNOWN = {"Torch", "Switch", "Door", "VerticalDoor", "PatternDoor", "Grille", "VerticalGrille", "Character",
          "Chest", "Jug", "Goal", "Crystal", "Pebble", "Guard", "Sweets", "Abyss"}
 ON_WALL_OK = {"Torch"}                       # a torch hangs on a wall (or stands on a pedestal)
+LOOK_PROPERTIES = ("handmade", "pack")      # map properties that don't change the rules
 PROPERTY_TYPES = {"keyboard": "bool", "fernrohr": "bool", "orakel": "bool", "torch_light": "bool", "handmade": "bool",
                   "inventory_size": "int", "fog": "string", "win": "string", "world": "string",
                   "hero_inventory": "string"}
@@ -170,7 +171,8 @@ def logic(level, objs):
             cls = o["obj"]["type"]
         items.append((o["cell"], cls, o["state"], tuple(sorted((k, str(v)) for k, v in props.items())),
                       o["obj"].get("visible", True)))
-    props = {p["name"]: p["value"] for p in level.data.get("properties", []) if p["name"] != "handmade"}
+    # not rules: handmade says how the level was made, pack which asset pack has its art
+    props = {p["name"]: p["value"] for p in level.data.get("properties", []) if p["name"] not in LOOK_PROPERTIES}
     terrain = [[level.terrain(c, r) for c in range(level.width)] for r in range(level.height)]
     return {"size": (level.width, level.height), "terrain": terrain, "objects": sorted(items, key=str),
             "properties": props}
