@@ -6,6 +6,19 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.0.0] - RELEASE-DATE
+
+The first regular release of the new engine: it replaces 0.1.0 as the release version that VS Code installs (until now 0.2.x came as pre-releases). Everything since 0.1.0 is in it (sections 0.2.0 to 0.2.4 and below); scripts and levels written for 0.1.0 keep working.
+
+**What changes for users of 0.1.0:**
+
+- **The extension no longer brings the course's pixel art.** It has a free demo pack and four free worlds; levels drawn with other art need their asset pack (a folder with `tilesets/`, `images/`, `pack.json`). It is found without a setting when a folder `dungeon-coder-assets` lies in the opened folder, above it or directly inside it (setting `dungeonCoder.findAssetPacks`), or named in the setting `dungeonCoder.assetPacks`. A level without its pack fails to load with a message that names the missing tilesets (and the pack, if the level names it: map property `pack`).
+- **The Python package comes from PyPI**: `pip install dungeoncoder` (same version as the extension). "Dungeon Coder: Copy Python API to workspace" still copies it into the folder, for use without internet access. A copy made by 0.1.0 (a folder `dungeoncoder` in the workspace) is named when the game starts, with an offer to copy the current one.
+- An older `dungeoncoder` from PyPI keeps working with this extension. Before 1.0.0 (0.2.0 to 0.2.4) it printed a warning once per program against an extension of another minor version; `pip install --upgrade dungeoncoder` ends it.
+- **Back to 0.1.0**, if needed: "Install Specific Version…" on the extension's page (auto-update off for it), or `code --install-extension hm-benidiet.vscode-dungeon-coder@0.1.0`.
+
+**Version numbers from now on**: releases have an even minor version (1.0.x, 1.2.x), pre-releases an odd one (1.1.x); see `RELEASING.md`.
+
 ### Added
 
 - **A free default style for text maps**: a map without `style:` and `Game.generate()` without a style used the course's `dungeon` and `maze`, and failed without the course's asset pack ("unknown style"). They now use `dungeon` and `maze` when an asset pack brings them, and otherwise `demo`, the demo pack's plain dungeon (a new style learned from the new demo level `demo_objekte`, which has every object a text map can place; in `demo_raum` the torch now hangs on a wall field, as torches do in text maps). With the course's pack nothing changes.

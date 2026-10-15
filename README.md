@@ -6,7 +6,7 @@ A VS Code extension in which you steer a hero through a pixel-art dungeon **with
 
 ## Using it
 
-**Install:** Python 3.10+ (developed on 3.15), VS Code 1.102+, the VS Code Python extension, and this extension: **Dungeon Coder** (`hm-benidiet.vscode-dungeon-coder`) from the Marketplace. Version 0.2 is a pre-release: on the extension's page, choose **Switch to Pre-Release Version** (and **Switch to Release Version** to go back to 0.1).
+**Install:** Python 3.10+ (developed on 3.15), VS Code 1.102+, the VS Code Python extension, and this extension: **Dungeon Coder** (`hm-benidiet.vscode-dungeon-coder`) from the Marketplace, version 1.0 or later. Pre-releases (odd minor versions, e.g. 1.1) come with **Switch to Pre-Release Version** on the extension's page. Version 0.1 was the first course version and drew the course's art itself; it is still available ("Install Specific Version…").
 
 **First program**, in a folder opened in VS Code:
 
