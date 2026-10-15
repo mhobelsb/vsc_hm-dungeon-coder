@@ -6,7 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
-## [1.0.0] - RELEASE-DATE
+## [1.0.0] - 2026-10-15
 
 The first regular release of the new engine: it replaces 0.1.0 as the release version that VS Code installs (until now 0.2.x came as pre-releases). Everything since 0.1.0 is in it (sections 0.2.0 to 0.2.4 and below); scripts and levels written for 0.1.0 keep working.
 
