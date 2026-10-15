@@ -121,9 +121,10 @@ _version_checked = False
 
 
 def _check_version(base_url):
-    """Once per program: does this copy of the package fit the running extension? A copied
-    `dungeoncoder` folder ages with its exercise folder, and after an update of the extension
-    it fails in odd ways (a method that doesn't exist yet). Only warns, never stops."""
+    """Once per program: does this package fit the running extension? A package newer than
+    the extension (by major.minor) may call commands the extension doesn't have yet: warn. An
+    older one is fine, as the extension keeps every older command (an exercise's .venv may keep
+    the version it was set up with). Only warns, never stops."""
     global _version_checked
     if _version_checked or _simulator is not None:
         return
@@ -139,10 +140,17 @@ def _check_version(base_url):
               f"or check that the right Dungeon Coder runs (Extensions view).")
         return
     extension = getattr(getattr(response.parsed, "result", None), "extension", None)
-    if extension and extension.split(".")[:2] != __version__.split(".")[:2]:
+    if extension and _minor(__version__) > _minor(extension):
         print(f"Warning: this Python package (dungeoncoder {__version__}, {os.path.dirname(os.path.abspath(__file__))}) "
-              f"doesn't fit the Dungeon Coder extension ({extension}). Run \"Dungeon Coder: Copy Python API "
-              f"to workspace\" again, or: pip install --upgrade dungeoncoder")
+              f"is newer than the Dungeon Coder extension ({extension}) and doesn't fit it: some commands may be "
+              f"missing. Update the extension (Extensions view), or use the package that fits it: "
+              f"\"Dungeon Coder: Copy Python API to workspace\".")
+
+
+def _minor(version):
+    """(major, minor) of a version "major.minor.patch", for comparing."""
+    parts = [int(p) if p.isdigit() else 0 for p in str(version).split(".")[:2]]
+    return tuple(parts + [0] * (2 - len(parts)))
 
 
 def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, **kwargs):

@@ -73,12 +73,17 @@ def check():
                         "(Extensions view), or close the other Dungeon Coder")
     else:
         extension = answer.json().get("result", {}).get("extension", "?")
-        if extension.split(".")[:2] == dungeoncoder.__version__.split(".")[:2]:
+        if not _at_least(extension, ".".join(dungeoncoder.__version__.split(".")[:2])):
+            problems += 1
+            line("PROBLEM", f"the game at {url} is Dungeon Coder {extension}, older than this package "
+                            f"({dungeoncoder.__version__}): update the extension (Extensions view), or run "
+                            "\"Dungeon Coder: Copy Python API to workspace\"")
+        elif extension.split(".")[:2] == dungeoncoder.__version__.split(".")[:2]:
             line("ok", f"the game answers at {url}: Dungeon Coder {extension}, fits")
         else:
-            problems += 1
-            line("PROBLEM", f"the game at {url} is Dungeon Coder {extension}, this package is "
-                            f"{dungeoncoder.__version__}: run \"Dungeon Coder: Copy Python API to workspace\" again")
+            line("ok", f"the game answers at {url}: Dungeon Coder {extension}, fits (this package "
+                       f"{dungeoncoder.__version__} is older and lacks the newest commands: "
+                       "pip install --upgrade dungeoncoder)")
 
     from dungeoncoder.sim import asset_pack_folders
     packs = asset_pack_folders()
