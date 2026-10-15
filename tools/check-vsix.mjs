@@ -63,8 +63,9 @@ if (major >= 1 && kind === 'release' && minor % 2 !== 0) {
 if (major >= 1 && kind === 'pre-release' && minor % 2 === 0) {
     problems.push(`${pkg.version}: from 1.0.0 on a pre-release has an odd minor version (1.1.x, 1.3.x)`);
 }
-if (kind === 'release' && !read('CHANGELOG.md').includes(`## [${pkg.version}]`)) {
-    problems.push(`CHANGELOG.md has no section "## [${pkg.version}]"`);
+if (kind === 'release' && !new RegExp(`^## \\[${pkg.version.replace(/\./g, '\\.')}\\] - \\d{4}-\\d{2}-\\d{2}$`, 'm')
+    .test(read('CHANGELOG.md'))) {
+    problems.push(`CHANGELOG.md has no section "## [${pkg.version}] - YYYY-MM-DD" (with the release date)`);
 }
 
 if (!args.includes('--offline')) {
