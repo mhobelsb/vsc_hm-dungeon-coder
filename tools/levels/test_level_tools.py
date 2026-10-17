@@ -186,6 +186,205 @@ far = len(layers["floor2"]) - near
 check("builder: with deko, details gather around objects (a chest) and the open floor stays calm",
       near >= 5 and far <= 0.1 * (200 - 25), f"near {near}, far {far}")
 
+# the looks of "muster:" (facade, props, alcove, outside, pits) and the second floor tone ":", with the
+# free style and made-up pictures: every look only changes pictures, except "aussen", which makes the void a wall
+look = am.Pack.load("demo")
+src = next(iter(look.tilesets))
+look.facade = {"left": (src, 501), "mid": (src, 502), "right": (src, 503), "opening": (src, 504)}
+look.floor_alt = [(src, 510)]
+look.props = [((src, 520), None)]
+look.big_props = []
+look.props_by_place = {"tall": [(src, 521)], "corner": [(src, 522)], "flat": [(src, 523)]}
+look.arch = {"tile": (src, 530), "stairs": [(src, 531), (src, 532), (src, 531, 0x80000000)]}
+look.outside = [(src, 540)]
+look.pits = {"frame": {"".join(bits): (src, 550 + i) for i, bits in enumerate(
+    __import__("itertools").product("01", repeat=8))}, "details": [(src, 560)]}
+text = ("muster: alle\nview: fit\n---\n"
+        "##########\n##########\n####.Z.###\n#Hx.....:#\n#..x.~~.:#\n#x...~~.:#\n##########\n")
+header, rows = am.parse_text(text)
+level, terrain = am.build(header, rows, look)
+first = next(t["firstgid"] for t in level["tilesets"] if t["source"] == src)
+data = {ly["name"]: ly for ly in level["layers"]}
+W = level["width"]
+
+
+def local(layer, c, r):
+    """Local id and flip flags of the tile at map cell (c, r); the view is the map plus one field."""
+    gid = data.get(layer, {"data": []})["data"][(r + 1) * W + c + 1] if layer in data else 0
+    return ((gid & 0x0FFFFFFF) - first if gid else None), gid >> 28
+
+
+fronts = [local("Walls", c, r)[0] for c, r in ((1, 2), (7, 2), (8, 2))]
+check("builder, wandansicht: a two-row wall shows its front where floor lies below, with end pieces; an obstacle "
+      "below it keeps the top", fronts == [502, 501, 503] and local("Walls", 2, 2)[0] not in (501, 502, 503, 504),
+      f"{fronts}, above the obstacle {local('Walls', 2, 2)}")
+check("builder, bogen: stairs over the three fields, mirrored on the right, the arch on a layer Over, the opening "
+      "dark, the goal unseen",
+      [local("Floor2", c, 2)[0] for c in (4, 5, 6)] == [531, 532, 531] and local("Floor2", 6, 2)[1] == 8
+      and local("Over", 4, 1)[0] == 530 and [local("Walls", c, 1)[0] for c in (4, 5, 6)] == [504] * 3
+      and [(o["x"], o["y"]) for o in data["Objects"]["objects"] if not o["visible"]] == [(6 * 16, 4 * 16)],
+      f"{[local('Floor2', c, 2) for c in (4, 5, 6)]} {local('Over', 4, 1)} {local('Walls', 5, 1)} "
+      f"{[(o['x'], o['y'], o['visible']) for o in data['Objects']['objects']]}")
+check("builder, requisiten: an obstacle under a wall is tall, in a corner a pot, elsewhere flat",
+      (local("Walls", 2, 3)[0], local("Walls", 1, 5)[0], local("Walls", 3, 4)[0]) == (521, 522, 523),
+      f"{[local('Walls', c, r)[0] for c, r in ((2, 3), (1, 5), (3, 4))]}")
+check("builder, ':' is a second floor tone on Floor2 and floor for the rules",
+      local("Floor2", 8, 3)[0] == 510 and terrain[4][9] == am.FLOOR)
+pit = [local("Floor", c, r)[0] for c, r in ((5, 4), (6, 4), (5, 5), (6, 5))]
+want = [550 + int(m, 2) for m in ("00001011", "00010110", "01101000", "11010000")]
+bones = {(c, r) for c in range(10) for r in range(7) if local("Floor2", c, r)[0] == 560}
+next_to_pit = all(any(abs(c - x) <= 1 and abs(r - y) <= 1 for x, y in ((5, 4), (6, 4), (5, 5), (6, 5))) for c, r in bones)
+check("builder, gruben: a pit's four fields get the frame's four corners, bones lie only on the floor around it",
+      pit == want and bones and next_to_pit, f"{pit} vs {want}, bones {sorted(bones)}")
+check("builder, aussen: the void beyond the walls is rock on the wall layer and a wall for the rules; the view "
+      "still fits the map", local("Walls", -1, -1)[0] == 540 and terrain[0][0] == am.WALL
+      and (level["width"], level["height"]) == (12, 9) and terrain[4][2] == am.FLOOR,
+      f"{local('Walls', -1, -1)} {terrain[0][0]} {(level['width'], level['height'])}")
+door = am.build(*am.parse_text("muster: bogen\n---\n#######\n#H....#\n###D###\n###.###\n#....Z#\n#######\n"), look)[0]
+over = next((ly for ly in door["layers"] if ly["name"] == "Over"), None)
+cells = [] if over is None else [(i % door["width"], i // door["width"]) for i, g in enumerate(over["data"]) if g]
+ox, oy = (door["width"] - 7) // 2, (door["height"] - 6) // 2
+check("builder, bogen: a doorway through a wall two rows deep gets one arch, anchored left of the gap on the front row",
+      cells == [(2 + ox, 3 + oy)], f"{cells}")
+plain = am.build(*am.parse_text(text.replace("muster: alle\n", "")), look)[0]
+check("builder: without the header muster the same map is built as before (no Over layer, no rock, plain pit)",
+      [ly["name"] for ly in plain["layers"]][-1] == "Objects" and plain["layers"][3]["data"][0] == 0)
+try:
+    am.looks_on({"muster": ["wandansicht", "turm"]})
+    check("builder: an unknown look is an error", False)
+except am.MapError as err:
+    check("builder: an unknown look is an error", "turm" in str(err), str(err))
+
+# furnishing by room type ("raum:"), patches and variety, with the same made-up pictures
+look.rooms = {"lager": {"north": [(src, 601), [(src, 602), (src, 603)]], "corner": [(src, 604)]},
+              "thron": {"focal": [3, 3], "flank": [(src, 605)], "floor": ":"}}
+text = ("raum: lager 1,1 9,5\nraum: thron 12,1 20,6\n---\n"
+        "######################\n#.........##.........#\n#.........##.........#\n#.........D..........#\n"
+        "#.........##.........#\n#H........##.........#\n###.######.###########\n")
+header, rows = am.parse_text(text)
+level, terrain = am.build(header, rows, look)
+W = level["width"]
+first = next(t["firstgid"] for t in level["tilesets"] if t["source"] == src)
+ox, oy = (W - 22) // 2, (level["height"] - 7) // 2
+walls = {ly["name"]: ly for ly in level["layers"]}["Walls"]["data"]
+
+
+def wall_local(c, r):
+    gid = walls[(r + oy) * W + c + ox]
+    return gid - first if gid else None
+
+
+north = [wall_local(c, 1) for c in range(1, 10)]
+pinned = [v for v in north if v in (601, 602, 603)]
+check("builder, raum: pieces with pinned pictures stand along the north wall, every other field, a wide piece on two",
+      len(pinned) >= 2 and all(north[i + 1] not in (601, 602, 603) or north[i] == 602 for i in range(8)
+                              if north[i] in (601, 603)), f"{north}")
+check("builder, raum: the fields next to the door and the gap stay free, objects are untouched",
+      all(terrain[r + oy][c + ox] == am.FLOOR for c, r in ((9, 2), (9, 3), (9, 4), (2, 5), (3, 5), (4, 5)))
+      and terrain[5 + oy][1 + ox] == am.FLOOR, f"{[terrain[r + oy][c + ox] for c, r in ((9, 2), (9, 3), (9, 4), (2, 5), (3, 5), (4, 5))]}")
+look.glass = (src, 599)
+level = am.build(header, rows, look)[0]
+walls = {ly["name"]: ly for ly in level["layers"]}["Walls"]["data"]
+deko = {ly["name"]: ly for ly in level["layers"]}.get("Deko", {"data": [0] * len(walls)})["data"]
+look.rooms["lager"]["north"] = [[(src, 0), (src, 599)]]
+level = am.build(header, rows, look)[0]
+walls = {ly["name"]: ly for ly in level["layers"]}["Walls"]["data"]
+deko = {ly["name"]: ly for ly in level["layers"]}["Deko"]["data"]
+beds = [(c, walls[(1 + oy) * W + c + ox] - first, deko[(1 + oy) * W + c + ox] - first) for c in range(1, 10)
+        if deko[(1 + oy) * W + c + ox]]
+check("builder, raum: a piece whose picture has local id 0 (never a wall) goes on the Deko layer over a glass wall",
+      beds and all(w == 599 and d == 0 for _, w, d in beds), f"{beds}")
+corner = [wall_local(c, 5) for c in (8, 9)] + [wall_local(c, 5) for c in (1, 2)]
+check("builder, raum: pots in the far corners", 604 in corner, f"{corner}")
+floor2 = {ly["name"]: ly for ly in level["layers"]}["Floor2"]["data"]
+focal = sum(1 for r in range(1, 7) for c in range(12, 21) if floor2[(r + oy) * W + c + ox])
+flank = [wall_local(c, r) for r in range(1, 7) for c in range(12, 21) if wall_local(c, r) == 605]
+check("builder, raum: a framed focal area with two flanking pieces, the room's floor in the second tone",
+      focal >= 9 + 20 and len(flank) == 2, f"framed/toned fields {focal}, flank {flank}")
+try:
+    am.build(*am.parse_text("raum: bad 1,1 2,2\n---\n####\n#HZ#\n####\n"), look)
+    check("builder, raum: an unknown room type is an error", False)
+except am.MapError as err:
+    check("builder, raum: an unknown room type is an error", "bad" in str(err) and "lager" in str(err), str(err))
+look.details = [(src, 570)]
+open_key = am.pattern([list("...")] * 3, 1, 1)
+open_stacks = list(look.stacks[open_key])
+look.stacks[open_key][(("floor", src, 700),)] += max(look.stacks[open_key].values())
+for a in open_stacks + [(("floor", src, 700),)]:
+    for b in open_stacks + [(("floor", src, 700),)]:
+        look.hpairs[(a, b)] += 1
+        look.vpairs[(a, b)] += 1
+open_room = "deko: 20\n---\n" + "#" * 24 + "\n" + "\n".join("#H" + "." * 21 + "#" if i == 0 else "#" + "." * 22 + "#" for i in range(12)) + "\n" + "#" * 24 + "\n"
+even = am.build(*am.parse_text(open_room), look)[0]
+patchy = am.build(*am.parse_text("muster: flecken\n" + open_room), look)[0]
+
+
+def detail_cells(level):
+    ly = {ly["name"]: ly for ly in level["layers"]}["Floor2"]
+    return {(i % ly["width"], i // ly["width"]) for i, g in enumerate(ly["data"]) if g}
+
+
+def in_patches(cells):
+    """The share of details that lie in the noise's patches (flecken: all of them; an even sprinkle: some)."""
+    return sum(1 for c, r in cells if am._noise(c, r, 5) > 0.55) / max(1, len(cells))
+
+
+check("builder, flecken: details lie only in the patches of the noise, the map is unchanged otherwise",
+      bool(detail_cells(patchy)) and in_patches(detail_cells(patchy)) == 1.0 and in_patches(detail_cells(even)) < 1.0
+      and {ly["name"]: ly for ly in patchy["layers"]}["Walls"]["data"] == {ly["name"]: ly for ly in even["layers"]}["Walls"]["data"],
+      f"{in_patches(detail_cells(patchy)):.2f} vs {in_patches(detail_cells(even)):.2f}, {len(detail_cells(patchy))} details")
+varied = am.build(*am.parse_text("muster: vielfalt\n" + open_room), look)[0]
+floors = lambda lv: {ly["name"]: ly for ly in lv["layers"]}["Floor"]["data"]      # noqa: E731
+plain_kinds = len({g for g in floors(even) if g})
+check("builder, vielfalt: the open floor uses more different tiles than before; walls stay as they are",
+      len({g for g in floors(varied) if g}) > plain_kinds
+      and {ly["name"]: ly for ly in varied["layers"]}["Walls"]["data"] == {ly["name"]: ly for ly in even["layers"]}["Walls"]["data"],
+      f"{len({g for g in floors(varied) if g})} vs {plain_kinds}")
+with tempfile.TemporaryDirectory() as folder:
+    path = os.path.join(folder, "k.txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("deko: 12\n---\n#######\n#T....#\n#H....#\n###D###\n#....x#\n#x...Z#\n#######\n")
+    run = tool("check_look.py", path)
+    want = ("Fackeln ohne Paar", "Südwand", "einreihigen Wand", "ohne Nische", "deko: über 10", "kein muster")
+    check("check_look: hints on lone torches, a prop at the south wall, a door in a one-row wall, a goal without alcove, "
+          "deko and muster", run.returncode == 0 and all(w in run.stdout for w in want), run.stdout + run.stderr)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("muster: alle\n---\n#######\n#######\n#T.Z.T#\n#..:..#\n#.H...#\n#######\n")
+    run = tool("check_look.py", path)
+    check("check_look: a map after the patterns gets no hints but the loose floor tone", run.returncode == 0
+          and run.stdout.count("\n  ") == 1 and "Bodenton" in run.stdout, run.stdout + run.stderr)
+
+# blueprints with blocks (large props by size), beds in a grid and fences as the room's walls
+look.big_props = [{"w": 2, "h": 1, "fill": False, "parts": [(0, 0, src, 701), (1, 0, src, 702)]},
+                  {"w": 3, "h": 2, "fill": False, "parts": [(dx, dy, src, 710 + 3 * dy + dx) for dx in range(3) for dy in range(2)]}]
+look.fences = {"h": (src, 720), "left": (src, 721), "right": (src, 722), "post": (src, 723)}
+look.rooms = {"garten": {"walls": "zaun", "beds": {"w": 2, "h": 2, "tiles": [(src, 730)]}},
+              "halle": {"north": [{"block": [2, 1]}], "focal_block": [3, 2]}}
+text = ("raum: garten 1,1 6,6\nraum: halle 9,1 17,7\n---\n"
+        "###################\n#......##.........#\n#......##.........#\n#......D..........#\n#......##.........#\n"
+        "#......##.........#\n#......##.........#\n#H.....##.........#\n###################\n")
+header, rows = am.parse_text(text)
+level, terrain = am.build(header, rows, look)
+W = level["width"]
+ox, oy = (W - 19) // 2, (level["height"] - 9) // 2
+walls = {ly["name"]: ly for ly in level["layers"]}["Walls"]["data"]
+
+
+def wl(c, r):
+    gid = walls[(r + oy) * W + c + ox]
+    return gid - first if gid else None
+
+
+beds = [(c, r) for r in range(1, 7) for c in range(1, 7) if wl(c, r) == 730]
+fence = {wl(c, 0) for c in range(1, 7)} | {wl(0, r) for r in range(1, 7)}
+check("builder, raum: beds fill the room in a grid with a gap, the room's walls are fence rails and posts",
+      beds == [(2, 2), (3, 2), (2, 3), (3, 3)] and all(terrain[r + oy][c + ox] == am.WALL for c, r in beds) and 720 in fence and 723 in fence
+      and wl(0, 0) == 723, f"beds {len(beds)}, fence {fence}, corner {wl(0, 0)}")
+north = [wl(c, 1) for c in range(9, 18)]
+focal = [wl(c, r) for r in range(2, 7) for c in range(9, 18) if wl(c, r) in range(710, 716)]
+check("builder, raum: a block along the north wall becomes the large prop of its size, a focal block the large piece",
+      701 in north and 702 in north and sorted(focal) == list(range(710, 716)), f"north {north}, focal {sorted(focal)}")
+
 # the free default style (7a): without an asset pack that brings the course's "dungeon" and "maze", a map
 # without a style and a generated level use "demo" (the demo pack's dungeon), with every symbol; a pack
 # that has styles/dungeon.json keeps "dungeon" the default

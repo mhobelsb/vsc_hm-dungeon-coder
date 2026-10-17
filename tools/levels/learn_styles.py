@@ -34,7 +34,12 @@ Recipe fields:
   pack              the asset pack the art comes from: levels built in this style name it (map
                     property pack), so a missing tileset's message can say which pack to get
   decor             decoration and exits as data (paths may be {"frame": {tileset, rows}}), or
-  decor_file        a file in the levels folder with them
+  decor_file        a file in the levels folder with them. The looks of "muster:" are optional
+                    keys of decor: facade ({tileset, left, mid, right, opening}), floor_alt ([tiles]),
+                    props_by_place ({tall, corner, flat: [tiles]}), arch ({tile, stairs:
+                    [left, mid, right]}), outside ([tiles]), pits ({frame: {tileset, rows}, details}),
+                    rooms ({type: {north, corner, flank: [pieces], focal: [w, h], floor: ":"}}; a
+                    piece is a tile or a list of tiles for consecutive fields)
   big_props         large props for blocks of x, a file in the levels folder
 Each style learns from levels of ONE construction system; mixing them cell by cell gives pieces
 that don't fit together. Tilesets are looked up like the other tools do (dclevel: DC_ASSET_PACKS,
@@ -134,16 +139,32 @@ def learn_decor(pack, recipe):
         path = os.path.join(recipe["_levels"], recipe["decor_file"])
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+                data = dict(json.load(f), **(recipe.get("decor") or {}))     # the recipe adds to the file
     if data:
         paths = data["paths"]
         if "frame" in paths:                    # a 3x3 frame of whole tiles (a carpet with a border)
             paths = frame_paths(paths["frame"]["tileset"], paths["frame"]["rows"])
+        facade = data.get("facade", {})
+        if "tileset" in facade:                 # the compact form: one tileset, local ids per piece
+            facade = {k: (facade["tileset"], v) for k, v in facade.items() if k != "tileset"}
+        pits = data.get("pits", {})
         decor = {"props": [tuple(p) for p in data["props"]], "details": [tuple(d) for d in data["details"]],
                  "paths": {k: tuple(v) for k, v in paths.items()},
                  "wall_variants": {tuple(k): [tuple(t) for t in v] for k, v in data.get("wall_variants", [])},
                  "tops": {tuple(k): tuple(v) for k, v in data.get("tops", [])},
-                 "exits": {k: tuple(v) for k, v in data.get("exits", {}).items()}}
+                 "exits": {k: tuple(v) for k, v in data.get("exits", {}).items()},
+                 "facade": {k: tuple(v) for k, v in facade.items()},
+                 "floor_alt": [tuple(t) for t in data.get("floor_alt", [])],
+                 "props_by_place": {k: [tuple(t) for t in v] for k, v in data.get("props_by_place", {}).items()},
+                 "arch": {k: tuple(v) if k == "tile" else [tuple(t) for t in v]
+                          for k, v in data.get("arch", {}).items()},
+                 "outside": [tuple(t) for t in data.get("outside", [])],
+                 "pits": {"frame": frame_paths(pits["frame"]["tileset"], pits["frame"]["rows"]),
+                          "details": [tuple(t) for t in pits.get("details", [])]} if pits else {},
+                 "glass": tuple(data["glass"]) if data.get("glass") else None,
+                 "fences": {k: tuple(v) for k, v in data.get("fences", {}).items()},
+                 "rooms": {name: {k: (v if k in asciimap.BLUEPRINT_DATA else [asciimap.piece_from_json(piece) for piece in v])
+                                  for k, v in bp.items()} for name, bp in data.get("rooms", {}).items()}}
     if not decor:
         return set()
     tops = decor.get("tops", {})
@@ -152,9 +173,32 @@ def learn_decor(pack, recipe):
     pack.paths = dict(decor["paths"])
     pack.wall_variants = dict(decor.get("wall_variants", {}))
     pack.exits = dict(decor.get("exits", {}))
+    pack.facade = dict(decor["facade"])
+    pack.floor_alt = list(decor["floor_alt"])
+    pack.props_by_place = dict(decor["props_by_place"])
+    pack.arch = dict(decor["arch"])
+    pack.outside = list(decor["outside"])
+    pack.pits = dict(decor["pits"])
+    pack.rooms = dict(decor["rooms"])
+    pack.glass = decor["glass"]
+    pack.fences = dict(decor["fences"])
     used = {t[0] for t in pack.details} | {t[0] for t in pack.paths.values()} | {t[0] for t in pack.exits.values()}
     used |= {t[0] for b, t in pack.props for t in (b, t) if t}
     used |= {t[0] for v in pack.wall_variants.values() for t in v}
+    used |= {t[0] for t in pack.facade.values()} | {t[0] for t in pack.floor_alt} | {t[0] for t in pack.outside}
+    used |= {t[0] for v in pack.props_by_place.values() for t in v}
+    used |= {t[0] for k, v in pack.arch.items() for t in ([v] if k == "tile" else v)}
+    used |= {t[0] for t in pack.pits.get("frame", {}).values()} | {t[0] for t in pack.pits.get("details", [])}
+    if pack.glass:
+        used.add(pack.glass[0])
+    used |= {t[0] for t in pack.fences.values()}
+    for bp in pack.rooms.values():
+        for k, pieces in bp.items():
+            if k == "beds":
+                used |= {t[0] for t in (pieces.get("tiles") or [])}
+            elif k not in asciimap.BLUEPRINT_DATA:
+                used |= {t[0] for piece in pieces if not isinstance(piece, dict)
+                         for t in (piece if isinstance(piece[0], tuple) else [piece])}
     return used
 
 

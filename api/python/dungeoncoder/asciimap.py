@@ -17,6 +17,10 @@ A map file has an optional header, a line "---", and the map:
     orakel: true             # the level has an oracle (hero.ask_oracle())
     view: fit                # show only the map, with larger fields (default: full, the 30x20 field)
     deko: 6                  # scatter small details on 6 % of the plain floor and walls (seeded, default 0)
+    muster: alle             # the looks of good hand-built levels (looks only, see below): wandansicht,
+                             # requisiten, bogen, aussen, gruben, flecken, vielfalt, or alle for all
+    raum: lager 1,1 8,6      # furnish the room whose floor is this rectangle (both corners inclusive)
+                             # after the style's blueprint for that room type (see below); repeatable
     region: s 2,2 17,13      # variants: the switches s in this rectangle may lie on any of its
                              # free fields; Game("karte.txt", seed=17) picks one (variants.py)
     fog: dark                # any other key becomes a map property (bool/int/str)
@@ -37,9 +41,35 @@ Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
 Decoration (looks only; where a style has no pictures for it, x is a wall and , " are floor):
          x  an obstacle: furniture, crates, a rock, a tree (a wall for the rules)
          ,  a path or carpet; neighbouring fields join up       "  a small detail on the floor
+         :  a second floor tone (an earth floor in a stone room; neighbouring rooms differ)
          A block of touching x that is a rectangle of exactly the size of one of the style's large
          props becomes that prop (a 5 x 3 house, a 2 x 2 tank); any other block is filled with the
          style's filling props, largest first (trees, rocks, benches), the rest with small ones.
+The looks of "muster:" (each needs the style to bring the pictures; a map without the header is
+built exactly as before):
+         wandansicht  a wall at least two rows deep shows its front (bricks) in the row that faces
+                      the hero, as the hand-built levels do; torches keep their wall top
+         requisiten   an obstacle x under a wall gets a tall picture (barrels, crates, chains), in a
+                      corner or beside another obstacle pots, elsewhere flat things (rubble, wood)
+         bogen        an arch (layer Over, above the figures) over every doorway through a wall two
+                      rows deep: a gap one field wide, with or without a door or grille, the arch's
+                      legs on the walls beside it; and over a goal Z at the end of a dead end three
+                      fields wide, reached walking north, which also gets a broad staircase
+         aussen       the void beyond the walls is solid rock (a wall for the rules, instead of
+                      walkable darkness)
+         gruben       a pit ~ gets its rim (edges and corners) and bones on the floor around it
+         flecken      "deko:" details gather in patches (smooth noise) instead of an even sprinkle
+         vielfalt     floor tiles vary among the pieces the style uses (no two identical runs)
+Room types for "raum:" (a style brings blueprints for some of: lager, thron, kerker, schlafsaal,
+waffenkammer, arena, kammer in the dungeon; labor, buero, lager, pause in the station; halle,
+lager, leitstand in the workshop; regie, buehne, lager in the studio; garten, hof, obstgarten,
+weide in the survey area): furnishing puts obstacles x with fitting pictures along the north wall
+and into corners (single pieces, wide pieces, or blocks that become the style's large props of
+that size), a framed focal area or a large piece opposite the entrance with flanking pieces,
+beds of crops or trees in a grid, a floor tone, and in the survey area fences for the room's
+walls. Only plain floor fields change; fields next to an entrance stay free, so every door stays
+usable; objects of the task are never touched. The obstacles are walls for the rules, so look at
+the result (level2ascii) before writing a task on the map.
 In another world the same symbols mean that world's things: in `station`, K is a bed
 (class "Bett"), * a sample ("Probe"), o a floor mark ("Markierung"), T a lamp, ~ stairs;
 in `studio`, K is a sketch ("Entwurf"), * a colour gel ("Farbfolie"), o a tape mark
@@ -74,8 +104,15 @@ NEIGHBOURS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 
 WEIGHTS = [1, 2, 1, 2, 2, 1, 2, 1]     # orthogonal neighbours matter more than diagonal ones
 DIRECTIONS = ("north", "east", "south", "west")
 HEADER_KEYS = ("start", "hero", "style", "controls", "pattern", "values", "colors", "guards", "view", "deko",
-               "region", "generate", "size")
+               "region", "generate", "size", "muster", "raum")
 PROP, PATH, DETAIL = "x", ",", '"'      # decoration symbols
+ALT = ":"                               # a second floor tone (an earth floor in a stone room): floor for the rules
+DECORATION = (PROP, PATH, DETAIL, ALT)
+# "muster:": the looks of good hand-built levels, switched on by their German names (docs/level-muster.md
+# in the course workspace); a style brings the pictures for them in its recipe (learn_styles.py, decor)
+LOOKS = {"wandansicht": "facade", "requisiten": "props", "bogen": "arch", "aussen": "outside", "gruben": "pits",
+         "flecken": "patches", "vielfalt": "variety"}
+MUSTER_VARIETY = 0.25           # how often "vielfalt" takes another fitting floor tile
 OFFSETS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 VIEWS = ("full", "fit")
 GUARD_SPRITE = 3            # the characters tileset's sprite number used for guards
@@ -187,6 +224,22 @@ class Pack:
         self.wall_variants = {}  # wall tile -> [decorated variants] (deko:)
         self.exits = {}         # walking direction into the goal -> (source, local, Tiled flip flags)
         self.rim = collections.defaultdict(collections.Counter)      # like stacks, for the outer rim (is_rim)
+        # the looks of "muster:" (optional; tiles are (source, local), stairs may carry Tiled flip flags):
+        self.facade = {}        # "left"/"mid"/"right": the front of a wall seen from the south; "opening": under an arch
+        self.floor_alt = []     # tiles of the second floor tone ":"
+        self.props_by_place = {}  # "tall" (an obstacle under a wall), "corner", "flat" -> [tiles]
+        self.arch = {}          # "tile": the arch over doorways and a goal's alcove (3 fields wide, 2 high);
+                                # "stairs": [left, mid, right] of the alcove's staircase
+        self.outside = []       # tiles that fill the void beyond the walls (solid rock: a wall for the rules)
+        self.pits = {}          # "frame": 8-neighbour mask -> abyss tile (like paths); "details": bones around a pit
+        self.glass = None       # a fully transparent tile without class: the wall tile under a pinned picture whose
+                                # local id is 0 (local 0 never counts as a wall), and the second field of a wide piece
+        self.rooms = {}         # room type -> blueprint for "raum:": {"north": [piece], "corner": [piece],
+                                # "focal": [w, h] (0, 0: the room minus a border), "focal_block": [w, h],
+                                # "flank": [piece], "floor": ":" or ",", "beds": {"w", "h", "tiles"}, "walls": "zaun"};
+                                # a piece is a tile, a list of tiles for consecutive fields (a bed two fields wide),
+                                # or {"block": [w, h]}: a block of obstacles that becomes a large prop of that size
+        self.fences = {}        # "h", "v", "left", "right", "post": wall tiles of a fence (blueprint "walls": "zaun")
 
     # --- choosing tiles ----------------------------------------------------
     def candidates(self, key, table=None):
@@ -293,6 +346,19 @@ class Pack:
             **({"exits": {k: list(v) for k, v in self.exits.items()}} if self.exits else {}),
             **({"rim": {k[0] + "".join(k[1]): [[ref(s), n] for s, n in counter.items()]
                         for k, counter in self.rim.items()}} if self.rim else {}),
+            **({"facade": {k: list(v) for k, v in self.facade.items()}} if self.facade else {}),
+            **({"floor_alt": [list(t) for t in self.floor_alt]} if self.floor_alt else {}),
+            **({"props_by_place": {k: [list(t) for t in v] for k, v in self.props_by_place.items()}}
+               if self.props_by_place else {}),
+            **({"arch": {k: list(v) if k == "tile" else [list(t) for t in v] for k, v in self.arch.items()}}
+               if self.arch else {}),
+            **({"outside": [list(t) for t in self.outside]} if self.outside else {}),
+            **({"pits": {"frame": {k: list(v) for k, v in self.pits.get("frame", {}).items()},
+                         "details": [list(t) for t in self.pits.get("details", [])]}} if self.pits else {}),
+            **({"glass": list(self.glass)} if self.glass else {}),
+            **({"fences": {k: list(v) for k, v in self.fences.items()}} if self.fences else {}),
+            **({"rooms": {name: {k: (v if k in BLUEPRINT_DATA else [piece_json(piece) for piece in v])
+                                 for k, v in bp.items()} for name, bp in self.rooms.items()}} if self.rooms else {}),
         }
 
     @classmethod
@@ -332,6 +398,19 @@ class Pack:
         pack.exits = {k: tuple(v) for k, v in data.get("exits", {}).items()}
         for key, entries in data.get("rim", {}).items():
             pack.rim[(key[0], tuple(key[1:]))] = collections.Counter({table[i]: n for i, n in entries})
+        pack.facade = {k: tuple(v) for k, v in data.get("facade", {}).items()}
+        pack.floor_alt = [tuple(t) for t in data.get("floor_alt", [])]
+        pack.props_by_place = {k: [tuple(t) for t in v] for k, v in data.get("props_by_place", {}).items()}
+        pack.arch = {k: tuple(v) if k == "tile" else [tuple(t) for t in v] for k, v in data.get("arch", {}).items()}
+        pack.outside = [tuple(t) for t in data.get("outside", [])]
+        pits = data.get("pits")
+        if pits:
+            pack.pits = {"frame": {k: tuple(v) for k, v in pits.get("frame", {}).items()},
+                         "details": [tuple(t) for t in pits.get("details", [])]}
+        pack.glass = tuple(data["glass"]) if data.get("glass") else None
+        pack.fences = {k: tuple(v) for k, v in data.get("fences", {}).items()}
+        pack.rooms = {name: {k: (v if k in BLUEPRINT_DATA else [piece_from_json(piece) for piece in v])
+                             for k, v in bp.items()} for name, bp in data.get("rooms", {}).items()}
         return pack
 
     @classmethod
@@ -346,6 +425,23 @@ class Pack:
                            "asset packs: setting dungeonCoder.assetPacks, outside VS Code DC_ASSET_PACKS)")
         with open(path, encoding="utf-8") as f:
             return cls.from_json(json.load(f))
+
+
+def piece_json(piece):
+    """A furnishing piece for JSON: a tile [source, local], a list of tiles for consecutive fields, or a
+    {"block": [w, h]} that the large props fill."""
+    if isinstance(piece, dict):
+        return dict(piece)
+    return [list(t) for t in piece] if isinstance(piece[0], (list, tuple)) else list(piece)
+
+
+def piece_from_json(piece):
+    if isinstance(piece, dict):
+        return dict(piece)
+    return [tuple(t) for t in piece] if isinstance(piece[0], list) else tuple(piece)
+
+
+BLUEPRINT_DATA = ("focal", "focal_block", "floor", "beds", "walls")      # blueprint keys that hold no pieces
 
 
 def style_path(style):
@@ -368,12 +464,13 @@ def is_rim(key):
     return key[0] == WALL and VOID in key[1]
 
 
-def free_standing_blocks(grid, sizes):
+def free_standing_blocks(grid, sizes, keep=frozenset()):
     """Small rectangular blocks of wall (2 to 4 fields, at most 2 x 2) that touch no other wall look
     like a building error; where the style has a large obstacle of exactly that size (sizes: {(w, h)}),
     they become an obstacle x and get its picture (rubble, a rock). A block without such a picture
-    stays a wall (a pillar hall keeps its pillars). The rules don't change (an obstacle is a wall);
-    the grid is changed in place, the fields are returned."""
+    stays a wall (a pillar hall keeps its pillars), as does a block with a field in keep (a fence
+    between two gates). The rules don't change (an obstacle is a wall); the grid is changed in place,
+    the fields are returned."""
     h, w = len(grid), len(grid[0])
     solid = (WALL, "T", "t", PROP)
     seen, changed = set(), []
@@ -393,6 +490,8 @@ def free_standing_blocks(grid, sizes):
             bw, bh = max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
             if not (2 <= len(block) <= 4 and bw <= 2 and bh <= 2 and len(block) == bw * bh and (bw, bh) in sizes):
                 continue
+            if block & keep:
+                continue
             around = {(x + dx, y + dy) for x, y in block for dx, dy in NEIGHBOURS} - block
             if any(not (0 <= x < w and 0 <= y < h) or grid[y][x] in solid + (VOID,) for x, y in around):
                 continue
@@ -406,6 +505,178 @@ def _hash(c, r, salt=0):
     """A fixed pseudo-random number per field: the same map always gets the same decoration."""
     h = (c * 73856093) ^ (r * 19349663) ^ (salt * 83492791)
     return (h ^ (h >> 13)) & 0x7FFFFFFF
+
+
+def _noise(c, r, scale=4):
+    """Smooth value noise in [0, 1) over the field, the same for the same map (muster: flecken):
+    details then gather in patches instead of an even sprinkle."""
+    x0, y0 = c // scale, r // scale
+    fx, fy = (c % scale) / scale, (r % scale) / scale
+
+    def value(x, y):
+        return (_hash(x, y, 11) % 1000) / 1000
+
+    def lerp(a, b, t):
+        t = t * t * (3 - 2 * t)
+        return a + (b - a) * t
+    return lerp(lerp(value(x0, y0), value(x0 + 1, y0), fx), lerp(value(x0, y0 + 1), value(x0 + 1, y0 + 1), fx), fy)
+
+
+ROOM_PLAIN = (FLOOR, ALT)       # fields furnishing may use
+
+
+def piece_size(piece):
+    """(w, h) of a furnishing piece."""
+    if isinstance(piece, dict):
+        return tuple(piece["block"])
+    return (len(piece), 1) if isinstance(piece[0], tuple) else (1, 1)
+
+
+def fence_tiles(fences, is_fence, c, r):
+    """The fence piece for a wall field by its fence neighbours: a rail between left and right, a post
+    where the fence runs up or down (corners, junctions, single posts), end pieces where a rail stops."""
+    left, right = is_fence(c - 1, r), is_fence(c + 1, r)
+    up, down = is_fence(c, r - 1), is_fence(c, r + 1)
+    if up or down or not (left or right):
+        return fences.get("post") or fences.get("v")
+    if left and right:
+        return fences["h"]
+    return (fences.get("left") if right else fences.get("right")) or fences["h"]
+
+
+def furnish(grid, header, pack, ox, oy):
+    """"raum: TYPE x1,y1 x2,y2": furnish the room whose floor is that rectangle (map coordinates, both
+    corners inclusive) after the style's blueprint for the room type (pack.rooms). Obstacles x go along
+    the north wall (every other field, with the blueprint's pictures, or blocks for the style's large
+    props), into the corners farthest from the entrances, as flanking pieces beside a framed focal area
+    (",") or a large piece that lies opposite the entrance; beds (blocks in a grid, crops or trees) fill
+    the room; a floor tone (":" or ",") may cover it; with "walls": "zaun" the room's walls become
+    fences. Only plain floor fields change; fields next to an entrance (a non-wall field on the room's
+    border) or next to a torch stay free, objects are never touched. Returns ({field: tile} for the
+    obstacles whose picture the blueprint pins, {field: tile} for walls drawn as fences)."""
+    h, w = len(grid), len(grid[0])
+    pinned, fence_walls = {}, {}
+
+    def at(x, y):
+        return grid[y][x] if 0 <= x < w and 0 <= y < h else VOID
+
+    def solid(x, y):
+        return at(x, y) in (WALL, "T", "t", PROP, VOID)
+    for spec in header.get("raum", []):
+        try:
+            kind, a, b = spec.split()
+            (x0, y0), (x1, y1) = (tuple(int(v) for v in corner.split(",")) for corner in (a, b))
+        except ValueError:
+            raise MapError(f"raum: expected 'TYPE x1,y1 x2,y2', got {spec!r}") from None
+        if kind not in pack.rooms:
+            raise MapError(f"raum {spec!r}: this style knows no room type {kind!r}; known: "
+                           + ", ".join(sorted(pack.rooms)))
+        x0, x1, y0, y1 = min(x0, x1) + ox, max(x0, x1) + ox, min(y0, y1) + oy, max(y0, y1) + oy
+        if not (0 <= x0 <= x1 < w and 0 <= y0 <= y1 < h):
+            raise MapError(f"raum {spec!r}: the rectangle lies outside the map")
+        plan = pack.rooms[kind]
+        width, height = x1 - x0 + 1, y1 - y0 + 1
+        plain = ROOM_PLAIN + ((plan["floor"],) if plan.get("floor") else ())     # the room's own floor tone counts
+        # entrances: non-wall fields on the ring just outside the rectangle; their neighbours stay free
+        ring = ([(x, y0 - 1) for x in range(x0, x1 + 1)] + [(x, y1 + 1) for x in range(x0, x1 + 1)]
+                + [(x0 - 1, y) for y in range(y0, y1 + 1)] + [(x1 + 1, y) for y in range(y0, y1 + 1)])
+        entrances = [(x, y) for x, y in ring if not solid(x, y)]
+        keep = {(x + dx, y + dy) for x, y in entrances for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
+        sides = {"north" if y < y0 else "south" if y > y1 else "west" if x < x0 else "east" for x, y in entrances}
+
+        def free(x, y):
+            return (x0 <= x <= x1 and y0 <= y <= y1 and grid[y][x] in plain and (x, y) not in keep
+                    and not any(at(x + dx, y + dy) in "Tt" for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))))
+
+        def put(x, y, piece):
+            """The piece with its top-left field at (x, y), if every field of it is free."""
+            pw, ph = piece_size(piece)
+            cells = [(x + i, y + j) for j in range(ph) for i in range(pw)]
+            if not all(free(cx, cy) for cx, cy in cells):
+                return False
+            tiles = None if isinstance(piece, dict) else (piece if isinstance(piece[0], tuple) else [piece])
+            for n, (cx, cy) in enumerate(cells):
+                grid[cy][cx] = PROP
+                if tiles:
+                    pinned[(cx, cy)] = tiles[n]
+            return True
+        if plan.get("floor"):
+            for y in range(y0, y1 + 1):
+                for x in range(x0, x1 + 1):
+                    if grid[y][x] == FLOOR:
+                        grid[y][x] = plan["floor"]
+        if plan.get("walls") == "zaun" and pack.fences:
+            corners = [(x0 - 1, y0 - 1), (x1 + 1, y0 - 1), (x0 - 1, y1 + 1), (x1 + 1, y1 + 1)]
+            fence_cells = {(x, y) for x, y in ring + corners if at(x, y) == WALL}
+
+            def is_fence(x, y):
+                return (x, y) in fence_cells
+            for x, y in fence_cells:
+                fence_walls[(x, y)] = fence_tiles(pack.fences, is_fence, x, y)
+        north = plan.get("north") or []
+        if north and height >= 3 and solid(x0, y0 - 1):          # pieces along the north wall, every other field
+            n, x = 0, x0
+            while x <= x1 and n < max(1, width // 3):
+                piece = north[_hash(x, y0, 12) % len(north)]
+                if put(x, y0, piece):
+                    n += 1
+                    x += piece_size(piece)[0] + 1
+                else:
+                    x += 1
+        focal, block = plan.get("focal"), plan.get("focal_block")
+        if (focal or block) and width >= 5 and height >= 4:
+            fw, fh = block or (focal if focal != [0, 0] else [max(3, width - 4), max(3, height - 4)])
+            fw, fh = min(fw, width - 2), min(fh, height - 3)
+            fx = x0 + (width - fw) // 2
+            fy = (y0 + 1 if "south" in sides and "north" not in sides else y1 - fh
+                  if "north" in sides and "south" not in sides else y0 + (height - fh) // 2)
+            fy = max(y0 + 1, min(fy, y1 - fh))
+            if block:
+                put(fx, fy, {"block": [fw, fh]})
+            else:
+                for y in range(fy, fy + fh):
+                    for x in range(fx, fx + fw):
+                        if grid[y][x] == FLOOR:
+                            grid[y][x] = PATH
+            for i, x in enumerate((fx - 1, fx + fw)):
+                flank = plan.get("flank") or []
+                if flank:
+                    put(x, fy, flank[(i + _hash(fx, fy, 13)) % len(flank)])
+        beds = plan.get("beds")
+        if beds:
+            bw, bh, tiles = beds["w"], beds["h"], [tuple(t) for t in beds.get("tiles") or []]
+            y = y0 + 1
+            while y + bh - 1 < y1:
+                x = x0 + 1
+                while x + bw - 1 < x1:
+                    piece = ({"block": [bw, bh]} if not tiles
+                             else [tiles[_hash(x, y, 16) % len(tiles)]] * bw)
+                    if tiles:                     # the same crop on every field of the bed
+                        cells = [(x + i, y + j) for j in range(bh) for i in range(bw)]
+                        if all(free(cx, cy) for cx, cy in cells):
+                            for cx, cy in cells:
+                                grid[cy][cx] = PROP
+                                pinned[(cx, cy)] = piece[0]
+                    else:
+                        put(x, y, piece)
+                    x += bw + 1
+                y += bh + 1
+        corner = plan.get("corner") or []
+        if corner:
+            spots = [(x1, y1, -1, -1), (x0, y1, 1, -1), (x1, y0, -1, 1), (x0, y0, 1, 1)]   # the far (south) corners first
+            placed = 0
+            for cx, cy, dx, dy in spots:
+                if placed >= 2 or not free(cx, cy):
+                    continue
+                piece = corner[_hash(cx, cy, 14) % len(corner)]
+                pw, ph = piece_size(piece)
+                px, py = (cx if dx > 0 else cx - pw + 1), (cy if dy > 0 else cy - ph + 1)
+                if not put(px, py, piece):
+                    continue
+                if pw == ph == 1 and free(cx + dx, cy) and _hash(cx, cy, 15) % 2:
+                    put(cx + dx, cy, corner[_hash(cx + dx, cy, 14) % len(corner)])
+                placed += 1
+    return pinned, fence_walls
 
 
 def exit_direction(grid, c, r):
@@ -425,9 +696,131 @@ def exit_direction(grid, c, r):
     return (solid or options)[0]
 
 
-def decorate(grid, terrain, layers, pack, header):
-    """The decoration of a map (it changes no rule): obstacles x, paths ",", details '"',
-    and with "deko: N" small details on N % of the plain floor and decorated walls."""
+def looks_on(header):
+    """The looks switched on by "muster: wandansicht nische ..." (or "alle"), as their code names."""
+    words = " ".join(header.get("muster", [])).replace(",", " ").split()
+    unknown = [w for w in words if w not in LOOKS and w != "alle"]
+    if unknown:
+        raise MapError(f"muster: unknown look {unknown[0]!r}; known: alle, {', '.join(LOOKS)}")
+    return set(LOOKS.values()) if "alle" in words else {LOOKS[w] for w in words}
+
+
+def facades(grid, terrain, layers, pack):
+    """muster: wandansicht. In a wall at least two rows deep, the row that faces the hero (a wall above,
+    floor below) shows the wall's front instead of its top, with end pieces where the front stops; a
+    torch keeps its wall top. Returns the fields that show a front."""
+    h, w = len(grid), len(grid[0])
+    cells = {(c, r) for r in range(1, h - 1) for c in range(w)
+             if grid[r][c] == WALL and terrain[r - 1][c] == WALL and terrain[r + 1][c] == FLOOR}
+    for c, r in cells:
+        if (c - 1, r) not in cells and (c + 1, r) in cells:
+            which = "left"
+        elif (c + 1, r) not in cells and (c - 1, r) in cells:
+            which = "right"
+        else:
+            which = "mid"
+        layers["wall"][(c, r)] = pack.facade.get(which) or pack.facade["mid"]
+    return cells
+
+
+def pit_frames(grid, terrain, layers, pack):
+    """muster: gruben. A pit gets its rim: the frame's edges and corners by which neighbours are pit too
+    (the frame's tiles are abyss tiles, so the pit stays an abyss), and bones lie on the floor around it."""
+    h, w = len(grid), len(grid[0])
+    frame, details = pack.pits.get("frame", {}), pack.pits.get("details", [])
+
+    def is_pit(x, y):
+        return 0 <= x < w and 0 <= y < h and terrain[y][x] == ABYSS
+    for r in range(h):
+        for c in range(w):
+            if terrain[r][c] == ABYSS and frame:
+                layers["floor"][(c, r)] = frame.get(path_mask(is_pit, c, r), frame.get("1" * 8))
+                layers["floor2"].pop((c, r), None)
+            elif (terrain[r][c] == FLOOR and grid[r][c] == FLOOR and details and _hash(c, r, 8) % 100 < 30
+                  and any(is_pit(c + dx, r + dy) for dx, dy in NEIGHBOURS)):
+                layers["floor2"][(c, r)] = details[_hash(c, r, 9) % len(details)]
+
+
+def arches(grid, terrain, layers, pack, fronts):
+    """muster: bogen. An arch (3 fields wide, 2 high, on the layer Over above the figures) over
+    (1) every doorway through a wall two rows deep: a gap one field wide (floor, a door or a grille)
+    that leads from room to room, with wall beside it in both rows; the arch's legs stand on those walls,
+    and (2) a goal at the end of a dead end three fields wide, walked into northwards, which also gets a
+    broad staircase over the three fields; where the wall behind it is two rows deep (or the map ends)
+    the arch spans the opening and a wall front under it becomes the dark opening.
+    Returns the goals that got stairs (their goal object becomes an invisible marker)."""
+    h, w = len(grid), len(grid[0])
+    done = set()
+    arch, stairs = pack.arch.get("tile"), pack.arch.get("stairs")
+
+    def t(x, y):
+        return terrain[y][x] if 0 <= x < w and 0 <= y < h else VOID
+    if arch:
+        for r in range(1, h - 2):
+            for c in range(1, w - 1):
+                # (c, r) the upper and (c, r + 1) the lower (front) field of the gap, rooms above and below
+                if not (t(c, r) == FLOOR and t(c, r + 1) == FLOOR and t(c, r - 1) == FLOOR and t(c, r + 2) == FLOOR
+                        and all(t(x, y) == WALL for x in (c - 1, c + 1) for y in (r, r + 1))
+                        and any(t(x, r + 2) == FLOOR for x in (c - 1, c + 1))        # the wall ends below the gap
+                        and all(grid[y][c] not in (PROP,) for y in (r, r + 1))):
+                    continue
+                layers.setdefault("over", {})[(c - 1, r + 1)] = arch
+    for r in range(h):
+        for c in range(w):
+            if grid[r][c] != "Z" or exit_direction(grid, c, r) != "north" or not 1 <= c < w - 1:
+                continue
+            plain = all(grid[r][x] in (FLOOR, PATH, DETAIL, ALT) for x in (c - 1, c + 1))
+            if not (plain and t(c - 2, r) in (WALL, VOID) and t(c + 2, r) in (WALL, VOID)
+                    and all(t(x, r - 1) == WALL for x in (c - 1, c, c + 1))):
+                continue
+            if stairs:
+                for x, tile in zip((c - 1, c, c + 1), stairs):
+                    layers["floor2"][(x, r)] = tile
+                done.add((c, r))
+            if arch and all(t(x, y) in (WALL, VOID) for x in (c - 1, c, c + 1) for y in (r - 1, r - 2)):
+                layers.setdefault("over", {})[(c - 1, r - 1)] = arch     # 3 fields wide, 2 high, drawn upwards
+                if pack.facade.get("opening"):
+                    for x in (c - 1, c, c + 1):
+                        if (x, r - 1) in fronts:
+                            layers["wall"][(x, r - 1)] = pack.facade["opening"]
+    return done
+
+
+def fill_outside(grid, terrain, layers, pack):
+    """muster: aussen. Every field beyond the walls that nothing is drawn on becomes solid rock: a tile
+    on the wall layer, so the field is a wall for the rules instead of walkable darkness. Returns them."""
+    h, w = len(grid), len(grid[0])
+    drawn = set().union(*(set(layer) for layer in layers.values()))
+    filled = set()
+    for r in range(h):
+        for c in range(w):
+            if terrain[r][c] == VOID and (c, r) not in drawn:
+                layers["wall"][(c, r)] = pack.outside[_hash(c, r, 10) % len(pack.outside)]
+                filled.add((c, r))
+    return filled
+
+
+def prop_place(grid, terrain, c, r):
+    """Where an obstacle stands: "tall" under a wall (shelves, barrels and chains stand there), "corner"
+    in a corner of the room or beside another obstacle (pots), else "flat" (rubble, wood)."""
+    h, w = len(grid), len(grid[0])
+
+    def t(x, y):
+        return terrain[y][x] if 0 <= x < w and 0 <= y < h else VOID
+    if t(c, r - 1) in (WALL, VOID):
+        return "tall"
+    beside_wall = any(t(x, r) == WALL and not (0 <= x < w and grid[r][x] == PROP) for x in (c - 1, c + 1))
+    beside_prop = any(0 <= x < w and grid[r][x] == PROP for x in (c - 1, c + 1))
+    if (beside_wall and t(c, r + 1) == WALL) or beside_prop:
+        return "corner"
+    return "flat"
+
+
+def decorate(grid, terrain, layers, pack, header, muster=frozenset(), pinned=None):
+    """The decoration of a map (it changes no rule): obstacles x, paths ",", details '"', the second
+    floor tone ":", and with "deko: N" small details on N % of the plain floor and decorated walls.
+    pinned: {field: tile} obstacles whose picture a room's blueprint chose (furnish)."""
+    pinned = pinned or {}
     try:
         density = int(header.get("deko", ["0"])[0])
     except ValueError:
@@ -440,11 +833,11 @@ def decorate(grid, terrain, layers, pack, header):
     group = {}
     for r in range(h):
         for c in range(w):
-            if grid[r][c] == PROP and (c, r) not in group:
+            if grid[r][c] == PROP and (c, r) not in group and (c, r) not in pinned:
                 todo = [(c, r)]
                 while todo:
                     x, y = todo.pop()
-                    if (x, y) in group or not (0 <= x < w and 0 <= y < h) or grid[y][x] != PROP:
+                    if (x, y) in group or not (0 <= x < w and 0 <= y < h) or grid[y][x] != PROP or (x, y) in pinned:
                         continue
                     group[(x, y)] = (c, r)
                     todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
@@ -458,8 +851,22 @@ def decorate(grid, terrain, layers, pack, header):
             ch = grid[r][c]
             if (c, r) in big:
                 continue
-            if ch == PROP and pack.props:
-                bottom, top = pack.props[_hash(*group[(c, r)], 1) % len(pack.props)]
+            if ch == PROP and (c, r) in pinned:
+                tile = pinned[(c, r)]
+                if tile[1] == 0 and pack.glass:         # local 0 never counts as a wall: picture above a glass wall
+                    layers["wall"][(c, r)] = pack.glass
+                    layers["deko"][(c, r)] = tile
+                else:
+                    layers["wall"][(c, r)] = tile
+                top = dict(pack.props).get(tile)        # a piece's part that reaches into the field behind it
+                if top and r > 0 and terrain[r - 1][c] in (FLOOR, WALL):
+                    layers["deko"][(c, r - 1)] = top
+            elif ch == PROP and pack.props:
+                by_place = pack.props_by_place.get(prop_place(grid, terrain, c, r)) if "props" in muster else None
+                if by_place:
+                    bottom, top = by_place[_hash(*group[(c, r)], 1) % len(by_place)], None
+                else:
+                    bottom, top = pack.props[_hash(*group[(c, r)], 1) % len(pack.props)]
                 layers["wall"][(c, r)] = bottom
                 if top and r > 0 and terrain[r - 1][c] in (FLOOR, WALL):
                     layers["deko"][(c, r - 1)] = top
@@ -467,14 +874,23 @@ def decorate(grid, terrain, layers, pack, header):
                 layers["floor2"][(c, r)] = pack.paths.get(path_mask(is_path, c, r), pack.paths.get("0" * 8))
             elif ch == DETAIL and pack.details:
                 layers["floor2"][(c, r)] = pack.details[_hash(c, r, 2) % len(pack.details)]
+            elif ch == ALT and pack.floor_alt:
+                layers["floor2"][(c, r)] = pack.floor_alt[_hash(c, r, 7) % len(pack.floor_alt)]
             elif not density:
                 continue
             elif ch == FLOOR and pack.details and (c, r) not in layers["floor2"] and _hash(c, r, 3) % 100 < (
-                    min(3 * density, 60) if (c, r) in near else density // 4):
+                    patchy(min(3 * density, 60) if (c, r) in near else density // 4, c, r, muster)):
                 layers["floor2"][(c, r)] = pack.details[_hash(c, r, 2) % len(pack.details)]
             elif ch == WALL and layers["wall"].get((c, r)) in pack.wall_variants and _hash(c, r, 4) % 100 < 2 * density:
                 variants = pack.wall_variants[layers["wall"][(c, r)]]
                 layers["wall"][(c, r)] = variants[_hash(c, r, 5) % len(variants)]
+
+
+def patchy(chance, c, r, muster):
+    """The chance of a detail on a field: with "flecken" details gather in patches of the noise."""
+    if "patches" not in muster:
+        return chance
+    return min(40, chance * 2) if _noise(c, r, 5) > 0.55 else 0
 
 
 def deko_layer(n):
@@ -547,6 +963,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
     height, width = len(rows), max((len(r) for r in rows), default=0)
     if sum(row.count("H") for row in rows) != 1:
         raise MapError(f"the map needs exactly one hero H, it has {sum(row.count('H') for row in rows)}")
+    muster = looks_on(header)                                   # the looks switched on
     grid_w, grid_h = max(GRID_W, width), max(GRID_H, height)       # a larger map, a larger field
     ox, oy = (grid_w - width) // 2, (grid_h - height) // 2
     grid = [[VOID] * grid_w for _ in range(grid_h)]
@@ -554,9 +971,11 @@ def build(header, rows, pack, seed=0, variety=0.0):
         for c, ch in enumerate(line):
             grid[r + oy][c + ox] = ch
 
+    pinned, fence_walls = furnish(grid, header, pack, ox, oy) if header.get("raum") else ({}, {})
     if pack.big_props:
-        free_standing_blocks(grid, {(p["w"], p["h"]) for p in pack.big_props})
+        free_standing_blocks(grid, {(p["w"], p["h"]) for p in pack.big_props}, keep=set(fence_walls))
     terrain = [[base_terrain(ch) for ch in row] for row in grid]
+    floor_variety = max(variety, MUSTER_VARIETY) if "variety" in muster else variety
     # an obstacle x stands on floor: its neighbours see floor, it gets the floor's tiles and the
     # obstacle's picture on the wall layer; without pictures for obstacles it is a wall
     looks = [[FLOOR if ch == PROP and pack.props else t for ch, t in zip(row, trow)]
@@ -572,7 +991,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
             else:
                 left = up = None      # no constraint: the most frequent stack for the pattern
             key = pattern(looks, c, r)
-            stack = pack.choose(key, left, up, rng, variety, rim=is_rim(key))
+            stack = pack.choose(key, left, up, rng, floor_variety if terrain[r][c] == FLOOR else variety, rim=is_rim(key))
             if terrain[r][c] == ABYSS and pack.abyss_tiles and not (
                     stack and (stack[-1][1], stack[-1][2]) in {tuple(t) for t in pack.abyss_tiles}):
                 # the game only sees an abyss where an Abyss tile is the topmost tile
@@ -587,7 +1006,12 @@ def build(header, rows, pack, seed=0, variety=0.0):
                 elif role in ("bg", "wall"):
                     layers[role][(c, r)] = (source, local)
 
-    decorate(grid, terrain, layers, pack, header)
+    for cell, tile in fence_walls.items():      # a room's walls as fences (blueprint "walls": "zaun")
+        layers["wall"][cell] = tile
+    fronts = facades(grid, terrain, layers, pack) if "facade" in muster and pack.facade else set()
+    if "pits" in muster and pack.pits:
+        pit_frames(grid, terrain, layers, pack)
+    decorate(grid, terrain, layers, pack, header, muster, pinned)
 
     # what the style draws under/above its goal (e.g. stairs in the bridge style);
     # the part above is only used where that field is floor as well
@@ -603,6 +1027,9 @@ def build(header, rows, pack, seed=0, variety=0.0):
                     x, y = c + dx, r + dy
                     if dy == 0 or (0 <= y < grid_h and terrain[y][x] == FLOOR):
                         layers["floor2"][(x, y)] = (source, local, flags) if flags else (source, local)
+
+    alcove_goals = arches(grid, terrain, layers, pack, fronts) if "arch" in muster and pack.arch else set()
+    filled = fill_outside(grid, terrain, layers, pack) if "outside" in muster and pack.outside else set()
 
     # objects
     objects, cell_to_id = [], {}
@@ -656,7 +1083,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
             elif ch in OBJECT_CLASSES:
                 cls = OBJECT_CLASSES[ch]
                 tile = pack.object_tile(cls, context)
-            elif ch in (WALL, FLOOR, VOID, ABYSS, PROP, PATH, DETAIL):
+            elif ch in (WALL, FLOOR, VOID, ABYSS) or ch in DECORATION:
                 continue
             else:
                 raise MapError(f"unknown symbol {ch!r} at ({c - ox},{r - oy})")
@@ -745,7 +1172,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
         obj_type = "" if tile_cls == o["cls"] or o["cls"] == "Character" else o["cls"]
         # where the style draws its goal as decoration (e.g. stairs), the goal object is
         # an invisible marker; the engine only needs its position
-        visible = not (o["cls"] == "Goal" and pack.goal_decor)
+        visible = not (o["cls"] == "Goal" and (pack.goal_decor or o["cell"] in alcove_goals))
         tiled_objects.append({"gid": gid(o["tile"]), "height": info["tile_h"], "id": i, "name": o["name"],
                               "rotation": 0, "type": obj_type, "visible": visible, "width": info["tile_w"],
                               "x": c * pack.tile_size, "y": (r + 1) * pack.tile_size})
@@ -823,6 +1250,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
     while layers.get(deko_layer(n)):
         deko_layers.append(tile_layer(5 + n, "Deko" if n == 1 else f"Deko{n}", layers[deko_layer(n)]))
         n += 1
+    # what lies above the figures (an arch over a goal's alcove), after the objects
+    over = [tile_layer(6 + len(deko_layers), "Over", layers["over"])] if layers.get("over") else []
     level = {
         "compressionlevel": -1, "height": grid_h, "width": grid_w, "infinite": False,
         "layers": [
@@ -835,8 +1264,9 @@ def build(header, rows, pack, seed=0, variety=0.0):
             # behind a tree stays visible), above the walls
             {"draworder": "topdown", "id": 5, "name": "Objects", "objects": tiled_objects, "opacity": 1,
              "type": "objectgroup", "visible": True, "x": 0, "y": 0},
-        ],
-        "nextlayerid": 6 + len(deko_layers), "nextobjectid": len(tiled_objects) + 1, "orientation": "orthogonal",
+        ] + over,
+        "nextlayerid": 6 + len(deko_layers) + len(over), "nextobjectid": len(tiled_objects) + 1,
+        "orientation": "orthogonal",
         "renderorder": "right-down", "tiledversion": "1.11.2", "tileheight": pack.tile_size,
         "tilewidth": pack.tile_size,
         "tilesets": tilesets, "type": "map", "version": "1.10",
@@ -846,21 +1276,25 @@ def build(header, rows, pack, seed=0, variety=0.0):
     view = header.get("view", ["full"])[0]
     if view not in VIEWS:
         raise MapError(f"view must be one of {', '.join(VIEWS)}, not {view!r}")
+    x0 = y0 = 0
     if view == "fit":
-        return fit_view(level, terrain)
+        level, terrain, (x0, y0) = fit_view(level, terrain)
+    for c, r in filled:             # the rock beyond the walls: a wall for the rules (self-checks compare this)
+        if 0 <= r - y0 < len(terrain) and 0 <= c - x0 < len(terrain[0]):
+            terrain[r - y0][c - x0] = WALL
     return level, terrain
 
 
 def fit_view(level, terrain):
-    """(level, terrain) cut to the map and one field around it (where the styles draw the
-    fronts and edges of the outer walls). The game's view is as large as the level, so
+    """(level, terrain, offset of the cut) cut to the map and one field around it (where the styles
+    draw the fronts and edges of the outer walls). The game's view is as large as the level, so
     a smaller level has larger fields."""
     width, height, tw, th = level["width"], level["height"], level["tilewidth"], level["tileheight"]
     cells = {(c + dx, r + dy) for r, row in enumerate(terrain) for c, t in enumerate(row) if t != VOID
              for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
     cells = {(c, r) for c, r in cells if 0 <= c < width and 0 <= r < height}
     if not cells:
-        return level, terrain
+        return level, terrain, (0, 0)
     x0, x1 = min(c for c, _ in cells), max(c for c, _ in cells)
     y0, y1 = min(r for _, r in cells), max(r for _, r in cells)
     new_width, new_height = x1 - x0 + 1, y1 - y0 + 1
@@ -872,7 +1306,7 @@ def fit_view(level, terrain):
             o["x"] -= x0 * tw
             o["y"] -= y0 * th
     level["width"], level["height"] = new_width, new_height
-    return level, [row[x0:x1 + 1] for row in terrain[y0:y1 + 1]]
+    return level, [row[x0:x1 + 1] for row in terrain[y0:y1 + 1]], (x0, y0)
 
 
 def level_from_text(text, style=None):
