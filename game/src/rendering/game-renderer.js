@@ -40,12 +40,15 @@ export class GameRenderer {
      * Clears the canvas, draws the level's world content, the fog of war, the HUD's darkness
      * overlay, then what the sensors just looked at (visible in the dark too) and the move budget.
      */
-    drawPlayingScreen(level, fog, character, sensing, movesLeft) {
+    drawPlayingScreen(level, fog, character, sensing, movesLeft, arena = null) {
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         this.levelRenderer.drawLevel(level);
         this.fogRenderer.draw(fog, level, character);
         this.hudRenderer.drawDarkOverlay(level);
         this.sensingRenderer.draw(sensing, level);
+        if (arena) {
+            this.hudRenderer.drawNameTags(arena.heroes, arena.names, level);
+        }
         if (movesLeft !== null && movesLeft !== undefined) {
             this.hudRenderer.drawMovesLeft(movesLeft);
         }
@@ -77,7 +80,7 @@ export class GameRenderer {
      * @param {{level, statistics, remainingTime, fog, character}} scene
      *   Only the fields relevant to the current gameState need to be set.
      */
-    draw(gameState, { level, statistics, remainingTime, fog, character, sensing, movesLeft, outOfMoves }) {
+    draw(gameState, { level, statistics, remainingTime, fog, character, sensing, movesLeft, outOfMoves, arena }) {
         // a generated level or a variant names its seed (map property `seed`): on the end
         // screens, so a failure can be reproduced (DC-T1p, DC-T1k)
         const seed = level?.getProperty('seed');
@@ -86,7 +89,7 @@ export class GameRenderer {
                 this.drawWaitingScreen();
                 break;
             case GAME_STATE.PLAYING:
-                this.drawPlayingScreen(level, fog, character, sensing, movesLeft);
+                this.drawPlayingScreen(level, fog, character, sensing, movesLeft, arena);
                 break;
             case GAME_STATE.GAME_OVER:
                 this.drawGameOverScreen(remainingTime, level?.getProperty('world'), seed, outOfMoves);

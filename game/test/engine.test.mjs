@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { play, step, turn, advance } from './helpers.mjs';
+import { play, playInGame, step, turn, advance } from './helpers.mjs';
 
 test('collision: a wall stops the hero, floor lets it pass', async () => {
     const game = await play(['#####', '#H.##', '#####']);
@@ -306,4 +306,132 @@ test('call log (show_calls): off unless the level switches it on; L still toggle
     log.toggle();
     log.showFor(off.level);                 // each level load decides anew
     assert.equal(element.hidden, true);
+});
+
+// --- the erring oracle (orakel: 70), timed guards (tick), the sight range (witterung) ---------
+
+test('oracle: orakel: true always tells the truth, orakel: 70 errs reproducibly', async () => {
+    const honest = await play(['#####', '#H.Z#', '#####'], { properties: { orakel: true } });
+    assert.equal(honest.hero.hasOracle(), true);
+    assert.deepEqual([1, 2, 3, 4, 5].map(() => honest.hero.askOracle()), ['east', 'east', 'east', 'east', 'east']);
+    const erring = await play(['#####', '#H.Z#', '#####'], { properties: { orakel: 70, seed: 7 } });
+    assert.equal(erring.hero.hasOracle(), true);
+    const answers = Array.from({ length: 40 }, () => erring.hero.askOracle());
+    const wrong = answers.filter(a => a !== 'east');
+    assert.ok(wrong.length >= 5 && wrong.length <= 20, `wrong answers: ${wrong.length}`);
+    assert.ok(wrong.every(a => ['north', 'south', 'west'].includes(a)));
+    const again = await play(['#####', '#H.Z#', '#####'], { properties: { orakel: 70, seed: 7 } });
+    assert.deepEqual(Array.from({ length: 40 }, () => again.hero.askOracle()), answers);
+    const none = await play(['#####', '#H.Z#', '#####']);
+    assert.equal(none.hero.hasOracle(), false);
+});
+
+test('oracle roll: the shared hash gives the same numbers as the simulator', async () => {
+    const { CharacterInterface } = await import('../src/character.js');
+    // the first values of oracle_roll(7, n) in api/python/dungeoncoder/sim.py (tests/engine_stufe2.py checks them there)
+    const rolls = [1, 2, 3].map(n => CharacterInterface.oracleRoll(7, n));
+    assert.ok(rolls.every(r => r >= 0 && r < 1));
+    assert.equal(new Set(rolls).size, 3);
+    assert.equal(CharacterInterface.oracleRoll(7, 1), CharacterInterface.oracleRoll(7, 1));
+});
+
+test('witterung: the level says how far is_enemy_in_front may look; without guards it sees nothing', async () => {
+    const game = await play(['#######', '#H....#', '#######'], { properties: { witterung: 3 } });
+    assert.equal(game.hero.sightRange(), 3);
+    assert.equal(game.hero.isEnemyInFront(3), false);
+    assert.equal(game.level.guardsTimed(), false);
+    const timed = await play(['#######', '#H....#', '#######'], { properties: { tick: 500 } });
+    assert.equal(timed.level.guardsTimed(), true);
+    assert.equal(timed.hero.sightRange(), 1);
+    advance(timed.level, 1200);          // no guards: nothing happens, nothing breaks
+    assert.equal(step(timed), true);
+});
+
+// --- a live game (map property arena): one hero per team, each with its own end ---------------
+
+const ARENA = ['#######', '#H....#', '#2....#', '#3...~#', '#######'];
+const ARENA_OPTIONS = { properties: { arena: true, codes: 'ROT-1 BLAU-2 GELB-3', max_moves: 2 } };
+
+test('arena: team codes name the heroes, case does not matter', async () => {
+    const game = await playInGame(ARENA, ARENA_OPTIONS);
+    assert.equal(game.arena, true);
+    assert.equal(game.level.heroes.length, 3);
+    assert.deepEqual(game.level.arenaNames(), ['ROT', 'BLAU', 'GELB']);
+    assert.equal(game.level.heroIndexForCode('blau-2'), 1);
+    assert.equal(game.level.heroIndexForCode('GRUEN-9'), -1);
+});
+
+test('arena: the referee starts and ends the game; the pace is fixed', async () => {
+    const game = await playInGame(ARENA, ARENA_OPTIONS);
+    assert.equal(game.arenaStarted, false);
+    assert.equal(game.isRunning(), true);
+    assert.equal(game.startArena(), true);
+    assert.equal(game.startArena(), false);
+    assert.equal(game.arenaStarted, true);
+    assert.equal(game.endArena(), true);
+    assert.equal(game.isRunning(), false);
+    assert.equal(game.endArena(), false);
+});
+
+test('arena: every hero keeps its own counters and its own end; the others play on', async () => {
+    const game = await playInGame(ARENA, ARENA_OPTIONS);
+    game.startArena();
+    const [rot, blau, gelb] = game.characterInterfaces;
+    assert.equal(rot.move(), true);
+    advance(game.level, 600);
+    assert.equal(rot.getStatistics().moves, 1);
+    assert.equal(blau.getStatistics().moves, 0);
+    assert.equal(blau.getStatistics().moves_left, 2);
+    assert.equal(rot.getStatistics().moves_left, 1);
+    // rot spends its budget and collapses: out, but the game goes on
+    assert.equal(rot.move(), true);
+    advance(game.level, 600);
+    assert.equal(rot.move(), false);
+    assert.equal(rot.isOut(), true);
+    assert.equal(rot.getStatistics().out, true);
+    assert.equal(rot.getStatistics().game_over, true);
+    assert.equal(blau.getStatistics().out, false);
+    assert.equal(blau.getStatistics().game_over, false);
+    assert.equal(game.isRunning(), true);
+    assert.equal(blau.move(), true);
+    advance(game.level, 600);
+    assert.equal(blau.getStatistics().moves, 1);
+});
+
+test('arena: a hero that is out is not a wall, but a standing hero is; is_hero_in_front sees it', async () => {
+    const game = await playInGame(['#####', '#H2.#', '#####'], { properties: { arena: true, codes: 'A-1 B-2' } });
+    game.startArena();
+    const [a, b] = game.characterInterfaces;
+    assert.equal(a.isHeroInFront(), true);
+    assert.equal(a.isCollisionInFront(), true);
+    assert.equal(a.move(), false);
+    assert.equal(b.isHeroInFront(), false);
+    assert.equal(b.move(), true);
+    advance(game.level, 600);
+    assert.equal(a.isHeroInFront(), false);
+    assert.equal(a.move(), true);
+});
+
+test('arena: the round ends when every hero is out', async () => {
+    const game = await playInGame(['####', '#H~#', '####'], { properties: { arena: true, codes: 'A-1' } });
+    game.startArena();
+    const [a] = game.characterInterfaces;
+    assert.equal(a.move(), true);
+    advance(game.level, 3200);
+    assert.equal(a.isOut(), true);
+    game.gameLoop(0);                       // the loop notices: all out, round over
+    assert.equal(game.arenaOver, true);
+    assert.equal(game.isRunning(), false);
+});
+
+test('co-op without arena: unchanged, a lost hero ends the level for all, the counters are shared', async () => {
+    const game = await playInGame(['####', '#H~#', '#2.#', '####'], { properties: { win: 'all_heroes' } });
+    assert.equal(game.arena, false);
+    const [a, b] = game.characterInterfaces;
+    assert.equal(a.move(), true);
+    assert.equal(game.isRunning(), false);
+    assert.equal(a.getStatistics().game_over, true);
+    assert.equal(b.getStatistics().game_over, true);
+    assert.equal(b.getStatistics().moves, 1);
+    assert.equal(b.getStatistics().out, undefined);
 });

@@ -42,6 +42,9 @@ class Statistics:
             moves_left (int | None | Unset): move() calls left in a level with the map property max_moves (null without a
                 budget)
             heroes (int | Unset): number of heroes in the level (co-op levels have more than one)
+            out (bool | Unset): in an arena, this hero is out of the game (caught, fallen, or no moves left); the others
+                play on
+            started (bool | Unset): in an arena, the referee has started the game (actions before that are refused)
      """
 
     moves: int
@@ -60,6 +63,8 @@ class Statistics:
     missing: list[str]
     moves_left: int | None | Unset = UNSET
     heroes: int | Unset = UNSET
+    out: bool | Unset = UNSET
+    started: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -105,6 +110,10 @@ class Statistics:
 
         heroes = self.heroes
 
+        out = self.out
+
+        started = self.started
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -128,6 +137,10 @@ class Statistics:
             field_dict["moves_left"] = moves_left
         if heroes is not UNSET:
             field_dict["heroes"] = heroes
+        if out is not UNSET:
+            field_dict["out"] = out
+        if started is not UNSET:
+            field_dict["started"] = started
 
         return field_dict
 
@@ -177,6 +190,10 @@ class Statistics:
 
         heroes = d.pop("heroes", UNSET)
 
+        out = d.pop("out", UNSET)
+
+        started = d.pop("started", UNSET)
+
         statistics = cls(
             moves=moves,
             turns=turns,
@@ -194,6 +211,8 @@ class Statistics:
             missing=missing,
             moves_left=moves_left,
             heroes=heroes,
+            out=out,
+            started=started,
         )
 
 

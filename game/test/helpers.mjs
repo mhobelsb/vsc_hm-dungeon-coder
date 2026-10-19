@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises';
 const PACK = new URL('../../packs/demo/', import.meta.url);
 
 // what game/src/assets.js and tiles.js expect from a browser
-globalThis.window = { DcAssetPackUris: [PACK.href] };
+globalThis.window = { DcAssetPackUris: [PACK.href], addEventListener() {}, location: { hostname: '' } };
 globalThis.fetch = async (url) => {
     try {
         const text = await readFile(new URL(url), 'utf8');
@@ -49,8 +49,8 @@ const HERO_FIRST_GID = 25;
 
 /**
  * A level on the demo tiles from rows of symbols:
- * # wall, . floor, ~ abyss, H hero, Z goal, T/t torch, s switch, D vertical door, d door,
- * C chest, J jug, * sweets.
+ * # wall, . floor, ~ abyss, H hero, 2-9 more heroes, Z goal, T/t torch, s switch, D vertical door,
+ * d door, C chest, J jug, * sweets.
  * @param {string[]} rows
  * @param {{start?: string, size?: number, properties?: object, controls?: Array<[number[], number[]]>}} options
  *   controls: pairs of cells [[x, y], [x, y]]: the object on the first operates the one on the second
@@ -67,6 +67,9 @@ export function levelData(rows, { start = 'east', size = 16, properties = {}, co
             const base = { height: size, width: size, rotation: 0, type: '', visible: true, x: x * size, y: (y + 1) * size };
             if (c === 'H') {
                 objects.push({ ...base, id: objects.length + 1, name: 'MainCharacter', gid: HERO_FIRST_GID + 7 * 8 + DIRECTIONS.indexOf(start) * 2 });
+            } else if (/^[2-9]$/.test(c)) {
+                // more heroes (a co-op level or an arena): Hero2, Hero3, ... with other sprites
+                objects.push({ ...base, id: objects.length + 1, name: `Hero${c}`, type: 'Character', gid: HERO_FIRST_GID + (Number(c) + 5) * 8 + DIRECTIONS.indexOf(start) * 2 });
             } else if (c in OBJECT_TILES) {
                 objects.push({ ...base, id: objects.length + 1, name: '', gid: 1 + OBJECT_TILES[c] });
                 idAt.set(`${x},${y}`, objects.length);
@@ -97,6 +100,23 @@ export async function play(rows, options) {
     const statistics = new Statistics();
     const hero = new CharacterInterface({ fog: null }, level, level.character, statistics);
     return { level, hero, character: level.character, statistics };
+}
+
+/**
+ * A loaded level inside a Game object (game/src/game.js) without a canvas: for the rules that live
+ * in Game (an arena's start and end, its heroes' own counters). Returns the game; its
+ * characterInterfaces are the heroes' interfaces.
+ */
+export async function playInGame(rows, options) {
+    const { Game } = await import('../src/game.js');
+    const canvas = { getContext: () => ({ setTransform() {}, clearRect() {}, save() {}, restore() {}, fillRect() {}, fillText() {},
+        measureText: () => ({ width: 10 }), drawImage() {}, translate() {}, rotate() {}, scale() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {} }),
+        dataset: {}, width: 0, height: 0 };
+    globalThis.requestAnimationFrame = () => 0;
+    globalThis.document = { createElement: () => ({ getContext: canvas.getContext, dataset: {} }) };
+    const game = new Game(canvas, '');
+    await game.loadLevel(levelData(rows, options));
+    return game;
 }
 
 /** Lets game time pass in the game's fixed steps (60 per second). */

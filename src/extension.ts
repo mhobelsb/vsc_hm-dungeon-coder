@@ -161,7 +161,7 @@ export class DungeonCoderServer {
         this.registeredCommands.add(command);
         (app as any)[method](route, async (req: Request, res: Response) => {
             try {
-                const data = withHero(options?.includeBody ? req.body : null, req.query.hero);
+                const data = withQuery(withHero(options?.includeBody ? req.body : null, req.query.hero), req.query);
                 const response = await this.sendMessageToWebview(command, data);
 
                 if (!response.success) {
@@ -193,10 +193,12 @@ export class DungeonCoderServer {
      * should, instead of polling forever.
      * @returns undefined once the hero stands, otherwise an error response.
      */
-    private async pollUntilStopped(pollInterval = 10): Promise<WebviewResponse | undefined> {
+    private async pollUntilStopped(pollInterval = 10, hero?: unknown): Promise<WebviewResponse | undefined> {
         const deadline = Date.now() + MOVE_TIMEOUT_BASE_MS + MOVE_DURATION_MS / this.currentPaceFactor;
+        // co-op levels: ask about the hero that moved (query parameter hero), not about any hero
+        const params = withHero(null, hero);
         while (Date.now() < deadline) {
-            const isMovingResponse = await this.sendMessageToWebview(COMMANDS.IS_MOVING);
+            const isMovingResponse = await this.sendMessageToWebview(COMMANDS.IS_MOVING, params);
 
             if (!isMovingResponse.success) {
                 return isMovingResponse;
@@ -261,7 +263,7 @@ export class DungeonCoderServer {
         // the pace must be reset too, or turns keep the old script's delay.
         const resetPace = () => { this.currentPaceFactor = 1.0; };
         const afterSuccess: Record<string, (response: WebviewResponse, req: Request) => void | WebviewResponse | Promise<void | WebviewResponse>> = {
-            [COMMANDS.MOVE]: async () => this.pollUntilStopped(10),
+            [COMMANDS.MOVE]: async (_, req) => this.pollUntilStopped(10, req.query.hero),
             [COMMANDS.TURN_LEFT]: async () => { await this.delay(this.turnDelay / this.currentPaceFactor); },
             [COMMANDS.SET_PACE]: async (_, req) => {
                 // req.body is shaped per api/openapi.yaml's PaceParams schema and
@@ -461,6 +463,18 @@ export class DungeonCoderServer {
  * The request's parameters plus the hero index of a co-op level (query parameter `hero`,
  * already checked against api/openapi.yaml): {...body, hero}. Without one, the body as it is.
  */
+/** The request's parameters plus the integer query parameters the game needs besides `hero` (e.g. `distance`). */
+export function withQuery(body: any, query: Record<string, unknown>): any {
+    let data = body;
+    for (const key of ['distance']) {
+        const value = query?.[key];
+        if (value !== undefined && value !== null && value !== '') {
+            data = { ...(data ?? {}), [key]: Number(value) };
+        }
+    }
+    return data;
+}
+
 export function withHero(body: any, hero: unknown): any {
     if (hero === undefined || hero === null || hero === '') {
         return body;

@@ -8,8 +8,11 @@
     print(maze_text(seed=7))                             # the map as text (asciimap format)
 
 Kinds: "maze" (corridors), "rooms" (rooms joined by doorways), "pillars" (an open
-hall with free-standing pillars). In rooms and halls the exit lies inside, away
-from the outer wall.
+hall with free-standing pillars), "arena" (a live game for several teams: a maze with
+one start niche per team along the edge and a hall with pillars and valued crystals
+in the middle; `teams`, `items`, `loops`; the heroes' ways to the middle are of similar
+length, checked by breadth-first search, or the seed is skipped for the next one).
+In rooms and halls the exit lies inside, away from the outer wall.
 
 A maze is built with a randomised depth-first search ("recursive backtracker"):
 every free field is reachable, and without `loops` there is exactly one way
@@ -19,17 +22,19 @@ right-hand rule can circle forever.
 """
 import random
 
-from .asciimap import GRID_H, GRID_W, MapError, default_style
+from .asciimap import MapError, default_style
 
-KINDS = ("maze", "rooms", "pillars")
+KINDS = ("maze", "rooms", "pillars", "arena")
+# a level larger than the game's default view (30 x 20) gets a larger view (the view follows the level)
+MAX_SIZE = 99
 
 
 def maze_grid(seed, width=15, height=11, loops=0):
     """The maze as a list of rows of "#" and "." (start top left, goal bottom right)."""
     if width % 2 == 0 or height % 2 == 0:
         raise MapError(f"width and height must be odd (walls between the paths), got {width}x{height}")
-    if not (5 <= width <= GRID_W - 1 and 5 <= height <= GRID_H - 1):
-        raise MapError(f"a maze must be between 5x5 and {GRID_W - 1}x{GRID_H - 1}, got {width}x{height}")
+    if not (5 <= width <= MAX_SIZE and 5 <= height <= MAX_SIZE):
+        raise MapError(f"a maze must be between 5x5 and {MAX_SIZE}x{MAX_SIZE}, got {width}x{height}")
     rng = random.Random(seed)
     grid = [["#"] * width for _ in range(height)]
     cells_x, cells_y = range(1, width, 2), range(1, height, 2)
@@ -128,21 +133,137 @@ def pillars_grid(seed, width=15, height=11, pillars=None):
     return grid
 
 
+def _distances(grid, start):
+    """Breadth-first: the number of steps from start to every reachable field."""
+    dist, todo = {start: 0}, [start]
+    while todo:
+        x, y = todo.pop(0)
+        for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if grid[n[1]][n[0]] != "#" and n not in dist:
+                dist[n] = dist[(x, y)] + 1
+                todo.append(n)
+    return dist
+
+
+def _ring(width, height):
+    """The maze's edge ring (odd coordinates), walked clockwise from the top left."""
+    return ([(x, 1) for x in range(1, width - 1, 2)]
+            + [(width - 2, y) for y in range(3, height - 1, 2)]
+            + [(x, height - 2) for x in range(width - 4, 0, -2)]
+            + [(1, y) for y in range(height - 4, 2, -2)])
+
+
+def _niches(width, height, teams, dist, tolerance=0.07):
+    """`teams` start fields on the edge ring whose ways to the middle are equally long (within
+    `tolerance` of a common length), spread around the ring; None if no length has enough."""
+    ring = [c for c in _ring(width, height) if c in dist]
+    if len(ring) < teams:
+        return None
+    gap = len(ring) // (teams * 2)
+    lengths = sorted(set(dist[c] for c in ring), key=lambda d: abs(d - sorted(dist[c] for c in ring)[len(ring) // 2]))
+    for target in lengths:
+        fitting = [i for i, c in enumerate(ring) if abs(dist[c] - target) <= tolerance * target]
+        chosen = []
+        for i in fitting:
+            if all(min(abs(i - j), len(ring) - abs(i - j)) > gap for j in chosen):
+                chosen.append(i)
+        if len(chosen) >= teams:
+            chosen = [chosen[(k * len(chosen)) // teams] for k in range(teams)]
+            return [ring[i] for i in chosen]
+    return None
+
+
+def arena_grid(seed, width=39, height=23, teams=6, loops=6, items=18, room=(11, 7)):
+    """A live game's level, as rows of symbols: a maze from maze_grid, a hall with pillars in the
+    middle, one hero per team on the edge, crystals K (values in reading order: the dearest
+    in the hall). Returns (grid, values, used_seed, directions): the seed is advanced by 1000 until the
+    teams' starts can be chosen with ways to the hall of the same length (within 7 percent of a
+    common length, so the longest is at most 15 percent longer than the shortest): every start is fair."""
+    if not (2 <= teams <= 9):
+        raise MapError(f"teams: 2 to 9, got {teams}")
+    if width % 2 == 0 or height % 2 == 0:
+        raise MapError(f"width and height must be odd, got {width}x{height}")
+    rw, rh = room
+    if rw % 2 == 0 or rh % 2 == 0 or rw > width - 8 or rh > height - 8:
+        raise MapError(f"room: odd and at most {width - 8}x{height - 8}, got {rw}x{rh}")
+    used = seed
+    for _ in range(50):
+        grid = maze_grid(used, width, height, loops)
+        rng = random.Random(used * 31 + 7)
+        # the hall: an open rectangle in the middle with a few pillars
+        x0, y0 = (width - rw) // 2, (height - rh) // 2
+        for y in range(y0, y0 + rh):
+            for x in range(x0, x0 + rw):
+                grid[y][x] = "."
+        hall = [(x, y) for y in range(y0 + 1, y0 + rh - 1) for x in range(x0 + 1, x0 + rw - 1)]
+        for x, y in rng.sample(hall, k=max(1, len(hall) // 12)):
+            if all(grid[y + dy][x + dx] == "." for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+                grid[y][x] = "#"
+        centre = (width // 2, height // 2)
+        dist = _distances(grid, centre)
+        starts = _niches(width, height, teams, dist)
+        if starts:
+            break
+        used += 1000
+    else:
+        raise MapError(f"seed {seed}: no fair arena found")
+    directions = []
+    for i, (x, y) in enumerate(starts):
+        grid[y][x] = "H" if i == 0 else str(i + 1)
+        # every hero faces the way out of its niche (the open neighbour nearest the hall)
+        open_ = [(d, (x + dx, y + dy)) for d, (dx, dy) in (("north", (0, -1)), ("east", (1, 0)), ("south", (0, 1)), ("west", (-1, 0)))
+                 if grid[y + dy][x + dx] == "."]
+        directions.append(min(open_, key=lambda o: dist.get(o[1], 10 ** 6))[0] if open_ else "south")
+    # crystals: the dearest in the hall, the cheap ones along the ways; values 1 to 5
+    free = [(x, y) for y in range(1, height - 1) for x in range(1, width - 1) if grid[y][x] == "."]
+    in_hall = [c for c in free if x0 <= c[0] < x0 + rw and y0 <= c[1] < y0 + rh]
+    outside = [c for c in free if c not in set(in_hall) and dist.get(c, 0) >= 3]
+    dear = rng.sample(in_hall, k=min(len(in_hall), items // 3))
+    cheap = rng.sample(outside, k=min(len(outside), items - len(dear)))
+    placed = []
+    for c in dear:
+        placed.append((c, rng.choice((4, 5))))
+    for c in cheap:
+        placed.append((c, rng.choice((1, 1, 2, 2, 3))))
+    for (x, y), _ in placed:
+        grid[y][x] = "K"
+    values = [v for (x, y), v in sorted(placed, key=lambda p: (p[0][1], p[0][0]))]
+    return grid, values, used, directions
+
+
+def arena_text(seed, width=39, height=23, teams=6, loops=6, items=18, start="east", style=None, **properties):
+    """A live game's level as a map text: arena: true, max_moves 300 and inventory_size 6 unless the
+    recipe says otherwise; `codes` (the teams' codes) come from the recipe or the referee's tool."""
+    style = style or default_style("maze")
+    grid, values, used, directions = arena_grid(seed, width, height, teams, loops, items)
+    props = {"arena": True, "max_moves": 300, "inventory_size": 6, **properties}
+    header = [f"start: {' '.join(directions)}", f"style: {style}", "kind: arena", f"seed: {seed}",
+              f"values: {' '.join(map(str, values))}"]
+    header += [f"{key}: {str(value).lower() if isinstance(value, bool) else value}"
+               for key, value in props.items() if value is not None]
+    return "\n".join(header + ["---"] + ["".join(row) for row in grid]) + "\n"
+
+
 def _check_size(width, height):
-    if not (7 <= width <= GRID_W and 7 <= height <= GRID_H):
-        raise MapError(f"a level must be between 7x7 and {GRID_W}x{GRID_H}, got {width}x{height}")
+    if not (7 <= width <= MAX_SIZE and 7 <= height <= MAX_SIZE):
+        raise MapError(f"a level must be between 7x7 and {MAX_SIZE}x{MAX_SIZE}, got {width}x{height}")
 
 
-def level_text(seed, kind="maze", width=15, height=11, loops=0, pillars=None, start="east", style=None,
+def level_text(seed, kind="maze", width=None, height=None, loops=0, pillars=None, start="east", style=None,
                **properties):
     """The generated level as a map text (asciimap format). Keyword arguments that
     aren't options become map properties, e.g. fog="dark". style: the text-map style it is
-    drawn in (default maze, which comes with the course's asset pack; without it demo)."""
+    drawn in (default maze, which comes with the course's asset pack; without it demo).
+    Default size 15x11; an arena 39x23."""
     style = style or default_style("maze")
+    width = width or (39 if kind == "arena" else 15)
+    height = height or (23 if kind == "arena" else 11)
     if kind not in KINDS:
         raise MapError(f"unknown kind {kind!r}; available: {', '.join(KINDS)}")
     if kind == "maze":
         return maze_text(seed, width, height, loops, start, style=style, **properties)
+    if kind == "arena":
+        return arena_text(seed, width, height, start=start, style=style, loops=loops, **properties)
     grid = rooms_grid(seed, width, height) if kind == "rooms" else pillars_grid(seed, width, height, pillars)
     goal = _inner_goal(random.Random(seed * 7919 + 1), grid, (1, 1))
     if goal is None:
@@ -172,7 +293,7 @@ def generate_text(seed, kind="maze", **options):
     return level_text(seed, kind, **options)
 
 
-RECIPE_KEYS = ("generate", "size", "loops", "seed", "start", "style", "pillars")
+RECIPE_KEYS = ("generate", "size", "loops", "seed", "start", "style", "pillars", "teams", "items")
 
 
 def from_recipe(header):
@@ -192,7 +313,7 @@ def from_recipe(header):
         return header.get(key, [default])[0]
 
     kind = one("generate")
-    size = one("size", "15x11")
+    size = one("size", "39x23" if kind == "arena" else "15x11")
     try:
         width, height = (int(v) for v in size.lower().split("x"))
     except ValueError:
@@ -207,8 +328,12 @@ def from_recipe(header):
     options = {"width": width, "height": height, "start": one("start", "east"), "style": one("style")}
     if kind == "maze":
         options["loops"] = int(one("loops", "0"))
+    elif kind == "arena":
+        options["loops"] = int(one("loops", "6"))
+        options["teams"] = int(one("teams", "6"))
+        options["items"] = int(one("items", "18"))
     elif "loops" in header:
-        raise MapError("loops: only for generate: maze")
+        raise MapError("loops: only for generate: maze or arena")
     if "pillars" in header:
         options["pillars"] = int(one("pillars"))
     extra = {key: values[0] for key, values in header.items() if key not in RECIPE_KEYS}

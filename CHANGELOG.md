@@ -6,6 +6,22 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Added
+
+- **A live game in the room (the arena).** A level with the map property `arena: true` and the teams' codes in `codes` ("ROT-4711 BLAU-2234 …") is a game for several teams at once, in one game on the referee's computer (the dev server with `DC_HOST=0.0.0.0`, its page on the beamer). Each team's script joins from its own computer with `Game.join("ROT-4711")` (`POST /game/join`; the package reads `DUNGEONCODER_URL`) and waits until the referee starts the game (Space on the page, `POST /game/start`); E ends the round (`POST /game/end`): everything stops and stays on screen. Every hero has its own counters (`GET /game/statistics?hero=N`), its own move budget and its own end: a caught, fallen or collapsed hero lies on the floor and the others play on (`out`, `started` in the statistics). The pace is fixed, the keyboard off. The page shows a name tag in the team's colour above every hero and a scoreboard beside the canvas. With the server open to the room, only the referee's machine loads levels or starts and ends the game, and a hero belongs to the computer that joined it. The simulator plays arenas too (it has no referee: `Game.join` starts the game there). `dungeoncoder.arena` is the referee's side (`load`, `start`, `end`, `statistics`). Levels without `arena` are as before.
+- **`hero.is_hero_in_front()`**: whether another hero stands on the field in front (heroes block each other like walls, but a wall never moves).
+- **`generate: arena`** (`Game.generate(kind="arena")`; `teams`, `items`, `loops`; default 39 x 23): a maze with a hall in the middle, one start per team on the edge with ways to the hall of the same length (within 7 percent), crystals with values (the dearest in the hall), `max_moves: 300` and `inventory_size: 6` unless the recipe says otherwise. Generated levels may now be up to 99 x 99 (the view follows the level).
+- **Text maps**: heroes `2` to `9` (before: `2` to `4`); `start:` takes one direction per hero ("start: east south west").
+- **The dev server**: `DC_HOST` (listen on another interface), `DC_WS_PORT` (the page's socket; `index.html` gets it as `${wsPort}`), `DC_TRACE` (every answered command as a JSON line: the record of a live game).
+- **Guards by the clock** (map property `tick: 500`, milliseconds): guards step by time instead of once per hero move, a chaser towards the nearest hero; with several heroes (an arena) a guard no longer runs once per hero. Walking into a guard is still being caught. The simulator steps such guards once per round of moves.
+- **`hero.is_enemy_in_front(distance=1)`**: with a map property `witterung: N` the hero may look up to N fields ahead in a straight line (a wall ends the view); more is refused. Query parameter `distance`.
+- **An erring oracle**: `orakel: 70` (a percentage) makes `ask_oracle()` wrong in the other 30 percent of its answers, reproducibly from the level's `seed` and the question's number, in the game and in the simulator alike. `orakel: true` is unchanged.
+
+### Changed
+
+- **A move waits only for its own hero.** The host polled "is any hero moving?" after a `move`, so with several heroes walking at once (an arena) a step waited for the others (up to 1.3 s instead of 0.5 s). The poll now names the hero (`is_moving` takes `hero`); with one hero nothing changes.
+- **The simulator keeps one inventory per hero** (as the game does); before, co-op heroes shared one list.
+
 ## [1.0.0] - 2026-10-15
 
 The first regular release of the new engine: it replaces 0.1.0 as the release version that VS Code installs (until now 0.2.x came as pre-releases). Everything since 0.1.0 is in it (sections 0.2.0 to 0.2.4 and below); scripts and levels written for 0.1.0 keep working.

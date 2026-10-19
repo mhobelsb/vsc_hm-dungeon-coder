@@ -16,6 +16,7 @@ declare module '*commands.js' {
         readonly DROP: 'drop';
         readonly GET_ITEMS_AT_POSITION: 'get_items_at_position';
         readonly IS_ENEMY_IN_FRONT: 'is_enemy_in_front';
+        readonly IS_HERO_IN_FRONT: 'is_hero_in_front';
         readonly ASK_ORACLE: 'ask_oracle';
         readonly READ_ITEM_VALUE: 'read_item_value';
         readonly SENSE_GOAL: 'sense_goal';
@@ -28,6 +29,9 @@ declare module '*commands.js' {
         readonly IS_SWITCH_IN_FRONT: 'is_switch_in_front';
         readonly IS_ABYSS_IN_FRONT: 'is_abyss_in_front';
         readonly GET_STATISTICS: 'get_statistics';
+        readonly JOIN: 'join';
+        readonly START_GAME: 'start_game';
+        readonly END_GAME: 'end_game';
         readonly LOAD_LEVEL: 'load_level';
         readonly RESET_LEVEL: 'reset_level';
         readonly IS_MOVING: 'is_moving';

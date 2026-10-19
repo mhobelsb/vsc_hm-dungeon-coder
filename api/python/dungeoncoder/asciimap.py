@@ -2,7 +2,8 @@
 
 A map file has an optional header, a line "---", and the map:
 
-    start: north             # hero's start direction (default south)
+    start: north             # hero's start direction (default south); several heroes: one each
+                             # in order (H, 2, 3, ...), e.g. "start: east south west"
     hero: 7                  # hero sprite 0-15 (default 7); a co-op map: one per hero, "hero: 7 13 1"
     style: dungeon           # tile style: dungeon (default), corridor, arena, bridge, maze
                              # (these five come with the course's asset pack; without it the
@@ -35,7 +36,7 @@ with "size: 15x11", "loops: 2" and "seed: random" (a new level per load) or a nu
 
 Legend:  #  wall      .  floor     ~  abyss     (blank)  nothing
          H  hero      Z  goal      T/t  torch (burning/off, on a wall)
-         2 3 4  more heroes (a co-op level: Game.get_heroes(), win: all_heroes)
+         2 … 9  more heroes (a co-op level: Game.get_heroes(), win: all_heroes)
          s  switch    D  door      G  grille    C  chest    J  jug    *  sweets
          K  crystal   o  pebble    W  guard (see guards:)
 Decoration (looks only; where a style has no pictures for it, x is a wall and , " are floor):
@@ -116,8 +117,8 @@ MUSTER_VARIETY = 0.25           # how often "vielfalt" takes another fitting flo
 OFFSETS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 VIEWS = ("full", "fit")
 GUARD_SPRITE = 3            # the characters tileset's sprite number used for guards
-EXTRA_HEROES = ("2", "3", "4")              # co-op heroes, after H
-EXTRA_HERO_SPRITES = ["13", "1", "10"]      # their sprites unless "hero:" names them
+EXTRA_HEROES = tuple("23456789")            # co-op heroes, after H (up to nine heroes in a level)
+EXTRA_HERO_SPRITES = ["13", "1", "10", "3", "5", "8", "11", "14"]    # their sprites unless "hero:" names them
 # items that aren't learned from the levels: K a crystal, o a pebble. Their tiles come from the
 # asset packs' manifests (pack.json "items", as the engine's start inventory: sim.item_tiles);
 # the colour of a crystal (header colors:) picks the item "Crystal" or "Crystal:<colour>"
@@ -1036,9 +1037,12 @@ def build(header, rows, pack, seed=0, variety=0.0):
     numbers = header.get("hero", ["7"])[0].replace(",", " ").split() or ["7"]
     numbers += EXTRA_HERO_SPRITES[len(numbers) - 1:]
     number = numbers[0]
-    direction = header.get("start", ["south"])[0]
-    if direction not in DIRECTIONS:
-        raise MapError(f"start must be one of {', '.join(DIRECTIONS)}, not {direction!r}")
+    # start: one direction for every hero, or one per hero (H, 2, 3, ...; the last one for the rest)
+    directions = " ".join(header.get("start", ["south"])).replace(",", " ").split() or ["south"]
+    for d in directions:
+        if d not in DIRECTIONS:
+            raise MapError(f"start must be one of {', '.join(DIRECTIONS)}, not {d!r}")
+    direction = directions[0]
     for r in range(grid_h):
         for c in range(grid_w):
             ch, context = grid[r][c], terrain[r][c]
@@ -1050,7 +1054,8 @@ def build(header, rows, pack, seed=0, variety=0.0):
                     raise MapError(f"no hero sprite {number!r} (hero: 0 to 15)")
             elif ch in EXTRA_HEROES:
                 cls, name = "Character", f"Hero{ch}"     # the engine finds co-op heroes by name
-                tile = pack.hero.get(f"{direction}_{numbers[int(ch) - 1]}")
+                own = directions[min(int(ch) - 1, len(directions) - 1)]
+                tile = pack.hero.get(f"{own}_{numbers[int(ch) - 1]}")
                 if not tile:
                     raise MapError(f"no hero sprite {numbers[int(ch) - 1]!r} for hero {ch} (hero: 0 to 15)")
             elif ch in pack.items:

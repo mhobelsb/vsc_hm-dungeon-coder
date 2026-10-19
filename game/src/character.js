@@ -451,8 +451,12 @@ export class CharacterInterface {
         const from = this.character.currentCell();
         // heroes of a co-op level block each other like walls
         const ret = !this.isHeroAt(...target) && this.character.move(this.character.getDirection(), this.level);
-        // guards take their step on every move, also a blocked one (DC-12)
-        if (this.level.stepGuards(from, ret ? target : from)) {
+        // guards take their step on every move, also a blocked one (DC-12); guards that walk by the
+        // clock (map property tick) don't, but walking into one is being caught just the same
+        const caught = this.level.guardsTimed()
+            ? (ret && this.level.guardAt(...target))
+            : this.level.stepGuards(from, ret ? target : from);
+        if (caught) {
             if (this.character.isMoving()) {
                 // end the game once this step is done; ending it now would freeze the
                 // hero mid-step (the level stops updating) and move() would time out
@@ -531,20 +535,85 @@ export class CharacterInterface {
         return this.character.getItemsAtCurrentPosition(this.level);
     }
 
-    /** A guard on the field in front (sensor). */
-    isEnemyInFront() {
-        return this.sensed(this.character.isInFront(this.level, "Guard"));
+    /**
+     * A guard on the field in front (sensor), or with `distance` > 1 (a level with the map property
+     * `witterung`) on one of the fields ahead in a straight line; a wall ends the view.
+     */
+    isEnemyInFront(distance = 1) {
+        if (distance <= 1) {
+            return this.sensed(this.character.isInFront(this.level, "Guard"));
+        }
+        let seen = false, last = this.character.frontCell();
+        for (let d = 1; d <= distance; d++) {
+            const [col, row] = this.character.cellAhead(d);
+            last = [col, row];
+            if (this.game.fog) {
+                this.game.fog.markSensed(col, row);
+            }
+            if (this.level.guardAt(col, row)) {
+                seen = true;
+                break;
+            }
+            if (!this.level.isWalkable(col, row)) {
+                break;
+            }
+        }
+        return this.sensed(seen, last);
     }
 
-    /** Levels with the map property `orakel: true` have an oracle that knows the way. */
+    /** How far is_enemy_in_front may look in this level (map property `witterung`, default 1). */
+    sightRange() {
+        return this.level.sightRange();
+    }
+
+    /** Another hero on the field in front (sensor; a level with several heroes). */
+    isHeroInFront() {
+        return this.sensed(this.isHeroAt(...this.character.frontCell()));
+    }
+
+    /** This hero is out of the game (arena): caught, fallen or collapsed. */
+    isOut() {
+        return this.level.isHeroOut(this.character);
+    }
+
+    /** The value of the items this hero carries (an arena's score). */
+    carriedValue() {
+        return this.character.inventory.reduce((sum, o) => sum + (Number.isInteger(o.value) ? o.value : 0), 0);
+    }
+
+    /** Levels with the map property `orakel` (true, or a percentage of truth) have an oracle. */
     hasOracle() {
-        return this.level.getBooleanProperty('orakel', false);
+        return this.level.oracleTruth() > 0;
     }
 
-    /** The first step of a shortest way to the exit ("north", ...), or null. */
+    /**
+     * The first step of a shortest way to the exit ("north", ...), or null. An erring oracle
+     * (`orakel: 70`) gives a wrong direction in the other 30 percent of its answers, reproducibly
+     * (the level's seed and the number of the question decide; the simulator does the same).
+     */
     askOracle() {
         this.statistics.addQuestion();
-        return this.level.oracleDirection(...this.character.currentCell());
+        const truth = this.level.oracleTruth();
+        const answer = this.level.oracleDirection(...this.character.currentCell());
+        if (answer === null || truth >= 100) {
+            return answer;
+        }
+        const roll = CharacterInterface.oracleRoll(this.level.seedNumber(), this.statistics.number_of_questions);
+        if (roll * 100 < truth) {
+            return answer;
+        }
+        const others = ["north", "east", "south", "west"].filter(d => d !== answer);
+        return others[Math.floor(roll * 1000) % 3];
+    }
+
+    /** A number in [0, 1) from the level's seed and the question's number (the simulator's twin). */
+    static oracleRoll(seed, question) {
+        let t = (Math.imul(seed, 1000003) + Math.imul(question, 7919) + 12345) >>> 0;
+        t = Math.imul(t ^ (t >>> 15), 2246822507) >>> 0;
+        t = (t ^ (t >>> 13)) >>> 0;
+        t = Math.imul(t, 3266489909) >>> 0;
+        t = (t ^ (t >>> 16)) >>> 0;
+        return t / 4294967296;
     }
 
     /** Value of the item on the hero's field (e.g. a crystal's weight), or null. */
@@ -618,11 +687,12 @@ export class CharacterInterface {
         return {
             ...this.statistics.snapshot(),
             at_goal: this.level.isOnGoal(this.character),
-            game_over: this.level.isAnyHeroLost(),
+            game_over: this.game.arena ? this.isOut() : this.level.isAnyHeroLost(),
             level_complete: this.level.isComplete(),
             missing: this.level.unmetWinConditions(),
             moves_left: this.movesLeft(),
             heroes: this.level.heroes.length,
+            ...(this.game.arena ? { out: this.isOut(), started: this.game.arenaStarted } : {}),
         };
     }
 }

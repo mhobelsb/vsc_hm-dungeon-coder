@@ -53,6 +53,59 @@
     #call-log[data-empty="true"] {
         display: none;
     }
+    /* the scoreboard of a live game (game/src/arena-board.js): beside the canvas, only while an arena is loaded */
+    #arena-board {
+        margin-left: 24px;
+        min-width: 220px;
+        max-width: 30vw;
+        padding: 10px 14px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid #555;
+        border-radius: 6px;
+        font: 15px/1.4 monospace;
+        color: #eee;
+    }
+    #arena-board h2 {
+        margin: 0 0 6px 0;
+        font-size: 18px;
+    }
+    #arena-board .phase {
+        margin-bottom: 8px;
+        color: #ffcc00;
+    }
+    #arena-board table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+    #arena-board td, #arena-board th {
+        padding: 3px 6px;
+        text-align: left;
+        white-space: nowrap;
+    }
+    #arena-board td.num {
+        text-align: right;
+    }
+    #arena-board .swatch {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        margin-right: 6px;
+        vertical-align: middle;
+        border: 1px solid #000;
+    }
+    #arena-board tr.out {
+        color: #888;
+    }
+    #arena-board .room {
+        margin-top: 8px;
+        border-top: 1px solid #555;
+        padding-top: 6px;
+    }
+    #arena-board .keys {
+        margin-top: 8px;
+        color: #999;
+        font-size: 12px;
+    }
     input[type="file"] {
             padding: 10px;
             border: 1px solid #ccc;
@@ -67,6 +120,7 @@
         <input type="file" id="json-file-input" accept=".json">
         <canvas id="gameCanvas" tabindex="-1" width="640" height="480"></canvas>
     </div>
+    <aside id="arena-board" hidden></aside>
     <pre id="call-log" data-empty="true" hidden></pre>
     <script nonce="${nonce}">
         const rawGameFolderUri = '${gameFolderUri}'; 
@@ -89,6 +143,9 @@
         } catch (e) {
             window.DcAssetPackUris = [];
         }
+        // the dev server's WebSocket port (DC_WS_PORT); not replaced inside VS Code, where there is no socket
+        const rawWsPort = '${wsPort}';
+        window.DcWsPort = /^\d+$/.test(rawWsPort) ? Number(rawWsPort) : null;
         const script = document.createElement('script');
         script.type = 'module';
         script.src = FINAL_GAME_URI + "src/script.js";

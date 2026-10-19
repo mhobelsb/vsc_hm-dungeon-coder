@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { appendFileSync, readFileSync } from 'fs';
 // Standalone counterpart to DungeonCoderServer (src/extension.ts) for running
 // and testing the game in a plain browser, without VS Code. Serves the same
 // REST API on the same port so an unmodified `dungeoncoder` Python client
@@ -19,12 +19,17 @@ import { COMMANDS, COMMAND_LIST, ROUTES } from '../game/src/commands.js';
 import { API_HOST, API_PORT } from '../game/src/api-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HOST = API_HOST;
+// DC_HOST opens the server to other computers (a live game in the room: DC_HOST=0.0.0.0, the
+// page on this machine's beamer, the teams' scripts on their laptops). Then only this machine
+// loads levels and runs the game (loopback), and every hero belongs to the computer that joined it.
+const HOST = process.env.DC_HOST || API_HOST;
+const EXPOSED = !['127.0.0.1', 'localhost', '::1'].includes(HOST);
 // DC_PORT lets the dev server run next to an installed Dungeon Coder
 // extension, which already occupies API_PORT while its game tab is open.
 // Python clients then need Game.BASE_URL pointed at the same port.
 const HTTP_PORT = Number(process.env.DC_PORT ?? API_PORT);
-const WS_PORT = 8000;
+// DC_WS_PORT: the page's socket to this server (index.html gets it as ${wsPort})
+const WS_PORT = Number(process.env.DC_WS_PORT ?? 8000);
 const TURN_DELAY_MS = 200;
 // Same move() step bound as src/extension.ts: animation 500 ms / pace plus slack.
 const MOVE_DURATION_MS = 500;
@@ -86,10 +91,12 @@ wss.on('connection', socket => {
 });
 
 /** Polls until the hero has finished its step; returns an error response on failure or timeout. */
-async function pollUntilStopped(pollInterval = 10) {
+async function pollUntilStopped(pollInterval = 10, hero = undefined) {
     const deadline = Date.now() + MOVE_TIMEOUT_BASE_MS + MOVE_DURATION_MS / currentPaceFactor;
+    // co-op levels: ask about the hero that moved (query parameter hero), not about any hero
+    const params = hero !== undefined && hero !== '' ? { hero: Number(hero) } : null;
     while (Date.now() < deadline) {
-        const isMovingResponse = await sendToClient(COMMANDS.IS_MOVING);
+        const isMovingResponse = await sendToClient(COMMANDS.IS_MOVING, params);
         if (!isMovingResponse.success) {
             return isMovingResponse;
         }
@@ -101,6 +108,18 @@ async function pollUntilStopped(pollInterval = 10) {
     return { success: false, message: 'The hero did not finish its step in time.', exception: 'MoveTimeout' };
 }
 
+// DC_TRACE: every command the game answered, one JSON line each (time, hero, method, params,
+// outcome): the record of a live game, for a replay or the "move of the day"
+const TRACE_FILE = process.env.DC_TRACE || '';
+function traceLine(command, params, response) {
+    if (!TRACE_FILE || command === COMMANDS.IS_MOVING) {
+        return;
+    }
+    const line = { t: Date.now(), hero: params?.hero ?? 0, method: command, params: params && command !== COMMANDS.LOAD_LEVEL ? params : null,
+        ok: Boolean(response?.success), result: command === COMMANDS.LOAD_LEVEL ? null : (response?.result ?? null) };
+    appendFileSync(TRACE_FILE, JSON.stringify(line) + '\n');
+}
+
 const app = express();
 app.use(express.json());
 // Asset packs (D8a): DC_ASSET_PACKS lists pack folders (separated by the path delimiter).
@@ -109,7 +128,8 @@ const ASSET_PACKS = (process.env.DC_ASSET_PACKS || '').split(path.delimiter).fil
 ASSET_PACKS.forEach((folder, i) => app.use(`/packs/${i}`, express.static(path.resolve(folder))));
 app.get(['/', '/index.html'], (req, res) => {
     const html = readFileSync(path.join(__dirname, '..', 'game', 'index.html'), 'utf8')
-        .replace(/\$\{assetPackUris\}/g, JSON.stringify(ASSET_PACKS.map((_, i) => `/packs/${i}/`)));
+        .replace(/\$\{assetPackUris\}/g, JSON.stringify(ASSET_PACKS.map((_, i) => `/packs/${i}/`)))
+        .replace(/\$\{wsPort\}/g, String(WS_PORT));
     res.type('html').send(html);
 });
 app.use(express.static(path.join(__dirname, '..', 'game')));
@@ -127,15 +147,60 @@ function sendApiResponse(res, response) {
     }
 }
 
+// A live game with the server open to the room (EXPOSED): the referee's commands stay on this
+// machine, and a hero belongs to the computer that joined it with the team's code.
+const REFEREE_COMMANDS = new Set([COMMANDS.LOAD_LEVEL, COMMANDS.RESET_LEVEL, COMMANDS.START_GAME, COMMANDS.END_GAME]);
+const owners = new Map();           // hero index -> the address that joined it
+
+function isLoopback(address) {
+    return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(String(address));
+}
+
+/** The reason to refuse a request from another computer, or null. */
+function refusal(command, req, params) {
+    if (!EXPOSED || isLoopback(req.ip)) {
+        return null;
+    }
+    if (REFEREE_COMMANDS.has(command)) {
+        return 'Only the referee (on the game\'s own computer) may load levels and start or end the game.';
+    }
+    if (command === COMMANDS.JOIN || command === COMMANDS.GET_VERSION) {
+        return null;
+    }
+    const hero = params?.hero ?? 0;
+    if (!owners.has(hero)) {
+        return `Join the game first: Game.join("<your team code>") (hero ${hero} has no team yet).`;
+    }
+    if (owners.get(hero) !== req.ip) {
+        return `Hero ${hero} belongs to another team (it was joined from another computer).`;
+    }
+    return null;
+}
+
 function registerRoute(method, route, command, options = {}) {
     app[method](route, async (req, res) => {
         try {
             // co-op levels: the query parameter `hero` picks the hero (as in src/extension.ts, withHero)
             let params = options.includeBody ? req.body : null;
-            if (req.query.hero !== undefined && req.query.hero !== '') {
-                params = { ...(params ?? {}), hero: Number(req.query.hero) };
+            // query parameters the game needs: hero (co-op levels), distance (is_enemy_in_front)
+            for (const key of ['hero', 'distance']) {
+                if (req.query[key] !== undefined && req.query[key] !== '') {
+                    params = { ...(params ?? {}), [key]: Number(req.query[key]) };
+                }
+            }
+            const refused = refusal(command, req, params);
+            if (refused) {
+                sendApiResponse(res, { success: false, message: refused, exception: 'Refused' });
+                return;
             }
             const response = await sendToClient(command, params);
+            traceLine(command, params, response);
+            if (response.success && command === COMMANDS.JOIN && !isLoopback(req.ip)) {
+                owners.set(response.result.hero, req.ip);
+            }
+            if (response.success && command === COMMANDS.LOAD_LEVEL) {
+                owners.clear();
+            }
             if (response.success && options.onSuccess) {
                 // onSuccess may return a replacement response, e.g. a failed move poll.
                 const replacement = await options.onSuccess(response, req);
@@ -156,7 +221,7 @@ function registerRoute(method, route, command, options = {}) {
 // A (re)loaded level has a fresh hero at pace 1; reset the server's copy too.
 const resetPace = () => { currentPaceFactor = 1.0; };
 const AFTER_SUCCESS = {
-    [COMMANDS.MOVE]: () => pollUntilStopped(10),
+    [COMMANDS.MOVE]: (_, req) => pollUntilStopped(10, req.query.hero),
     [COMMANDS.TURN_LEFT]: () => delay(TURN_DELAY_MS / currentPaceFactor),
     [COMMANDS.SET_PACE]: (_, req) => {
         const factor = req.body?.factor;
@@ -204,4 +269,7 @@ app.use((err, req, res, next) => {
 app.listen(HTTP_PORT, HOST, () => {
     console.log(`Dev API running on http://${HOST}:${HTTP_PORT} (open /index.html in a browser)`);
     console.log(`Dev WebSocket listening on ws://${HOST}:${WS_PORT}/ws/game`);
+    if (EXPOSED) {
+        console.log('Open to other computers (DC_HOST): levels, start and end only from this machine; heroes belong to the computer that joined them.');
+    }
 });

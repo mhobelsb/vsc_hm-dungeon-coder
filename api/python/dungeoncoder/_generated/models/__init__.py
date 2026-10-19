@@ -6,6 +6,10 @@ from .boolean_result import BooleanResult
 from .boolean_result_status import BooleanResultStatus
 from .configure_params import ConfigureParams
 from .distance_param import DistanceParam
+from .join_info import JoinInfo
+from .join_params import JoinParams
+from .join_result import JoinResult
+from .join_result_status import JoinResultStatus
 from .name_param import NameParam
 from .nullable_integer_result import NullableIntegerResult
 from .nullable_integer_result_status import NullableIntegerResultStatus
@@ -29,6 +33,10 @@ __all__ = (
     "BooleanResultStatus",
     "ConfigureParams",
     "DistanceParam",
+    "JoinInfo",
+    "JoinParams",
+    "JoinResult",
+    "JoinResultStatus",
     "NameParam",
     "NullableIntegerResult",
     "NullableIntegerResultStatus",

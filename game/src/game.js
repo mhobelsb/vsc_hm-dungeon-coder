@@ -54,6 +54,12 @@ export class Game {
         this.characterInterfaces = [];
         /** The hero tried a move with the budget spent (map property max_moves). */
         this.outOfMoves = false;
+        /** A live game (map property `arena`): started by the referee, ended by the referee or when every hero is out. */
+        this.arena = false;
+        this.arenaStarted = false;
+        this.arenaOver = false;
+        this.arenaStartTime = null;
+        this.arenaValueAtStart = 0;
     }
 
     /**
@@ -85,7 +91,14 @@ export class Game {
             this.setViewSize(width, height);
         }
         this.character = this.level.getObjectByName("MainCharacter");
-        this.characterInterfaces = this.level.heroes.map(hero => new CharacterInterface(this, this.level, hero, this.statistics));
+        // an arena: every hero keeps its own counters (its own budget, its own score)
+        this.arena = this.level.isArena();
+        this.arenaStarted = !this.arena;
+        this.arenaOver = false;
+        this.arenaStartTime = null;
+        this.arenaValueAtStart = this.arena ? this.level.valueLying() : 0;
+        this.characterInterfaces = this.level.heroes.map((hero, i) => new CharacterInterface(
+            this, this.level, hero, this.arena && i > 0 ? new Statistics() : this.statistics));
         this.characterInterface = this.characterInterfaces[0] ?? new CharacterInterface(this, this.level, this.character, this.statistics);
         this.sensing = Sensing.fromLevel(this.level);
         this.outOfMoves = false;
@@ -93,9 +106,9 @@ export class Game {
         this.inputManager.setStatistics(this.statistics);
         this.fog = Fog.fromLevel(this.level);
         // With fog, walking around by hand would uncover the level, so the keyboard is
-        // off unless the level explicitly sets `keyboard`.
+        // off unless the level explicitly sets `keyboard`. An arena never plays by hand.
         const keyboard = this.level.getProperty('keyboard');
-        this.inputManager.setEnabled(keyboard === undefined ? !this.fog.isActive() : keyboard !== false);
+        this.inputManager.setEnabled(this.arena ? false : (keyboard === undefined ? !this.fog.isActive() : keyboard !== false));
         this.lastLevelData = levelData;
         if (this.onLevelLoaded) {
             this.onLevelLoaded(this.level);
@@ -128,7 +141,35 @@ export class Game {
      * animation, but actions are refused from the first moment (B19).
      */
     isRunning() {
+        if (this.arena) {
+            // one hero's end doesn't end the round; the referee does (or every hero being out)
+            return this.currentGameState === GAME_STATE.PLAYING && !this.arenaOver;
+        }
         return this.currentGameState === GAME_STATE.PLAYING && !(this.level && this.level.isAnyHeroLost());
+    }
+
+    /** The referee starts the live game: from now on the heroes may act. */
+    startArena() {
+        if (!this.arena || this.arenaStarted || this.currentGameState !== GAME_STATE.PLAYING) {
+            return false;
+        }
+        this.arenaStarted = true;
+        this.arenaStartTime = Date.now();
+        return true;
+    }
+
+    /** The referee ends the round: every hero stops where it is; the picture stays. */
+    endArena() {
+        if (!this.arena || this.arenaOver || this.currentGameState !== GAME_STATE.PLAYING) {
+            return false;
+        }
+        this.arenaOver = true;
+        return true;
+    }
+
+    /** Seconds since the referee started the live game, or null. */
+    arenaSeconds() {
+        return this.arenaStartTime === null ? null : (Date.now() - this.arenaStartTime) / 1000;
     }
 
     /** The interface of hero `index` (0 = MainCharacter; co-op levels have more), or undefined. */
@@ -153,7 +194,8 @@ export class Game {
         while (this.accumulatedTime >= this.FIXED_TIME_STEP) {
             if (this.currentGameState === GAME_STATE.PLAYING)  {
                 if (this.level) {
-                    this.level.update(this.FIXED_TIME_STEP);
+                    // guards by the clock walk only while the game is on (an arena: after the start)
+                    this.level.update(this.FIXED_TIME_STEP, !this.arena || (this.arenaStarted && !this.arenaOver));
                     this.fog.update(this.FIXED_TIME_STEP);
                     this.sensing.update(this.FIXED_TIME_STEP);
                     // a level without a hero must not end the game loop for good (bug B23)
@@ -173,8 +215,9 @@ export class Game {
             fog: this.fog,
             character: this.character,
             sensing: this.sensing,
-            movesLeft: this.characterInterface?.movesLeft() ?? null,
+            movesLeft: this.arena ? null : (this.characterInterface?.movesLeft() ?? null),
             outOfMoves: this.outOfMoves,
+            arena: this.arena ? { names: this.level.arenaNames(), heroes: this.level.heroes } : null,
         });
 
         // State transitions are game logic, not rendering, so they stay
@@ -183,7 +226,12 @@ export class Game {
         // the renderer never needs the character itself.
         switch (this.currentGameState) {
             case GAME_STATE.PLAYING:
-                if (this.level.heroes.some(hero => hero.isDead())) {
+                if (this.arena) {
+                    // a live game stays on screen as it ended: no end screen, no countdown
+                    if (!this.arenaOver && this.level.heroes.length > 0 && this.level.heroes.every(hero => this.level.isHeroOut(hero))) {
+                        this.arenaOver = true;
+                    }
+                } else if (this.level.heroes.some(hero => hero.isDead())) {
                     this.currentGameState = GAME_STATE.GAME_OVER;
                 } else if (this.level.isComplete()) {
                     this.currentGameState = GAME_STATE.LEVEL_COMPLETE;

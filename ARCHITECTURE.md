@@ -107,7 +107,9 @@ the last content (the webview keeps it). Text maps (`.txt`) are turned into a Ti
   `fernrohr`, `orakel`, `amulett`, `max_moves`, `show_sensing`, `show_calls` (the call log in the corner, off by
   default), `torch_light`, `world` (end screens of a world),
   `pack` (the asset pack the art comes from, named in the "missing tileset" message), `seed` (a generated
-  level or a variant: shown on the end screens), `variants: random` (a new variant per load).
+  level or a variant: shown on the end screens), `variants: random` (a new variant per load),
+  `arena` with `codes` (a live game, section 4.7), `tick` (guards walk by the clock), `witterung` (how far
+  `is_enemy_in_front(distance)` may look), `orakel: 70` (an oracle that errs in 30 percent of its answers).
 
 ### 4.2 Coordinates
 
@@ -180,6 +182,54 @@ Keep the two levels apart: the outer `error` is a transport failure (no webview,
 to the HTTP response: for historical reasons an ordinary "no" is **HTTP 500**, which the Python layer turns
 into the method's default value (`False`, `[]`). Changing that would change every student-facing method, so
 it waits for an API version 2.
+
+### 4.7 A live game: the arena
+
+A level with the map property `arena: true` is a live game for several teams in one room: one hero per
+team (`Hero2`, `Hero3`, … as in a co-op level; text maps `2` to `9`), the teams' codes in the map property
+`codes` ("ROT-4711 BLAU-2234 …", one per hero in order; the name before the dash is the team's name). The
+game runs in one place (the dev server on the referee's computer, its page on the beamer); the teams'
+scripts join from their own computers:
+
+- `POST /game/join {code}` (`Game.join("ROT-4711")`) names the hero the code controls and whether the game
+  has started. `Game.join` waits until it has (it asks again every half second), then `get_hero()` is the
+  team's hero. Nothing is loaded by the teams: the referee loads the level (`dungeoncoder.arena.load`).
+- `POST /game/start` (`Game.startArena`, Space on the page) lets the heroes act; before it every action is
+  refused. `POST /game/end` (E on the page) ends the round: everything stops where it is, the picture stays
+  (no end screen, no countdown). The round also ends when every hero is out.
+- Every hero has **its own counters** (`Statistics` per `CharacterInterface`; `GET /game/statistics?hero=N`),
+  so its own move budget (`max_moves`), and **its own end**: caught, fallen or collapsed, it lies on the
+  floor (drawn lying, grey tag) and its actions are refused, the others play on (`out` and `started` in the
+  statistics). Without `arena`, a co-op level is as before: one set of counters, a lost hero ends the level.
+- The pace is fixed (`set_pace` refused), the keyboard off, `is_hero_in_front()` tells another hero from a
+  wall (heroes block each other like walls in every co-op level).
+- The page draws a name tag in the team's colour above every hero (`HudRenderer.drawNameTags`) and a
+  scoreboard beside the canvas (`game/src/arena-board.js`: phase, clock, per team its state, the value it
+  carries and its moves left, and what the room collected of the level's valued items).
+- The dev server with `DC_HOST=0.0.0.0` is open to the room: then `level/load`, `level/reset`, `start` and
+  `end` are accepted only from the referee's own machine (loopback), and a hero belongs to the computer that
+  joined it (requests for it from another address are refused). `DUNGEONCODER_URL` points the Python
+  package at the referee's machine; `DC_WS_PORT` moves the page's socket (`${wsPort}` in `index.html`).
+- The simulator plays an arena too (`sim.py`: `arena`, `codes`, `started`, `over`, `out` per hero, counters and
+  inventories per hero); it has no referee, so `Game.join` starts the game itself there.
+- **Guards by the clock** (`tick: 500`, milliseconds): with several heroes a guard that stepped on every hero
+  move would run six times as fast and jump between targets. With `tick`, `Level.update` steps every guard
+  once per tick (`stepGuardsTimed`): a chaser towards the nearest hero still in the game, a patrol on its
+  way; a hero whose cell a guard reaches is caught (in an arena: out). Walking into a guard is still being
+  caught. Guards by the clock walk only while the game is on (an arena: between start and end). The
+  simulator has no clock: it steps them once per round of moves (every hero one move attempt; with one
+  hero that is once per move, as without `tick`), so scripts with `tick` are not in the conformance suite.
+- **Sight range** (`witterung: 2`): `is_enemy_in_front(distance)` looks up to `distance` fields ahead in a
+  straight line, a wall ends the view; more than the level allows is refused (default 1, as before).
+- **An erring oracle** (`orakel: 70`): the oracle answers wrongly in 30 percent of the questions, reproducibly
+  (a hash of the level's `seed` and the question's number, `CharacterInterface.oracleRoll` and `sim.oracle_roll`
+  are twins); `orakel: true` stays always right.
+- `DC_TRACE=file` makes the dev server append every answered command as a JSON line (time, hero, method,
+  params, outcome): the record of a live game.
+- `generator.py`: `generate: arena` (`teams`, `items`, `loops`, default 39 x 23) builds a maze with a hall in
+  the middle, one start niche per team on the edge, chosen so that the ways to the hall are of the same
+  length (within 7 percent; the seed is advanced by 1000 until that works), every hero facing the way out
+  (`start:` takes one direction per hero), and crystals with values, the dearest in the hall.
 
 ## 5. Asset packs
 

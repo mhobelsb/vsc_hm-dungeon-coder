@@ -321,9 +321,23 @@ class Level:
         self.heroes = ([self.character] if self.character else []) + extra
         self.goal = next((o for o in self.objects if o.type == "Goal"), None)
         self.slots = self._find_slots()
-        self.inventory = []
+        for hero in self.heroes:
+            hero.inventory = []         # engine: Character.inventory, one per hero
         self.caught = False
         self.out_of_moves = False
+        # a live game (map property arena): one hero per team, each with its own end; the referee
+        # starts it (engine: Game.arena, arenaStarted, arenaOver)
+        self.arena = bool(self.bool_prop("arena"))
+        self.codes = [c for c in str(self.prop("codes") or "").replace(",", " ").split() if c]
+        self.started = not self.arena
+        self.over = False
+        # guards by the clock (map property tick): the game steps them every `tick` ms; the simulator
+        # has no clock and steps them once per round of moves (every hero one move attempt)
+        tick = self.prop("tick")
+        self.guards_timed = isinstance(tick, int) and not isinstance(tick, bool) and tick > 0
+        self.move_attempts = 0
+        for hero in self.heroes:
+            hero.out = False            # arena: caught, fallen or collapsed; the others play on
         self._give_start_inventory(inventory)
         self.update()
 
@@ -341,6 +355,11 @@ class Level:
         for rank, o in enumerate(items):
             o.start_rank = rank
         return [cell(o) for o in items]
+
+    @property
+    def inventory(self):
+        """The main hero's inventory (the start inventory goes to it, as in the engine)."""
+        return self.character.inventory if self.character else []
 
     def _give_start_inventory(self, text):
         if not self.character:
@@ -422,6 +441,59 @@ class Level:
     def abyss_at(self, px, py):
         """An Abyss object, or an Abyss tile as the topmost tile of the field (engine: Level.isAbyssAt)."""
         return self.abyss_tile_at(px, py) or any(o.type == "Abyss" for o in self.objects_at(px, py))
+
+    def seed_number(self):
+        seed = self.prop("seed")
+        return seed if isinstance(seed, int) and not isinstance(seed, bool) else 0
+
+    def sight_range(self):
+        """How far is_enemy_in_front may look (map property witterung, default 1)."""
+        r = self.prop("witterung")
+        return r if isinstance(r, int) and not isinstance(r, bool) and r > 0 else 1
+
+    def oracle_truth(self):
+        """Percent of true answers: 100 for orakel: true, the number for orakel: 70, 0 without."""
+        v = self.prop("orakel")
+        if v is True:
+            return 100
+        return max(0, min(100, v)) if isinstance(v, int) and not isinstance(v, bool) else 0
+
+    def guard_at(self, col, row):
+        return any(o.kind == "Guard" and self.cell_of(o) == (col, row) for o in self.objects)
+
+    def step_guards_timed(self, out_heroes):
+        """One step of every guard by the clock (engine: Level.stepGuardsTimed): a chaser towards the
+        nearest hero still in the game. Returns the heroes caught."""
+        guards = [o for o in self.objects if o.kind == "Guard"]
+        alive = [h for h in self.heroes if h not in out_heroes]
+        caught = set()
+        for guard in guards:
+            col, row = self.cell_of(guard)
+            def free(c, r, guard=guard):
+                return self.walkable(c, r) and not any(o is not guard and self.cell_of(o) == (c, r) for o in guards)
+            if guard.behaviour == "chase":
+                if not alive:
+                    continue
+                target = self.cell_of(min(alive, key=lambda h: abs(self.cell_of(h)[0] - col) + abs(self.cell_of(h)[1] - row)))
+                dx, dy = target[0] - col, target[1] - row
+                h = "east" if dx > 0 else "west" if dx < 0 else None
+                v = "south" if dy > 0 else "north" if dy < 0 else None
+                options = [d for d in ((h, v) if abs(dx) >= abs(dy) else (v, h)) if d]
+            else:
+                options = [guard.direction, OPPOSITE[guard.direction]]
+            for d in options:
+                nc, nr = col + OFFSETS[d][0], row + OFFSETS[d][1]
+                if free(nc, nr):
+                    guard.x += OFFSETS[d][0] * self.tw
+                    guard.y += OFFSETS[d][1] * self.th
+                    if guard.behaviour != "chase":
+                        guard.direction = d
+                    break
+            gc = self.cell_of(guard)
+            for hero in alive:
+                if self.cell_of(hero) == gc:
+                    caught.add(hero)
+        return caught
 
     def step_guards(self, hero_from, hero_to):
         guards = [o for o in self.objects if o.kind == "Guard"]
@@ -547,6 +619,18 @@ def parse_start_inventory(text):
     return out
 
 
+def oracle_roll(seed, question):
+    """A number in [0, 1) from the level's seed and the question's number: the twin of
+    CharacterInterface.oracleRoll (game/src/character.js), so an erring oracle errs the same way."""
+    m = 0xFFFFFFFF
+    t = (seed * 1000003 + question * 7919 + 12345) & m
+    t = ((t ^ (t >> 15)) * 2246822507) & m
+    t = (t ^ (t >> 13)) & m
+    t = (t * 3266489909) & m
+    t = (t ^ (t >> 16)) & m
+    return t / 4294967296
+
+
 # --- the hero and the commands ------------------------------------------------------------
 OFFSETS = {"north": (0, -1), "south": (0, 1), "west": (-1, 0), "east": (1, 0)}
 OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
@@ -592,8 +676,24 @@ class Simulator:
                 or any(t.type == name for t in self.level.tiles_at(px, py)))
 
     def _tick(self):
-        """After every command: pattern doors, then falling, being caught, collapsing or completion end the level."""
+        """After every command: pattern doors, then falling, being caught, collapsing or completion end the level.
+        In an arena only the referee's end, or every hero being out, ends the round."""
         self.level.update()
+        if self.level.guards_timed and self.running and self.level.started \
+                and self.level.move_attempts and self.level.move_attempts % len(self.level.heroes) == 0:
+            self.level.move_attempts = 0
+            out = {h for h in self.level.heroes if getattr(h, "out", False)}
+            if not self.level.arena and (self.falling or self.level.caught or self.level.out_of_moves):
+                out = set(self.level.heroes)
+            for hero in self.level.step_guards_timed(out):
+                self.current, saved = hero, self.current
+                self._lost("caught")
+                self.current = saved
+        if self.level.arena:
+            if self.level.over or (self.level.heroes and all(h.out for h in self.level.heroes)):
+                self.level.over = True
+                self.running = False
+            return
         if self.falling or self.level.caught or self.level.out_of_moves or self.level.complete():
             self.running = False
 
@@ -612,12 +712,29 @@ class Simulator:
             self.level = None
             raise RuntimeError(f"Parsing level failed: {err}") from err
         self.last_level_data = data
-        self.stats = dict.fromkeys(["moves", "turns", "bumps", "keyboard_moves", "interactions", "pickups",
-                                    "drops", "sensor_calls", "reads", "questions"], 0)
+        self.stats_by_hero = {}
+        self.level_stats = self._fresh_stats()
         self.falling = False
         self.running = True
         self._tick()
         return True
+
+    @staticmethod
+    def _fresh_stats():
+        return dict.fromkeys(["moves", "turns", "bumps", "keyboard_moves", "interactions", "pickups",
+                              "drops", "sensor_calls", "reads", "questions"], 0)
+
+    @property
+    def stats(self):
+        """The counters: one set per level, or in an arena one set per hero (engine: Statistics per
+        CharacterInterface)."""
+        if self.level is not None and self.level.arena:
+            return self.stats_by_hero.setdefault(id(self.hero), self._fresh_stats())
+        return self.level_stats
+
+    @stats.setter
+    def stats(self, value):
+        self.level_stats = value
 
     @staticmethod
     def _read_level(path):
@@ -646,17 +763,65 @@ class Simulator:
             return (True, "Level reset.", self.load_level(self.last_level_data))
         if self.level is None or self.level.character is None:
             raise RuntimeError("No level loaded.")
+        if method in ("join", "start_game", "end_game"):
+            return getattr(self, "cmd_" + method)(params or {})
         index = (params or {}).get("hero", 0) or 0
         if index >= len(self.level.heroes):
             count = len(self.level.heroes)
             return (False, f"There is no hero {index} in this level (it has {count}: 0 to {count - 1}).", None)
         self.current = self.level.heroes[index]
-        if method in ("move", "turn_left", "interact", "pickup", "drop") and not self.running:
-            return (False, "The level is over (goal reached or game over). Load a level to continue.", False)
+        if method in ("move", "turn_left", "interact", "pickup", "drop"):
+            if not self.running:
+                return (False, "The round is over. Wait for the referee to load the next one." if self.level.arena
+                        else "The level is over (goal reached or game over). Load a level to continue.", False)
+            if self.level.arena and not self.level.started:
+                return (False, "The game has not started yet: wait for the referee (Game.join waits for you).", False)
+            if self.level.arena and self.hero.out:
+                return (False, "This hero is out of the game (caught, fallen or no moves left). The others play on.", False)
         result = getattr(self, "cmd_" + method)(params or {})
         if method in ("move", "turn_left", "interact", "pickup", "drop"):
             self._tick()
         return result
+
+    # -- a live game (arena): engine HANDLERS JOIN, START_GAME, END_GAME in game/src/script.js
+    def cmd_join(self, params):
+        if not self.level.arena:
+            return (False, "There is no live game to join (the loaded level is not an arena).", None)
+        code = str(params.get("code") or "").strip().upper()
+        index = next((i for i, c in enumerate(self.level.codes) if c.upper() == code), -1)
+        if not code or index < 0 or index >= len(self.level.heroes):
+            return (False, f'Unknown team code "{params.get("code")}". Check the code on your table card.', None)
+        name = self.level.codes[index].split("-")[0]
+        return (True, f"Team {name} controls hero {index}.",
+                {"hero": index, "name": name, "started": self.level.started, "heroes": len(self.level.heroes)})
+
+    def cmd_start_game(self, _):
+        if not self.level.arena:
+            return (False, "There is no live game to start (the loaded level is not an arena).", False)
+        if self.level.started or self.level.over:
+            return (False, "The game had already started (or is over).", False)
+        self.level.started = True
+        return (True, "The game has started.", True)
+
+    def cmd_end_game(self, _):
+        if not self.level.arena:
+            return (False, "There is no live game to end (the loaded level is not an arena).", False)
+        if self.level.over:
+            return (False, "The round was already over.", False)
+        self.level.over = True
+        self.running = False
+        return (True, "The round is over.", True)
+
+    def _lost(self, how):
+        """This hero is lost: in an arena it is out and the others play on; otherwise the level is lost."""
+        if self.level.arena:
+            self.hero.out = True
+        elif how == "caught":
+            self.level.caught = True
+        elif how == "collapsed":
+            self.level.out_of_moves = True
+        else:
+            self.falling = True
 
     def moves_left(self):
         budget = self.level.prop("max_moves")
@@ -670,25 +835,28 @@ class Simulator:
 
     def cmd_move(self, _):
         if self.moves_left() == 0:
-            self.level.out_of_moves = True
+            self._lost("collapsed")
             return (False, f"No moves left: this level allows {self.level.prop('max_moves')} move() calls "
                            "(map property max_moves). The hero collapses.", False)
+        self.level.move_attempts += 1
         px, py = self._front()
         start = self.level.cell_of(self.hero)
+        timed = self.level.guards_timed
         if self.level.is_collision(px, py) or self._hero_at(int(px // self.level.tw), int(py // self.level.th)):
-            if self.level.step_guards(start, start):
-                self.level.caught = True
+            if not timed and self.level.step_guards(start, start):
+                self._lost("caught")
             self._count("bumps")
             return (False, "Moving failed. Way is blocked.", False)
         target = (int(px // self.level.tw), int(py // self.level.th))
-        if self.level.step_guards(start, target):
-            self.level.caught = True
+        # guards by the clock don't step here, but walking into one is being caught just the same
+        if (self.level.guard_at(*target) if timed else self.level.step_guards(start, target)):
+            self._lost("caught")
         abyss = self.level.abyss_at(px, py)
         dx, dy = OFFSETS[self.direction()]
         self.hero.x += dx * self.level.tw
         self.hero.y += dy * self.level.th
         if abyss:
-            self.falling = True
+            self._lost("fell")
         self._count("moves")
         return (True, "Hero moved successfully.", True)
 
@@ -713,6 +881,8 @@ class Simulator:
         return (ok, "Hero configured successfully." if ok else "Unable to configure hero.", ok)
 
     def cmd_set_pace(self, params):
+        if self.level.arena:
+            return (False, "The pace is fixed in a live game (arena): every hero walks at the same speed.", False)
         factor = params.get("factor")
         ok = isinstance(factor, (int, float)) and not isinstance(factor, bool) and factor > 0
         return (ok, "Pace changed." if ok else "Could not change pace.", ok)
@@ -745,32 +915,63 @@ class Simulator:
     def cmd_is_switch_in_front(self, _):
         return self._sensor(self._in_front("Switch"))
 
-    def cmd_is_enemy_in_front(self, _):
-        return self._sensor(self._in_front("Guard"))
+    def cmd_is_enemy_in_front(self, params):
+        distance = params.get("distance", 1) or 1
+        if distance > self.level.sight_range():
+            return (False, f"This level lets you see {self.level.sight_range()} field(s) ahead (map property witterung), "
+                           f"not {distance}.", False)
+        if distance <= 1:
+            return self._sensor(self._in_front("Guard"))
+        seen = False
+        for d in range(1, distance + 1):
+            px, py = self._front(d)
+            col, row = int(px // self.level.tw), int(py // self.level.th)
+            if self.level.guard_at(col, row):
+                seen = True
+                break
+            if not self.level.walkable(col, row):
+                break
+        return self._sensor(seen)
+
+    def cmd_is_hero_in_front(self, _):
+        px, py = self._front()
+        return self._sensor(self._hero_at(int(px // self.level.tw), int(py // self.level.th)))
 
     def cmd_ask_oracle(self, _):
-        if not self.level.bool_prop("orakel"):
+        truth = self.level.oracle_truth()
+        if truth <= 0:
             return (False, "There is no oracle in this level (map property orakel).", None)
         self._count("questions")
-        return (True, "", self.level.oracle_direction(*self.level.cell_of(self.hero)))
+        answer = self.level.oracle_direction(*self.level.cell_of(self.hero))
+        if answer is None or truth >= 100:
+            return (True, "", answer)
+        roll = oracle_roll(self.level.seed_number(), self.stats["questions"])
+        if roll * 100 < truth:
+            return (True, "", answer)
+        others = [d for d in ("north", "east", "south", "west") if d != answer]
+        return (True, "", others[int(roll * 1000) % 3])
 
     def cmd_get_items_at_position(self, _):
         self._count("sensor_calls")
         return (True, "", [o.type for o in self.level.objects_at(*self._centre()) if o.type != "Character"])
 
     def cmd_get_inventory(self, _):
-        return (True, "", [o.type for o in self.level.inventory])
+        return (True, "", [o.type for o in self.hero.inventory])
 
     def cmd_get_statistics(self, _):
-        return (True, "Statistics of the current level.",
-                {**self.stats, "at_goal": self.level.on_goal(self.hero),
+        stats = {**self.stats, "at_goal": self.level.on_goal(self.hero),
                  "game_over": self.falling or self.level.caught or self.level.out_of_moves,
                  "level_complete": self.level.complete(),
-                 "missing": self.level.unmet(), "moves_left": self.moves_left(), "heroes": len(self.level.heroes)})
+                 "missing": self.level.unmet(), "moves_left": self.moves_left(), "heroes": len(self.level.heroes)}
+        if self.level.arena:
+            stats["game_over"] = self.hero.out
+            stats["out"] = self.hero.out
+            stats["started"] = self.level.started
+        return (True, "Statistics of the current level.", stats)
 
     def _inventory_full(self):
         size = self.level.prop("inventory_size")
-        return isinstance(size, int) and not isinstance(size, bool) and len(self.level.inventory) >= size
+        return isinstance(size, int) and not isinstance(size, bool) and len(self.hero.inventory) >= size
 
     def cmd_pickup(self, params):
         name = params.get("name")
@@ -779,7 +980,7 @@ class Simulator:
                            "Drop something first.", False)
         for o in self.level.objects_at(*self._centre()):
             if o.type == name:
-                self.level.inventory.append(o)
+                self.hero.inventory.append(o)
                 o.x, o.y, o.visible = -100, -100, False
                 self._count("pickups")
                 return (True, f'Picked up item "{name}".', True)
@@ -787,10 +988,10 @@ class Simulator:
 
     def cmd_drop(self, params):
         name = params.get("name")
-        for i, o in enumerate(self.level.inventory):
+        for i, o in enumerate(self.hero.inventory):
             if o.type == name:
                 o.x, o.y, o.visible = self.hero.x, self.hero.y, True
-                del self.level.inventory[i]
+                del self.hero.inventory[i]
                 self._count("drops")
                 return (True, f'Successfully dropped item "{name}".', True)
         return (False, f'Item "{name}" not in inventory.', False)

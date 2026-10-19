@@ -13,7 +13,17 @@ export class CharacterRenderer {
         }
 
         if (character.visible) {
-            this.tileRenderer.drawAnyTile(character.tile, character.x, character.y, character.width, character.height, character.angle, character.scaling_factor);
+            // a dead hero that is still drawn (an arena plays on without it) lies on the floor
+            const lying = character.isDead() && !character.isFalling();
+            if (lying) {
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.55;
+            }
+            this.tileRenderer.drawAnyTile(character.tile, character.x, character.y, character.width, character.height,
+                lying ? Math.PI / 2 : character.angle, character.scaling_factor);
+            if (lying) {
+                this.ctx.restore();
+            }
         }
     }
 

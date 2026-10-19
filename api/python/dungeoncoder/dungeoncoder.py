@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 
 try:
     import httpx
@@ -20,6 +21,7 @@ from ._generated.errors import UnexpectedStatus
 from ._generated.models.api_error_response import ApiErrorResponse
 from ._generated.models.configure_params import ConfigureParams
 from ._generated.models.distance_param import DistanceParam
+from ._generated.models.join_params import JoinParams
 from ._generated.models.name_param import NameParam
 from ._generated.models.pace_params import PaceParams
 from ._generated.models.tiled_level import TiledLevel
@@ -33,6 +35,7 @@ from ._generated.api.hero import (
     ask_oracle as _ask_oracle_api,
     is_at_goal as _is_at_goal_api,
     is_enemy_in_front as _is_enemy_in_front_api,
+    is_hero_in_front as _is_hero_in_front_api,
     is_collision_in_front as _is_collision_in_front_api,
     is_facing_north as _is_facing_north_api,
     sense_goal as _sense_goal_api,
@@ -46,15 +49,25 @@ from ._generated.api.hero import (
     turn_left as _turn_left_api,
 )
 from ._generated.api.level import load_level as _load_level_api, reset_level as _reset_level_api
-from ._generated.api.game import get_statistics as _get_statistics_api, get_version as _get_version_api
+from ._generated.api.game import (
+    end_game as _end_game_api,
+    get_statistics as _get_statistics_api,
+    get_version as _get_version_api,
+    join as _join_api,
+    start_game as _start_game_api,
+)
 
 os.environ["NO_PROXY"] = HOST
 
 
 def _discover_base_url() -> str:
-    """Where the game listens: DUNGEONCODER_PORT, else the port the extension wrote to
+    """Where the game listens: DUNGEONCODER_URL (another computer's game, e.g. a live game in the
+    room: http://192.168.8.1:3000), else DUNGEONCODER_PORT, else the port the extension wrote to
     .dungeoncoder-port in the working folder or a folder above it (setting dungeonCoder.port),
     else the default from api/openapi.yaml."""
+    url = os.environ.get("DUNGEONCODER_URL", "").strip().rstrip("/")
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
     port = os.environ.get("DUNGEONCODER_PORT", "").strip()
     if not port.isdigit():
         port = ""
@@ -106,13 +119,14 @@ def use_simulator(on: bool = True) -> None:
     _simulator = Simulator() if on else None
 
 
-def _simulated(client, sync_detailed_fn, body=None, hero=None):
+def _simulated(client, sync_detailed_fn, body=None, hero=None, **query):
     """What the generated call would return if the extension host had answered."""
     module = sys.modules[sync_detailed_fn.__module__]
     method = sync_detailed_fn.__module__.rsplit(".", 1)[1]
     params = body.to_dict() if body is not None else {}
     if hero:
         params["hero"] = hero
+    params.update({k: v for k, v in query.items() if v is not None})     # e.g. distance
     status, payload = _simulator.request(method, params)
     return module._build_response(client=client, response=httpx.Response(status, json=payload))
 
@@ -167,6 +181,9 @@ def _call(client: Client, sync_detailed_fn, *, default, explain_refusal=False, *
     params = body.to_dict() if body is not None else None
     if kwargs.get("hero"):
         params = {**(params or {}), "hero": kwargs["hero"]}
+    for key in ("distance",):                   # query parameters besides the hero
+        if kwargs.get(key) is not None:
+            params = {**(params or {}), key: kwargs[key]}
     if method == "load_level" and _simulator is not None and _simulator.level_override:
         params = _simulator.last_level_data      # grading: the level that was really played
         trace.loading(_simulator.level_override)
@@ -285,14 +302,27 @@ class Hero:
         """Returns the list of items in the hero's inventory."""
         return self._call(self._client, _get_inventory_api.sync_detailed, default=[])
 
-    def is_enemy_in_front(self) -> bool:
-        """Checks if a guard stands on the field in front of the hero."""
-        return self._call(self._client, _is_enemy_in_front_api.sync_detailed, default=False)
+    def is_enemy_in_front(self, distance: int = 1) -> bool:
+        """Checks if a guard stands on the field in front of the hero. With `distance` (e.g. 2) it
+           looks that many fields ahead in a straight line, up to a wall; only levels with a
+           Witterung (map property witterung) allow more than 1."""
+        if type(distance) != int or distance < 1:
+            print("Error: distance must be a whole number of at least 1.")
+            return False
+        extra = {"distance": distance} if distance > 1 else {}
+        return self._call(self._client, _is_enemy_in_front_api.sync_detailed, default=False,
+                          explain_refusal="This level lets you see", **extra)
+
+    def is_hero_in_front(self) -> bool:
+        """Checks if another hero stands on the field in front of this one (a level with several
+           heroes, e.g. a live game). Another hero blocks the way like a wall, but only for a while."""
+        return self._call(self._client, _is_hero_in_front_api.sync_detailed, default=False)
 
     def ask_oracle(self) -> str | None:
         """Asks the oracle the way to the exit: the direction of the first step of a
            shortest way ("north", "east", "south" or "west"), or None if the hero stands
-           on the exit or there is no way. Only levels with an oracle answer."""
+           on the exit or there is no way. Only levels with an oracle answer; an erring oracle
+           (map property orakel: 70) is wrong in some of its answers."""
         return self._call(self._client, _ask_oracle_api.sync_detailed, default=None, explain_refusal=True)
 
     def read_item_value(self) -> int | None:
@@ -431,6 +461,57 @@ class Game:
             f.write(text)
         return cls(path, show_calls=show_calls, show_sensing=show_sensing)
 
+    @classmethod
+    def join(cls, code: str, url: str | None = None) -> "Game":
+        """Joins a live game (an arena) that runs on another computer, e.g. on the beamer in the room,
+        with your team's code from the table card, e.g. Game.join("ROT-4711"). The level is already
+        loaded there; this returns once the referee has started the game. get_hero() is your
+        team's hero. `url` is the game's address (default: DUNGEONCODER_URL, else this computer).
+
+        Example:
+            game = Game.join("ROT-4711")
+            hero = game.get_hero()
+            while hero.move():
+                pass
+        """
+        if type(code) != str or not code.strip():
+            print("Error: Game.join needs your team's code, e.g. Game.join(\"ROT-4711\").")
+            sys.exit(1)
+        base_url = (url or cls.BASE_URL).rstrip("/")
+        _check_version(base_url)
+        client = Client(base_url=base_url, timeout=_ANSWER_TIMEOUT)
+        trace.loading(f"join:{code.strip()}")
+        info = _call(client, _join_api.sync_detailed, default=None, explain_refusal=True, body=JoinParams(code=code.strip()))
+        if info is None:
+            print(f"Error: could not join the game at {base_url} with the code {code!r} (see the message above). "
+                  "Is the live game running, and is the code the one on your table card?")
+            sys.exit(1)
+        if not info.started and _simulator is not None:
+            # the simulator has no referee: the game starts as soon as a team joins
+            _call(client, _start_game_api.sync_detailed, default=False)
+            info = _call(client, _join_api.sync_detailed, default=info, body=JoinParams(code=code.strip()))
+        print(f"Team {info.name}: you control hero {info.hero} of {info.heroes}."
+              + ("" if info.started else " Waiting for the referee to start the game ..."))
+        waited = 0.0
+        while not info.started:
+            time.sleep(0.5)
+            waited += 0.5
+            info = _call(client, _join_api.sync_detailed, default=None, body=JoinParams(code=code.strip()))
+            if info is None:
+                print("Error: lost the connection to the game while waiting for the start.")
+                sys.exit(1)
+        if waited:
+            print("The game has started!")
+        game = cls.__new__(cls)
+        game.BASE_URL = base_url
+        game._Game__level = cls.Level(base_url)
+        game._Game__hero = Hero(base_url, info.hero)
+        game._Game__heroes = [game._Game__hero]
+        game.seed = None
+        game.team = info.name
+        """The team's name in a live game (Game.join), else None."""
+        return game
+
     def get_hero(self):
         return self.__hero
 
@@ -459,7 +540,12 @@ class Game:
          "level_complete": False, "missing": ["3 sweets"], "moves_left": None, "heroes": 1}.
         "missing" lists the level's win conditions that are not met yet; "moves_left" the
         move() calls left in a level with a budget (max_moves)."""
-        result = _call(self.__level._client, _get_statistics_api.sync_detailed, default=None)
+        # a live game (Game.join): the counters of this team's hero
+        hero = getattr(self, "_Game__hero", None)
+        if hero is not None:
+            result = hero._call(self.__level._client, _get_statistics_api.sync_detailed, default=None)
+        else:                               # a bare Game (tools/levels/run_sim.py): the level's counters
+            result = _call(self.__level._client, _get_statistics_api.sync_detailed, default=None)
         return result.to_dict() if result is not None else {}
 
     class Level:

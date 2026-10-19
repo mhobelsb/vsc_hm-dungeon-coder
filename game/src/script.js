@@ -2,6 +2,7 @@ import { Game, GAME_WIDTH, GAME_HEIGHT } from './game.js';
 import { COMMANDS } from './commands.js';
 import { MissingTilesetError } from './tiles.js';
 import { CallLog } from './call-log.js';
+import { ArenaBoard } from './arena-board.js';
 
 let vscode = null;
 
@@ -74,8 +75,10 @@ function loadFileAsync(file) {
     function resizeCanvas() {
         const picker = document.getElementById('json-file-input');     // only shown in the browser
         const reserved = picker && picker.style.display !== 'none' ? picker.offsetHeight + 16 : 0;
+        const board = document.getElementById('arena-board');          // the scoreboard of a live game, beside the canvas
+        const beside = board && !board.hidden ? board.offsetWidth + 24 : 0;
         const width = game.viewWidth, height = game.viewHeight;     // the level's size in game pixels
-        const fit = 0.97 * Math.min(window.innerWidth / width, (window.innerHeight - reserved) / height);
+        const fit = 0.97 * Math.min((window.innerWidth - beside) / width, (window.innerHeight - reserved) / height);
         const scale = Math.max(0.5 * Math.min(GAME_WIDTH / width, GAME_HEIGHT / height), fit);
         canvas.style.width = Math.floor(width * scale) + "px";
         canvas.style.height = Math.floor(height * scale) + "px";
@@ -126,9 +129,10 @@ function loadFileAsync(file) {
             return { success: true, message: "Hero turned left successfully.", result };
         },
 
-        [COMMANDS.IS_MOVING]: (game) => {
-            // any hero: the host waits for the step of whichever hero just moved
-            const result = game.isAnyHeroMoving();
+        [COMMANDS.IS_MOVING]: (game, character) => {
+            // the hero the host asks about (query parameter hero, 0 without one); with several
+            // heroes walking at once (a live game), one hero's step must not wait for the others
+            const result = character ? character.isMoving() : game.isAnyHeroMoving();
             return { success: true, message: result ? "Hero is moving." : "Hero is standing.", result };
         },
 
@@ -184,9 +188,47 @@ function loadFileAsync(file) {
             return { success: true, message: "Statistics of the current level.", result: character.getStatistics() };
         },
 
-        [COMMANDS.IS_ENEMY_IN_FRONT]: (game, character) => {
-            const result = character.isEnemyInFront();
-            return { success: true, message: result ? "There is a guard in front." : "There is no guard in front.", result };
+        [COMMANDS.IS_ENEMY_IN_FRONT]: (game, character, params) => {
+            const distance = Number.isInteger(params?.distance) ? params.distance : 1;
+            if (distance > character.sightRange()) {
+                return { success: false, message: `This level lets you see ${character.sightRange()} field(s) ahead (map property witterung), not ${distance}.`, result: false };
+            }
+            const result = character.isEnemyInFront(distance);
+            return { success: true, message: result ? "There is a guard ahead." : "There is no guard ahead.", result };
+        },
+
+        [COMMANDS.IS_HERO_IN_FRONT]: (game, character) => {
+            const result = character.isHeroInFront();
+            return { success: true, message: result ? "There is another hero in front." : "There is no other hero in front.", result };
+        },
+
+        // a live game (map property arena): teams join with a code, the referee starts and ends it
+        [COMMANDS.JOIN]: (game, character, params) => {
+            if (!game.level || !game.arena) {
+                return { success: false, message: "There is no live game to join (the loaded level is not an arena).", result: null };
+            }
+            const index = game.level.heroIndexForCode(params?.code);
+            if (index < 0 || index >= game.level.heroes.length) {
+                return { success: false, message: `Unknown team code "${params?.code}". Check the code on your table card.`, result: null };
+            }
+            const result = { hero: index, name: game.level.arenaNames()[index], started: game.arenaStarted, heroes: game.level.heroes.length };
+            return { success: true, message: `Team ${result.name} controls hero ${index}.`, result };
+        },
+
+        [COMMANDS.START_GAME]: (game) => {
+            if (!game.level || !game.arena) {
+                return { success: false, message: "There is no live game to start (the loaded level is not an arena).", result: false };
+            }
+            const result = game.startArena();
+            return { success: result, message: result ? "The game has started." : "The game had already started (or is over).", result };
+        },
+
+        [COMMANDS.END_GAME]: (game) => {
+            if (!game.level || !game.arena) {
+                return { success: false, message: "There is no live game to end (the loaded level is not an arena).", result: false };
+            }
+            const result = game.endArena();
+            return { success: result, message: result ? "The round is over." : "The round was already over.", result };
         },
 
         [COMMANDS.ASK_ORACLE]: (game, character) => {
@@ -235,6 +277,9 @@ function loadFileAsync(file) {
         },
 
         [COMMANDS.SET_PACE]: (game, character, params) => {
+            if (game.arena) {
+                return { success: false, message: "The pace is fixed in a live game (arena): every hero walks at the same speed.", result: false };
+            }
             const result = character.set_pace(params.factor);
             return { success: result, message: result ? `Successfully changed pace to factor "${params.factor}".` : `Could not change pace to "${params.factor}".`, result };
         },
@@ -272,8 +317,21 @@ function loadFileAsync(file) {
         // Once a level is complete or lost, the world no longer updates, so
         // an action would start and never finish. Refuse it right away.
         if (ACTIONS_NEEDING_RUNNING_LEVEL.has(message.method) && !game.isRunning()) {
-            answer({ result: { success: false, message: "The level is over (goal reached or game over). Load a level to continue.", result: false } });
+            answer({ result: { success: false, message: game.arena && game.arenaOver
+                ? "The round is over. Wait for the referee to load the next one."
+                : "The level is over (goal reached or game over). Load a level to continue.", result: false } });
             return;
+        }
+        // a live game: nobody acts before the referee's start, and a hero that is out stays out
+        if (ACTIONS_NEEDING_RUNNING_LEVEL.has(message.method) && game.arena) {
+            if (!game.arenaStarted) {
+                answer({ result: { success: false, message: "The game has not started yet: wait for the referee (Game.join waits for you).", result: false } });
+                return;
+            }
+            if (character && character.isOut()) {
+                answer({ result: { success: false, message: "This hero is out of the game (caught, fallen or no moves left). The others play on.", result: false } });
+                return;
+            }
         }
 
         try {
@@ -294,9 +352,12 @@ function loadFileAsync(file) {
     // The game sizes the canvas buffer itself (Game.setViewSize): larger than the view, so
     // text gets crisp. Everything draws in game pixels; the transform does the scaling.
     const game = new Game(canvas, getAssetPath(""));
-    game.onLevelLoaded = (level) => callLog.showFor(level);      // show_calls: true switches the list on
+    // the scoreboard of a live game (arena): beside the canvas, only while an arena is loaded
+    const arenaBoard = new ArenaBoard(document.getElementById('arena-board'), game, resizeCanvas);
+    game.onLevelLoaded = (level) => { callLog.showFor(level); arenaBoard.showFor(level); };
     game.onViewChange = resizeCanvas;
     game.start();
+    arenaBoard.start();
 
     fileInput.addEventListener('change', async (event) => {
         const file = event.target.files[0];
@@ -314,7 +375,9 @@ function loadFileAsync(file) {
     });
 
     if (!isRunningInVSCodeWebview()) {
-        socket = new WebSocket("ws://127.0.0.1:8000/ws/game");
+        // the dev server's WebSocket: same machine as the page, port from the server (DC_WS_PORT)
+        const wsPort = Number.isInteger(window.DcWsPort) ? window.DcWsPort : 8000;
+        socket = new WebSocket(`ws://${window.location.hostname || '127.0.0.1'}:${wsPort}/ws/game`);
         socket.onopen = () => {
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
@@ -327,10 +390,19 @@ function loadFileAsync(file) {
         });
     }
 
-    // L shows or hides the list of the program's last calls (shown by default only with show_calls: true)
+    // L shows or hides the list of the program's last calls (shown by default only with show_calls: true).
+    // A live game (arena) is run from this page: Space starts it, E ends the round.
     window.addEventListener('keydown', (event) => {
-        if (event.key.toLowerCase() === 'l' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+            return;
+        }
+        if (event.key.toLowerCase() === 'l') {
             callLog.toggle();
+        } else if (event.key === ' ' && game.arena) {
+            game.startArena();
+            event.preventDefault();
+        } else if (event.key.toLowerCase() === 'e' && game.arena) {
+            game.endArena();
         }
     });
 

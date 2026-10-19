@@ -186,9 +186,59 @@ export class Level {
         return this.getBooleanProperty('keyboard', true);
     }
 
-    update(deltaTime) {
+    /**
+     * Guards walk by the clock (map property `tick`, milliseconds per step) instead of once per
+     * hero move: for a live game with several heroes, where a guard chases the nearest one.
+     */
+    guardsTimed() {
+        const tick = this.getProperty('tick');
+        return Number.isInteger(tick) && tick > 0;
+    }
+
+    /** The level's seed (map property `seed`), or 0: it makes the oracle's errors reproducible. */
+    seedNumber() {
+        const seed = this.getProperty('seed');
+        return Number.isInteger(seed) ? seed : 0;
+    }
+
+    /** How far is_enemy_in_front may look (map property `witterung`, default 1: the field in front). */
+    sightRange() {
+        const range = this.getProperty('witterung');
+        return Number.isInteger(range) && range > 0 ? range : 1;
+    }
+
+    /**
+     * How often the oracle tells the truth, in percent: 100 for `orakel: true`, the number for
+     * `orakel: 70` (an erring oracle, DC-12), 0 without an oracle.
+     */
+    oracleTruth() {
+        const value = this.getProperty('orakel');
+        if (value === true) {
+            return 100;
+        }
+        return Number.isInteger(value) ? Math.max(0, Math.min(100, value)) : 0;
+    }
+
+    /** A guard stands on the cell. */
+    guardAt(col, row) {
+        return this.objectFactory.gameObjects.some(o => o instanceof Guard && this.cellOf(o)[0] === col && this.cellOf(o)[1] === row);
+    }
+
+    /**
+     * @param {number} deltaTime milliseconds
+     * @param {boolean} guardsActive timed guards walk only while the game is on (an arena: between start and end)
+     */
+    update(deltaTime, guardsActive = true) {
         for (const animatedTile of this.animatedTiles) {
             animatedTile.update(deltaTime);
+        }
+        if (guardsActive && this.guardsTimed()) {
+            this.tickAccumulated = (this.tickAccumulated ?? 0) + deltaTime;
+            const tick = this.getProperty('tick');
+            while (this.tickAccumulated >= tick) {
+                this.tickAccumulated -= tick;
+                this.stepGuardsTimed();
+            }
         }
 
         this.layers.forEach(layer => {
@@ -276,6 +326,42 @@ export class Level {
     /** Any hero is falling or dead: the level is lost. */
     isAnyHeroLost() {
         return this.heroes.some(h => h.isFalling() || h.isDead());
+    }
+
+    /** This hero is out of the game: falling, dead (caught, collapsed). */
+    isHeroOut(hero) {
+        return hero.isFalling() || hero.isDead();
+    }
+
+    /**
+     * A live game in the room (map property `arena: true`): one hero per team, each with its own
+     * counters and its own end; the referee starts the game; heroes join with a team code.
+     */
+    isArena() {
+        return this.getBooleanProperty('arena', false);
+    }
+
+    /** The team codes of an arena (map property `codes`, e.g. "ROT-4711 BLAU-2234"), one per hero in order. */
+    arenaCodes() {
+        return String(this.getProperty('codes') ?? "").split(/[\s,]+/).filter(c => c);
+    }
+
+    /** The team names of an arena: the part of each code before the dash (or the whole code). */
+    arenaNames() {
+        return this.arenaCodes().map(code => code.split('-')[0]);
+    }
+
+    /** The hero index a team code stands for (case doesn't matter), or -1. */
+    heroIndexForCode(code) {
+        const wanted = String(code ?? "").trim().toUpperCase();
+        return wanted ? this.arenaCodes().findIndex(c => c.toUpperCase() === wanted) : -1;
+    }
+
+    /** The total value of the valued items that lie in the level (visible ones), for an arena's score. */
+    valueLying() {
+        return this.objectFactory.gameObjects
+            .filter(o => o.type !== "Character" && o.visible !== false && Number.isInteger(o.value))
+            .reduce((sum, o) => sum + o.value, 0);
     }
 
     /** The hero stands on the goal field (and has finished its step). */
@@ -443,6 +529,72 @@ export class Level {
             }
         }
         return caught;
+    }
+
+    /** The cell a hero is in, or is walking into (a step counts from its start). */
+    heroCell(hero) {
+        if (hero.isMoving()) {
+            return [Math.floor(hero.targetX / this.tileWidth), Math.floor((hero.targetY - 1) / this.tileHeight)];
+        }
+        return hero.currentCell();
+    }
+
+    /**
+     * One step of every guard by the clock (map property `tick`): a chasing guard steps towards the
+     * nearest hero that is still in the game, a patrolling one walks on. A hero whose cell a guard
+     * reaches, or who stands on a guard's cell, is caught: dead at once, or after its step.
+     * Returns the heroes caught.
+     */
+    stepGuardsTimed() {
+        const OFFSETS = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+        const OPPOSITE = { north: "south", south: "north", east: "west", west: "east" };
+        const guards = this.objectFactory.gameObjects.filter(o => o instanceof Guard);
+        const alive = this.heroes.filter(h => !this.isHeroOut(h));
+        const caught = new Set();
+        for (const guard of guards) {
+            const [col, row] = this.cellOf(guard);
+            const free = (c, r) => this.isWalkable(c, r)
+                && !guards.some(o => o !== guard && this.cellOf(o)[0] === c && this.cellOf(o)[1] === r);
+            let options;
+            if (guard.behaviour === "chase") {
+                if (alive.length === 0) {
+                    continue;
+                }
+                const distance = h => { const [hc, hr] = this.heroCell(h); return Math.abs(hc - col) + Math.abs(hr - row); };
+                const target = this.heroCell(alive.reduce((a, b) => distance(b) < distance(a) ? b : a));
+                const dx = target[0] - col, dy = target[1] - row;
+                const h = dx > 0 ? "east" : dx < 0 ? "west" : null, v = dy > 0 ? "south" : dy < 0 ? "north" : null;
+                options = (Math.abs(dx) >= Math.abs(dy) ? [h, v] : [v, h]).filter(d => d);
+            } else {
+                options = [guard.direction, OPPOSITE[guard.direction]];
+            }
+            for (const d of options) {
+                const [nc, nr] = [col + OFFSETS[d][0], row + OFFSETS[d][1]];
+                if (free(nc, nr)) {
+                    guard.x += OFFSETS[d][0] * this.tileWidth;
+                    guard.y += OFFSETS[d][1] * this.tileHeight;
+                    if (guard.behaviour !== "chase") {
+                        guard.direction = d;
+                    }
+                    break;
+                }
+            }
+            const [gc, gr] = this.cellOf(guard);
+            for (const hero of alive) {
+                const [hc, hr] = this.heroCell(hero);
+                if (hc === gc && hr === gr) {
+                    caught.add(hero);
+                }
+            }
+        }
+        for (const hero of caught) {
+            if (hero.isMoving()) {
+                hero.deathAfterStep = true;     // end the step first, as CharacterInterface.move does
+            } else {
+                hero.isCharacterDead = true;
+            }
+        }
+        return [...caught];
     }
 
     /**

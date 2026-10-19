@@ -110,6 +110,35 @@ export class HudRenderer {
         ctx.fillText(`Goal reached, but still missing: ${missing.join(', ')}`, this.canvasWidth / 2, 19 * s);
     }
 
+    /** The colours of the teams of an arena, by hero index. */
+    static TEAM_COLOURS = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#e67e22', '#9b59b6', '#1abc9c', '#e84393', '#95a5a6'];
+
+    static teamColour(index) {
+        return HudRenderer.TEAM_COLOURS[index % HudRenderer.TEAM_COLOURS.length];
+    }
+
+    /**
+     * An arena: every hero wears its team's name on a small tag in the team's colour, above its head,
+     * so the room can follow the beamer. A hero that is out gets a grey tag.
+     */
+    drawNameTags(heroes, names, level) {
+        const ctx = this.ctx;
+        const size = Math.max(6, Math.round(level.tileHeight * 0.4));
+        ctx.font = `bold ${size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        heroes.forEach((hero, i) => {
+            const name = names[i] ?? `${i + 1}`;
+            const width = ctx.measureText(name).width + size * 0.8;
+            const x = hero.x + hero.width / 2;
+            const top = hero.y - hero.height - size * 1.4;
+            ctx.fillStyle = level.isHeroOut(hero) ? 'rgba(90, 90, 90, 0.85)' : HudRenderer.teamColour(i);
+            ctx.fillRect(x - width / 2, top, width, size * 1.25);
+            ctx.fillStyle = level.isHeroOut(hero) ? '#ccc' : '#111';
+            ctx.fillText(name, x, top + size * 0.65);
+        });
+    }
+
     /** The move budget (map property max_moves) while playing: top left, small. */
     drawMovesLeft(movesLeft) {
         const ctx = this.ctx;

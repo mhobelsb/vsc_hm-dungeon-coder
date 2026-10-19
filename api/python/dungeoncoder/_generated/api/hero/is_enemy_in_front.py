@@ -18,6 +18,7 @@ from typing import cast
 def _get_kwargs(
     *,
     hero: int | Unset = UNSET,
+    distance: int | Unset = UNSET,
 
 ) -> dict[str, Any]:
     
@@ -27,6 +28,8 @@ def _get_kwargs(
     params: dict[str, Any] = {}
 
     params["hero"] = hero
+
+    params["distance"] = distance
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -77,12 +80,15 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
+    distance: int | Unset = UNSET,
 
 ) -> Response[ApiErrorResponse | BooleanResult]:
-    """ Whether a guard stands on the tile in front of the hero.
+    """ Whether a guard stands on the tile in front of the hero, or (distance > 1, in a level with the map
+    property `witterung`) on one of the tiles ahead in a straight line, up to a wall.
 
     Args:
         hero (int | Unset):
+        distance (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -95,6 +101,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         hero=hero,
+distance=distance,
 
     )
 
@@ -108,12 +115,15 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
+    distance: int | Unset = UNSET,
 
 ) -> ApiErrorResponse | BooleanResult | None:
-    """ Whether a guard stands on the tile in front of the hero.
+    """ Whether a guard stands on the tile in front of the hero, or (distance > 1, in a level with the map
+    property `witterung`) on one of the tiles ahead in a straight line, up to a wall.
 
     Args:
         hero (int | Unset):
+        distance (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -127,6 +137,7 @@ def sync(
     return sync_detailed(
         client=client,
 hero=hero,
+distance=distance,
 
     ).parsed
 
@@ -134,12 +145,15 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
+    distance: int | Unset = UNSET,
 
 ) -> Response[ApiErrorResponse | BooleanResult]:
-    """ Whether a guard stands on the tile in front of the hero.
+    """ Whether a guard stands on the tile in front of the hero, or (distance > 1, in a level with the map
+    property `witterung`) on one of the tiles ahead in a straight line, up to a wall.
 
     Args:
         hero (int | Unset):
+        distance (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -152,6 +166,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         hero=hero,
+distance=distance,
 
     )
 
@@ -165,12 +180,15 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     hero: int | Unset = UNSET,
+    distance: int | Unset = UNSET,
 
 ) -> ApiErrorResponse | BooleanResult | None:
-    """ Whether a guard stands on the tile in front of the hero.
+    """ Whether a guard stands on the tile in front of the hero, or (distance > 1, in a level with the map
+    property `witterung`) on one of the tiles ahead in a straight line, up to a wall.
 
     Args:
         hero (int | Unset):
+        distance (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -184,5 +202,6 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 hero=hero,
+distance=distance,
 
     )).parsed
