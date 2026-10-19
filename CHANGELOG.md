@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
+A **pre-release** (odd minor, see `RELEASING.md`): the live game in the room for the course's game days in December 2026. Everything 1.0.0 did is unchanged; scripts and levels keep working. VS Code offers it only to those who chose pre-releases.
+
 ### Added
 
 - **A live game in the room (the arena).** A level with the map property `arena: true` and the teams' codes in `codes` ("ROT-4711 BLAU-2234 …") is a game for several teams at once, in one game on the referee's computer (the dev server with `DC_HOST=0.0.0.0`, its page on the beamer). Each team's script joins from its own computer with `Game.join("ROT-4711")` (`POST /game/join`; the package reads `DUNGEONCODER_URL`) and waits until the referee starts the game (Space on the page, `POST /game/start`); E ends the round (`POST /game/end`): everything stops and stays on screen. Every hero has its own counters (`GET /game/statistics?hero=N`), its own move budget and its own end: a caught, fallen or collapsed hero lies on the floor and the others play on (`out`, `started` in the statistics). The pace is fixed, the keyboard off. The page shows a name tag in the team's colour above every hero and a scoreboard beside the canvas. With the server open to the room, only the referee's machine loads levels or starts and ends the game, and a hero belongs to the computer that joined it. The simulator plays arenas too (it has no referee: `Game.join` starts the game there). `dungeoncoder.arena` is the referee's side (`load`, `start`, `end`, `statistics`). Levels without `arena` are as before.
