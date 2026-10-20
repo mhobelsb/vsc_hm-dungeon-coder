@@ -217,8 +217,9 @@ scripts join from their own computers:
   once per tick (`stepGuardsTimed`): a chaser towards the nearest hero still in the game, a patrol on its
   way; a hero whose cell a guard reaches is caught (in an arena: out). Walking into a guard is still being
   caught. Guards by the clock walk only while the game is on (an arena: between start and end). The
-  simulator has no clock: it steps them once per round of moves (every hero one move attempt; with one
-  hero that is once per move, as without `tick`), so scripts with `tick` are not in the conformance suite.
+  simulator has no clock: it steps them once per `heroes * tick / 500 ms` move attempts (a hero's step
+  takes 500 ms), so with one hero and `tick: 500` once per move, as without `tick`; scripts with `tick`
+  are not in the conformance suite.
 - **Sight range** (`witterung: 2`): `is_enemy_in_front(distance)` looks up to `distance` fields ahead in a
   straight line, a wall ends the view; more than the level allows is refused (default 1, as before).
 - **An erring oracle** (`orakel: 70`): the oracle answers wrongly in 30 percent of the questions, reproducibly

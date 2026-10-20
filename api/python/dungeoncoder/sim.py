@@ -335,6 +335,9 @@ class Level:
         # has no clock and steps them once per round of moves (every hero one move attempt)
         tick = self.prop("tick")
         self.guards_timed = isinstance(tick, int) and not isinstance(tick, bool) and tick > 0
+        # a hero's step takes 500 ms at pace 1: a guard with tick 1000 steps once per two moves of
+        # every hero; with tick 500 once per move (as a guard without tick does)
+        self.guard_period = max(1, round(len(self.heroes) * tick / 500)) if self.guards_timed else 1
         self.move_attempts = 0
         for hero in self.heroes:
             hero.out = False            # arena: caught, fallen or collapsed; the others play on
@@ -465,7 +468,7 @@ class Level:
         """One step of every guard by the clock (engine: Level.stepGuardsTimed): a chaser towards the
         nearest hero still in the game. Returns the heroes caught."""
         guards = [o for o in self.objects if o.kind == "Guard"]
-        alive = [h for h in self.heroes if h not in out_heroes]
+        alive = [h for h in self.heroes if h not in out_heroes and not self.on_goal(h)]     # an exit is safe
         caught = set()
         for guard in guards:
             col, row = self.cell_of(guard)
@@ -680,7 +683,7 @@ class Simulator:
         In an arena only the referee's end, or every hero being out, ends the round."""
         self.level.update()
         if self.level.guards_timed and self.running and self.level.started \
-                and self.level.move_attempts and self.level.move_attempts % len(self.level.heroes) == 0:
+                and self.level.move_attempts and self.level.move_attempts % self.level.guard_period == 0:
             self.level.move_attempts = 0
             out = {h for h in self.level.heroes if getattr(h, "out", False)}
             if not self.level.arena and (self.falling or self.level.caught or self.level.out_of_moves):

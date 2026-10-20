@@ -541,15 +541,17 @@ export class Level {
 
     /**
      * One step of every guard by the clock (map property `tick`): a chasing guard steps towards the
-     * nearest hero that is still in the game, a patrolling one walks on. A hero whose cell a guard
-     * reaches, or who stands on a guard's cell, is caught: dead at once, or after its step.
+     * nearest hero that is still in the game and not on an exit, a patrolling one walks on. A hero
+     * whose cell a guard reaches, or who stands on a guard's cell, is caught: dead at once, or after
+     * its step; a hero on an exit is safe.
      * Returns the heroes caught.
      */
     stepGuardsTimed() {
         const OFFSETS = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
         const OPPOSITE = { north: "south", south: "north", east: "west", west: "east" };
         const guards = this.objectFactory.gameObjects.filter(o => o instanceof Guard);
-        const alive = this.heroes.filter(h => !this.isHeroOut(h));
+        // a hero on an exit has finished: guards neither chase nor catch it
+        const alive = this.heroes.filter(h => !this.isHeroOut(h) && !this.isOnGoal(h));
         const caught = new Set();
         for (const guard of guards) {
             const [col, row] = this.cellOf(guard);
