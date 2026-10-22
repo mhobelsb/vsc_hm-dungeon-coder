@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 
 
 
@@ -23,9 +24,12 @@ class JoinParams:
     """ 
         Attributes:
             code (str): a team code of the live game, e.g. "ROT-4711" (map property `codes`)
+            name (str | Unset): optional, the team's own name for the scoreboard and the name tag (instead of the code's
+                name)
      """
 
     code: str
+    name: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -35,12 +39,16 @@ class JoinParams:
     def to_dict(self) -> dict[str, Any]:
         code = self.code
 
+        name = self.name
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "code": code,
         })
+        if name is not UNSET:
+            field_dict["name"] = name
 
         return field_dict
 
@@ -51,8 +59,11 @@ class JoinParams:
         d = dict(src_dict)
         code = d.pop("code")
 
+        name = d.pop("name", UNSET)
+
         join_params = cls(
             code=code,
+            name=name,
         )
 
 

@@ -44,29 +44,59 @@ export class ArenaBoard {
         return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     }
 
+    /** The board's words: map property `lang` ("de" or "en", default "en"). */
+    static TEXT = {
+        en: { title: 'Dungeon Coder: Arena', over: 'Round over', waiting: 'Waiting for the start (Space)', running: 'Running',
+            ready: (n, m) => `Ready: ${n} of ${m}`, team: 'Team', state: 'State', value: 'Value', moves: 'Moves',
+            out: 'out', exit: 'at the exit', playing: 'playing', joined: 'ready', missing: 'not joined',
+            room: (c, t, p) => `The room: ${c} of ${t} (${p} %)`, goal: '80 %', keys: 'Space: start · E: end the round' },
+        de: { title: 'Dungeon Coder: Arena', over: 'Runde beendet', waiting: 'Warten auf den Start (Leertaste)', running: 'Läuft',
+            ready: (n, m) => `Bereit: ${n} von ${m}`, team: 'Team', state: 'Stand', value: 'Wert', moves: 'Züge',
+            out: 'aus', exit: 'am Ausgang', playing: 'läuft', joined: 'bereit', missing: 'fehlt noch',
+            room: (c, t, p) => `Der Raum: ${c} von ${t} (${p} %)`, goal: '80 %', keys: 'Leertaste: Start · E: Runde beenden' },
+    };
+
     /** The panel's content from the game's state. */
     update() {
         const game = this.game;
         if (this.element.hidden || !game.level || !game.arena) {
             return;
         }
+        this.element.innerHTML = ArenaBoard.render(game);
+    }
+
+    /** The panel's HTML for a game (also used by the unit tests). */
+    static render(game) {
         const level = game.level;
-        const names = level.arenaNames();
+        const text = ArenaBoard.TEXT[String(level.getProperty('lang') ?? 'en')] ?? ArenaBoard.TEXT.en;
+        const names = game.arenaDisplayNames ? game.arenaDisplayNames() : level.arenaNames();
         const heroes = game.characterInterfaces;
+        const joined = heroes.map((_, i) => Boolean(game.arenaJoined?.[i]));
+        const readyCount = joined.filter(j => j).length;
         let phase;
         if (game.arenaOver) {
-            phase = 'Round over';
+            phase = text.over;
         } else if (!game.arenaStarted) {
-            phase = 'Waiting for the start (Space)';
+            phase = `${text.ready(readyCount, heroes.length)} · ${text.waiting}`;
         } else {
-            phase = `Running ${ArenaBoard.clock(game.arenaSeconds() ?? 0)}`;
+            phase = `${text.running} ${ArenaBoard.clock(game.arenaSeconds() ?? 0)}`;
         }
         const rows = heroes.map((hero, i) => {
             const out = hero.isOut();
             const atGoal = !out && level.isOnGoal(hero.character);
-            const state = out ? 'out' : (atGoal ? 'at the exit' : (game.arenaStarted ? 'playing' : 'ready'));
+            let state;
+            if (out) {
+                state = text.out;
+            } else if (atGoal) {
+                state = text.exit;
+            } else if (game.arenaStarted) {
+                state = text.playing;
+            } else {
+                state = joined[i] ? text.joined : text.missing;
+            }
             const movesLeft = hero.movesLeft();
-            return `<tr class="${out ? 'out' : ''}">`
+            const waiting = !game.arenaStarted && !joined[i];
+            return `<tr class="${out || waiting ? 'out' : ''}">`
                 + `<td><span class="swatch" style="background:${HudRenderer.teamColour(i)}"></span>${ArenaBoard.escape(names[i] ?? i + 1)}</td>`
                 + `<td>${state}</td>`
                 + `<td class="num">${hero.carriedValue()}</td>`
@@ -75,10 +105,11 @@ export class ArenaBoard {
         const carried = heroes.reduce((sum, hero) => sum + hero.carriedValue(), 0);
         const total = game.arenaValueAtStart;
         const percent = total > 0 ? Math.round(100 * carried / total) : 0;
-        this.element.innerHTML = `<h2>Dungeon Coder: Arena</h2>`
+        const bar = `<div class="bar" role="img" aria-label="${percent} %"><i style="width:${Math.min(100, percent)}%"></i><b style="left:80%"></b></div>`;
+        return `<h2>${text.title}</h2>`
             + `<div class="phase">${ArenaBoard.escape(phase)}</div>`
-            + `<table><tr><th>Team</th><th>State</th><th>Value</th><th>Moves</th></tr>${rows}</table>`
-            + `<div class="room">The room: ${carried} of ${total} (${percent} %)</div>`
-            + `<div class="keys">Space: start · E: end the round</div>`;
+            + `<table><tr><th>${text.team}</th><th>${text.state}</th><th>${text.value}</th><th>${text.moves}</th></tr>${rows}</table>`
+            + `<div class="room">${text.room(carried, total, percent)}${bar}</div>`
+            + `<div class="keys">${text.keys}</div>`;
     }
 }

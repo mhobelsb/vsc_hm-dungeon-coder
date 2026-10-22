@@ -17,6 +17,7 @@ import { WebSocketServer } from 'ws';
 import * as OpenApiValidator from 'express-openapi-validator';
 import { COMMANDS, COMMAND_LIST, ROUTES } from '../game/src/commands.js';
 import { API_HOST, API_PORT } from '../game/src/api-config.js';
+import { RoomAccess } from '../game/src/room-access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DC_HOST opens the server to other computers (a live game in the room: DC_HOST=0.0.0.0, the
@@ -147,35 +148,8 @@ function sendApiResponse(res, response) {
     }
 }
 
-// A live game with the server open to the room (EXPOSED): the referee's commands stay on this
-// machine, and a hero belongs to the computer that joined it with the team's code.
-const REFEREE_COMMANDS = new Set([COMMANDS.LOAD_LEVEL, COMMANDS.RESET_LEVEL, COMMANDS.START_GAME, COMMANDS.END_GAME]);
-const owners = new Map();           // hero index -> the address that joined it
-
-function isLoopback(address) {
-    return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(String(address));
-}
-
-/** The reason to refuse a request from another computer, or null. */
-function refusal(command, req, params) {
-    if (!EXPOSED || isLoopback(req.ip)) {
-        return null;
-    }
-    if (REFEREE_COMMANDS.has(command)) {
-        return 'Only the referee (on the game\'s own computer) may load levels and start or end the game.';
-    }
-    if (command === COMMANDS.JOIN || command === COMMANDS.GET_VERSION) {
-        return null;
-    }
-    const hero = params?.hero ?? 0;
-    if (!owners.has(hero)) {
-        return `Join the game first: Game.join("<your team code>") (hero ${hero} has no team yet).`;
-    }
-    if (owners.get(hero) !== req.ip) {
-        return `Hero ${hero} belongs to another team (it was joined from another computer).`;
-    }
-    return null;
-}
+// A live game with the server open to the room (EXPOSED): the same rules as the extension's
+const room = new RoomAccess(EXPOSED);
 
 function registerRoute(method, route, command, options = {}) {
     app[method](route, async (req, res) => {
@@ -188,19 +162,14 @@ function registerRoute(method, route, command, options = {}) {
                     params = { ...(params ?? {}), [key]: Number(req.query[key]) };
                 }
             }
-            const refused = refusal(command, req, params);
+            const refused = room.refusal(command, req.ip, params);
             if (refused) {
                 sendApiResponse(res, { success: false, message: refused, exception: 'Refused' });
                 return;
             }
             const response = await sendToClient(command, params);
             traceLine(command, params, response);
-            if (response.success && command === COMMANDS.JOIN && !isLoopback(req.ip)) {
-                owners.set(response.result.hero, req.ip);
-            }
-            if (response.success && command === COMMANDS.LOAD_LEVEL) {
-                owners.clear();
-            }
+            room.answered(command, req.ip, response);
             if (response.success && options.onSuccess) {
                 // onSuccess may return a replacement response, e.g. a failed move poll.
                 const replacement = await options.onSuccess(response, req);

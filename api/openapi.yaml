@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Dungeon Coder API
-  version: 1.1.0
+  version: 1.1.1
   description: |
     Single source of truth for the Dungeon Coder REST API. This spec drives,
     via generators wired into `npm run generate`:
@@ -664,6 +664,10 @@ components:
         code:
           type: string
           description: a team code of the live game, e.g. "ROT-4711" (map property `codes`)
+        name:
+          type: string
+          maxLength: 24
+          description: optional, the team's own name for the scoreboard and the name tag (instead of the code's name)
 
     JoinResult:
       type: object

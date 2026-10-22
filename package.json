@@ -11,7 +11,7 @@
     "email": "martin.hobelsberger@hm.edu"
   },
   "license": "MIT",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "engines": {
     "vscode": "^1.102.0"
   },
@@ -49,6 +49,10 @@
         "command": "vscode-dungeon-coder.runOnAllLevels",
         "title": "Dungeon Coder: Run program on all levels (simulator)",
         "icon": "$(run-all)"
+      },
+      {
+        "command": "vscode-dungeon-coder.openToRoom",
+        "title": "Dungeon Coder: Open the game to the room (live game)"
       },
       {
         "command": "vscode-dungeon-coder.replayTrace",

@@ -435,3 +435,43 @@ test('co-op without arena: unchanged, a lost hero ends the level for all, the co
     assert.equal(b.getStatistics().moves, 1);
     assert.equal(b.getStatistics().out, undefined);
 });
+
+// --- a live game in the room: who may do what, the board, the teams' own names -------------------
+
+test('room access: open to the room, the referee stays on this computer and heroes belong to who joined', async () => {
+    const { RoomAccess } = await import('../src/room-access.js');
+    const closed = new RoomAccess(false);
+    assert.equal(closed.refusal('load_level', '10.0.0.5', null), null);
+    const room = new RoomAccess(true);
+    assert.equal(room.refusal('load_level', '127.0.0.1', null), null);
+    assert.match(room.refusal('load_level', '10.0.0.5', null), /referee/);
+    assert.match(room.refusal('start_game', '10.0.0.5', null), /referee/);
+    assert.equal(room.refusal('join', '10.0.0.5', { code: 'A-1' }), null);
+    assert.match(room.refusal('move', '10.0.0.5', { hero: 1 }), /Join the game first/);
+    room.answered('join', '10.0.0.5', { success: true, result: { hero: 1 } });
+    assert.equal(room.refusal('move', '10.0.0.5', { hero: 1 }), null);
+    assert.match(room.refusal('move', '10.0.0.6', { hero: 1 }), /another team/);
+    room.answered('load_level', '127.0.0.1', { success: true });
+    assert.match(room.refusal('move', '10.0.0.5', { hero: 1 }), /Join the game first/);
+});
+
+test('arena board: German with lang de, who joined, the room bar; teams may name themselves', async () => {
+    const { ArenaBoard } = await import('../src/arena-board.js');
+    const game = await playInGame(ARENA, { properties: { arena: true, codes: 'ROT-1 BLAU-2 GELB-3', lang: 'de' } });
+    let html = ArenaBoard.render(game);
+    assert.match(html, /Bereit: 0 von 3/);
+    assert.match(html, /fehlt noch/);
+    assert.match(html, /Der Raum: 0 von/);
+    game.joinArena(1, '  Die Runenjäger  ');
+    game.joinArena(0, '');
+    html = ArenaBoard.render(game);
+    assert.match(html, /Bereit: 2 von 3/);
+    assert.match(html, /Die Runenjäger/);
+    assert.deepEqual(game.arenaDisplayNames(), ['ROT', 'Die Runenjäger', 'GELB']);
+    game.joinArena(2, 'x'.repeat(40));
+    assert.equal(game.arenaDisplayNames()[2].length, 24);
+    game.startArena();
+    assert.match(ArenaBoard.render(game), /Läuft 0:0/);
+    const english = await playInGame(ARENA, ARENA_OPTIONS);
+    assert.match(ArenaBoard.render(english), /Ready: 0 of 3/);
+});

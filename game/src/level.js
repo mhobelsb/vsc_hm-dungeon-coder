@@ -472,11 +472,12 @@ export class Level {
 
     /** Manhattan distance from a cell to the (first) goal, or null without a goal: the amulet (DC-T1b). */
     goalDistance(col, row) {
-        if (!this.goal) {
+        // the nearest exit: a level with one Goal is as before, a live game has one per team
+        const goals = this.objectFactory.gameObjects.filter(o => o.type === "Goal");
+        if (goals.length === 0) {
             return null;
         }
-        const [gc, gr] = this.cellOf(this.goal);
-        return Math.abs(gc - col) + Math.abs(gr - row);
+        return Math.min(...goals.map(g => { const [gc, gr] = this.cellOf(g); return Math.abs(gc - col) + Math.abs(gr - row); }));
     }
 
     /** A field anyone can walk on: inside, no collision, no abyss tile. */

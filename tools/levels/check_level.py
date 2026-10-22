@@ -25,9 +25,11 @@ KNOWN = {"Torch", "Switch", "Door", "VerticalDoor", "PatternDoor", "Grille", "Ve
          "Chest", "Jug", "Goal", "Crystal", "Pebble", "Guard", "Sweets", "Abyss"}
 ON_WALL_OK = {"Torch"}                       # a torch hangs on a wall (or stands on a pedestal)
 LOOK_PROPERTIES = ("handmade", "pack")      # map properties that don't change the rules
-PROPERTY_TYPES = {"keyboard": "bool", "fernrohr": "bool", "orakel": "bool", "torch_light": "bool", "handmade": "bool",
+# a tuple: one of these types (orakel: true, or a percentage of true answers, e.g. 70: an erring oracle)
+PROPERTY_TYPES = {"keyboard": "bool", "fernrohr": "bool", "orakel": ("bool", "int"), "torch_light": "bool", "handmade": "bool",
                   "inventory_size": "int", "fog": "string", "win": "string", "world": "string",
-                  "hero_inventory": "string"}
+                  "hero_inventory": "string", "arena": "bool", "codes": "string", "tick": "int", "witterung": "int",
+                  "lang": "string", "sound": "bool"}
 DIRECTIONS = ("north", "east", "south", "west")
 
 
@@ -147,8 +149,9 @@ def check(level, path, report):
                     "Spiel kann man sie betreten (Wand oder Abgrund davor setzen)")
     props = {p["name"]: p for p in level.data.get("properties", [])}
     for name, wanted in PROPERTY_TYPES.items():
-        if name in props and props[name].get("type") != wanted:
-            report.error(f"Karteneigenschaft {name}: Typ {props[name].get('type')!r}, nötig ist {wanted!r}")
+        allowed = wanted if isinstance(wanted, tuple) else (wanted,)
+        if name in props and props[name].get("type") not in allowed:
+            report.error(f"Karteneigenschaft {name}: Typ {props[name].get('type')!r}, nötig ist {' oder '.join(repr(a) for a in allowed)}")
     return objs
 
 

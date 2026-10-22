@@ -3,6 +3,9 @@ import { COMMANDS } from './commands.js';
 import { MissingTilesetError } from './tiles.js';
 import { CallLog } from './call-log.js';
 import { ArenaBoard } from './arena-board.js';
+import { Sound } from './sound.js';
+
+const sound = new Sound();
 
 let vscode = null;
 
@@ -211,7 +214,8 @@ function loadFileAsync(file) {
             if (index < 0 || index >= game.level.heroes.length) {
                 return { success: false, message: `Unknown team code "${params?.code}". Check the code on your table card.`, result: null };
             }
-            const result = { hero: index, name: game.level.arenaNames()[index], started: game.arenaStarted, heroes: game.level.heroes.length };
+            game.joinArena(index, params?.name);
+            const result = { hero: index, name: game.arenaDisplayNames()[index], started: game.arenaStarted, heroes: game.level.heroes.length };
             return { success: true, message: `Team ${result.name} controls hero ${index}.`, result };
         },
 
@@ -268,6 +272,9 @@ function loadFileAsync(file) {
                 return { success: false, message: `The inventory is full (the level allows ${game.level?.getProperty?.('inventory_size')} item(s)). Drop something first.`, result: false };
             }
             const result = character.pickup(params.name);
+            if (result && game.arena) {
+                sound.pickup();             // the room hears every rune
+            }
             return { success: result, message: result ? `Picked up item "${params.name}".` : `Item "${params.name}" not found at current location.`, result };
         },
 
@@ -354,7 +361,11 @@ function loadFileAsync(file) {
     const game = new Game(canvas, getAssetPath(""));
     // the scoreboard of a live game (arena): beside the canvas, only while an arena is loaded
     const arenaBoard = new ArenaBoard(document.getElementById('arena-board'), game, resizeCanvas);
-    game.onLevelLoaded = (level) => { callLog.showFor(level); arenaBoard.showFor(level); };
+    game.onLevelLoaded = (level) => {
+        callLog.showFor(level);
+        arenaBoard.showFor(level);
+        sound.enabled = level.getBooleanProperty('sound', true);
+    };
     game.onViewChange = resizeCanvas;
     game.start();
     arenaBoard.start();
@@ -399,10 +410,15 @@ function loadFileAsync(file) {
         if (event.key.toLowerCase() === 'l') {
             callLog.toggle();
         } else if (event.key === ' ' && game.arena) {
-            game.startArena();
+            sound.unlock();                 // browsers play sound only after a key or a click
+            if (game.startArena()) {
+                sound.start();
+            }
             event.preventDefault();
         } else if (event.key.toLowerCase() === 'e' && game.arena) {
-            game.endArena();
+            if (game.endArena()) {
+                sound.end();
+            }
         }
     });
 

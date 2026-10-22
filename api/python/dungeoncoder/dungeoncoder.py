@@ -87,6 +87,27 @@ def _discover_base_url() -> str:
 
 DEFAULT_BASE_URL = _discover_base_url()
 
+
+def _join_base_url(folder=None) -> str | None:
+    """Where a live game runs (Game.join): DUNGEONCODER_URL, else the address in a file
+    .dungeoncoder-url in the working folder or a folder above it (the course puts it next to the
+    challenge's scripts), else None. Only Game.join reads the file: Game("level.txt") keeps playing
+    in this computer's own game."""
+    url = os.environ.get("DUNGEONCODER_URL", "").strip().rstrip("/")
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    folder = folder or os.getcwd()
+    while True:
+        candidate = os.path.join(folder, ".dungeoncoder-url")
+        if os.path.isfile(candidate):
+            with open(candidate, encoding="utf-8") as f:
+                url = f.read().strip().rstrip("/")
+            return url if url.startswith("http://") or url.startswith("https://") else None
+        parent = os.path.dirname(folder)
+        if parent == folder:
+            return None
+        folder = parent
+
 # move() and turn_left() return only after the animation: a step takes
 # _STEP_SECONDS / pace (game/src/character.js). The server gives up on a step
 # after 5 s + step time (src/extension.ts), so the client waits a bit longer.
@@ -432,6 +453,10 @@ class Game:
                   f"Did you start Dungeon Coder (\"Dungeon Coder: Enter the dungeon\")?")
             sys.exit(1)
 
+        if self.__level.arena:
+            # an arena loaded by the script itself (a training ground at home): this script is the
+            # referee and the first team at once, so the game starts right away
+            _call(self.__level._client, _start_game_api.sync_detailed, default=False)
         self.__hero = Hero(self.BASE_URL)
         self.__heroes = None
         self.seed = self.__level.seed
@@ -462,11 +487,13 @@ class Game:
         return cls(path, show_calls=show_calls, show_sensing=show_sensing)
 
     @classmethod
-    def join(cls, code: str, url: str | None = None) -> "Game":
+    def join(cls, code: str, url: str | None = None, name: str | None = None) -> "Game":
         """Joins a live game (an arena) that runs on another computer, e.g. on the beamer in the room,
         with your team's code from the table card, e.g. Game.join("ROT-4711"). The level is already
         loaded there; this returns once the referee has started the game. get_hero() is your
-        team's hero. `url` is the game's address (default: DUNGEONCODER_URL, else this computer).
+        team's hero. `url` is the game's address (default: DUNGEONCODER_URL, else the address in a
+        file .dungeoncoder-url in this folder or above, else this computer). `name` is your team's
+        own name for the scoreboard (at most 24 characters).
 
         Example:
             game = Game.join("ROT-4711")
@@ -477,11 +504,15 @@ class Game:
         if type(code) != str or not code.strip():
             print("Error: Game.join needs your team's code, e.g. Game.join(\"ROT-4711\").")
             sys.exit(1)
-        base_url = (url or cls.BASE_URL).rstrip("/")
+        if name is not None and type(name) != str:
+            print("Error: the team's name must be a text, e.g. Game.join(\"ROT-4711\", name=\"Die Runenjäger\").")
+            sys.exit(1)
+        base_url = (url or _join_base_url() or cls.BASE_URL).rstrip("/")
         _check_version(base_url)
         client = Client(base_url=base_url, timeout=_ANSWER_TIMEOUT)
         trace.loading(f"join:{code.strip()}")
-        info = _call(client, _join_api.sync_detailed, default=None, explain_refusal=True, body=JoinParams(code=code.strip()))
+        params = JoinParams(code=code.strip(), name=name[:24]) if name else JoinParams(code=code.strip())
+        info = _call(client, _join_api.sync_detailed, default=None, explain_refusal=True, body=params)
         if info is None:
             print(f"Error: could not join the game at {base_url} with the code {code!r} (see the message above). "
                   "Is the live game running, and is the code the one on your table card?")
@@ -489,14 +520,14 @@ class Game:
         if not info.started and _simulator is not None:
             # the simulator has no referee: the game starts as soon as a team joins
             _call(client, _start_game_api.sync_detailed, default=False)
-            info = _call(client, _join_api.sync_detailed, default=info, body=JoinParams(code=code.strip()))
+            info = _call(client, _join_api.sync_detailed, default=info, body=params)
         print(f"Team {info.name}: you control hero {info.hero} of {info.heroes}."
               + ("" if info.started else " Waiting for the referee to start the game ..."))
         waited = 0.0
         while not info.started:
             time.sleep(0.5)
             waited += 0.5
-            info = _call(client, _join_api.sync_detailed, default=None, body=JoinParams(code=code.strip()))
+            info = _call(client, _join_api.sync_detailed, default=None, body=params)
             if info is None:
                 print("Error: lost the connection to the game while waiting for the start.")
                 sys.exit(1)
@@ -555,6 +586,7 @@ class Game:
         def __init__(self, base_url):
             self._client = Client(base_url=base_url, timeout=_ANSWER_TIMEOUT)
             self.seed = None
+            self.arena = False          # the loaded level is a live game (map property arena)
 
         def load(self, filename, seed=None, display=None):
             """
@@ -588,6 +620,7 @@ class Game:
             elif chosen:
                 print(f"Level variant {self.seed} (the same again: Game(\"{filename}\", seed={self.seed}))")
 
+            self.arena = any(p.get("name") == "arena" and p.get("value") is True for p in level_data.get("properties", []) or [])
             for name, value in (display or {}).items():     # show_calls, show_sensing from the program
                 properties = [p for p in level_data.get("properties", []) or [] if p.get("name") != name]
                 level_data["properties"] = properties + [{"name": name, "type": "bool", "value": value}]

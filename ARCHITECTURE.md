@@ -206,10 +206,19 @@ scripts join from their own computers:
 - The page draws a name tag in the team's colour above every hero (`HudRenderer.drawNameTags`) and a
   scoreboard beside the canvas (`game/src/arena-board.js`: phase, clock, per team its state, the value it
   carries and its moves left, and what the room collected of the level's valued items).
-- The dev server with `DC_HOST=0.0.0.0` is open to the room: then `level/load`, `level/reset`, `start` and
-  `end` are accepted only from the referee's own machine (loopback), and a hero belongs to the computer that
-  joined it (requests for it from another address are refused). `DUNGEONCODER_URL` points the Python
-  package at the referee's machine; `DC_WS_PORT` moves the page's socket (`${wsPort}` in `index.html`).
+- **Open to the room**: the dev server with `DC_HOST=0.0.0.0`, or the extension after "Dungeon Coder: Open the
+  game to the room" (it restarts its server on every network and shows the addresses). Both use the same
+  rules, `game/src/room-access.js`: `level/load`, `level/reset`, `start` and `end` only from the referee's own
+  machine (loopback); a hero belongs to the computer that joined it; a new level frees every hero.
+  `DC_WS_PORT` moves the dev server page's socket (`${wsPort}` in `index.html`).
+- **Finding the game**: `Game.join` takes `url`, else `DUNGEONCODER_URL`, else a file `.dungeoncoder-url` in the
+  working folder or above (an exercise folder ships it), else this computer. `Game("level.txt")` never reads
+  the file. `Game.join(code, name=...)` gives the team its own name (24 characters) for tag and board.
+- **The board** shows who has joined (`Game.arenaJoined`, "Ready: n of m"), a bar for the room towards 80 percent,
+  and speaks German with `lang: de` (`ArenaBoard.TEXT`). `game/src/sound.js` plays a blip per rune picked up and
+  a chord at start and end (WebAudio, unlocked by the referee's Space; `sound: false` switches it off).
+- **A script that loads an arena itself** (`Game("arena.txt")`) is referee and team 1 at once: the package
+  starts the game right after loading (a training ground with the room's rules).
 - The simulator plays an arena too (`sim.py`: `arena`, `codes`, `started`, `over`, `out` per hero, counters and
   inventories per hero); it has no referee, so `Game.join` starts the game itself there.
 - **Guards by the clock** (`tick: 500`, milliseconds): with several heroes a guard that stepped on every hero
@@ -230,7 +239,8 @@ scripts join from their own computers:
 - `generator.py`: `generate: arena` (`teams`, `items`, `loops`, default 39 x 23) builds a maze with a hall in
   the middle, one start niche per team on the edge, chosen so that the ways to the hall are of the same
   length (within 7 percent; the seed is advanced by 1000 until that works), every hero facing the way out
-  (`start:` takes one direction per hero), and crystals with values, the dearest in the hall.
+  (`start:` takes one direction per hero), and crystals with values, the dearest in the hall; `room: 0` leaves the
+  hall out, `exits: niches` puts an exit on the first field out of every niche (the amulet measures the nearest exit).
 
 ## 5. Asset packs
 

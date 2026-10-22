@@ -6,6 +6,25 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-21
+
+A **pre-release** for the course's first live game in week 8 (the Mini-Challenge): a simpler setup in the room. Everything 1.1.0 did is unchanged.
+
+### Added
+
+- **"Dungeon Coder: Open the game to the room (live game)"**: the extension itself opens its game to the room's network and shows the address; no dev server needed. Levels, start and end stay with this computer, a hero belongs to the computer that joined it. The rules live in `game/src/room-access.js`, shared with the dev server.
+- **`Game.join` finds the game by itself**: a file `.dungeoncoder-url` in the working folder or above it holds the address (an exercise folder ships it); `DUNGEONCODER_URL` and the `url` argument still win. `Game("level.txt")` is not affected.
+- **Teams may name themselves**: `Game.join(code, name="Die Runenjäger")` (at most 24 characters) shows the name on the scoreboard and the name tag.
+- **The scoreboard**: who has joined ("Ready: 4 of 6", "not joined"), a bar for the room towards 80 percent, German with the map property `lang: de`.
+- **Sounds in a live game**: a blip for every rune picked up, a chord at the start and the end (WebAudio, after the referee's first key; `sound: false` switches them off).
+- **An arena loaded by the script itself starts at once** (`Game("arena.txt")`): a training ground at home with the room's rules and scoreboard.
+- **`generate: arena`** takes `room: 0` (no hall) and `exits: niches` (an exit on the first field out of every niche).
+
+### Changed
+
+- **The amulet measures the nearest exit** (`sense_goal()`): a level with one exit is as before; a live game may have one exit per team.
+- **Guards by the clock leave a hero on an exit alone**, and the simulator steps them once per `heroes * tick / 500 ms` moves, so a guard with `tick: 800` is slower than the heroes, as in the game.
+
 ## [1.1.0] - 2026-10-19
 
 A **pre-release** (odd minor, see `RELEASING.md`): the live game in the room for the course's game days in December 2026. Everything 1.0.0 did is unchanged; scripts and levels keep working. VS Code offers it only to those who chose pre-releases.
@@ -17,7 +36,7 @@ A **pre-release** (odd minor, see `RELEASING.md`): the live game in the room for
 - **`generate: arena`** (`Game.generate(kind="arena")`; `teams`, `items`, `loops`; default 39 x 23): a maze with a hall in the middle, one start per team on the edge with ways to the hall of the same length (within 7 percent), crystals with values (the dearest in the hall), `max_moves: 300` and `inventory_size: 6` unless the recipe says otherwise. Generated levels may now be up to 99 x 99 (the view follows the level).
 - **Text maps**: heroes `2` to `9` (before: `2` to `4`); `start:` takes one direction per hero ("start: east south west").
 - **The dev server**: `DC_HOST` (listen on another interface), `DC_WS_PORT` (the page's socket; `index.html` gets it as `${wsPort}`), `DC_TRACE` (every answered command as a JSON line: the record of a live game).
-- **Guards by the clock** (map property `tick: 500`, milliseconds): guards step by time instead of once per hero move, a chaser towards the nearest hero that is not on an exit (an exit is safe); with several heroes (an arena) a guard no longer runs once per hero. Walking into a guard is still being caught. The simulator steps such guards once per `heroes * tick / 500 ms` moves.
+- **Guards by the clock** (map property `tick: 500`, milliseconds): guards step by time instead of once per hero move, a chaser towards the nearest hero; with several heroes (an arena) a guard no longer runs once per hero. Walking into a guard is still being caught. The simulator steps such guards once per round of moves.
 - **`hero.is_enemy_in_front(distance=1)`**: with a map property `witterung: N` the hero may look up to N fields ahead in a straight line (a wall ends the view); more is refused. Query parameter `distance`.
 - **An erring oracle**: `orakel: 70` (a percentage) makes `ask_oracle()` wrong in the other 30 percent of its answers, reproducibly from the level's `seed` and the question's number, in the game and in the simulator alike. `orakel: true` is unchanged.
 

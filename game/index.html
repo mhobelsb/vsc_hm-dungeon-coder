@@ -101,6 +101,28 @@
         border-top: 1px solid #555;
         padding-top: 6px;
     }
+    /* the room's bar towards 80 percent (the room's goal) */
+    #arena-board .bar {
+        position: relative;
+        height: 12px;
+        margin-top: 6px;
+        background: #333;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    #arena-board .bar i {
+        display: block;
+        height: 100%;
+        background: #2ecc71;
+        transition: width .4s ease;
+    }
+    #arena-board .bar b {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #ffcc00;
+    }
     #arena-board .keys {
         margin-top: 8px;
         color: #999;

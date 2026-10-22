@@ -5,8 +5,10 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, constants as fsCo
 import express, { Application, Request, Response, NextFunction } from 'express';
 import * as OpenApiValidator from 'express-openapi-validator';
 import { Server } from 'http';
+import { networkInterfaces } from 'os';
 import { COMMANDS, COMMAND_LIST, ROUTES } from '../game/src/commands.js';
 import { API_HOST, API_PORT } from '../game/src/api-config.js';
+import { RoomAccess } from '../game/src/room-access.js';
 import type { components } from './generated/api-types.js';
 import { registerPanel } from './panel';
 
@@ -65,6 +67,11 @@ export class DungeonCoderServer {
     private currentPaceFactor = 1.0;
     private turnDelay = 200;
     private readonly url = API_HOST;
+    /** Where the server listens: this computer only, or the room (Open the game to the room). */
+    private host = API_HOST;
+    /** Who may do what while the game is open to the room (game/src/room-access.js). */
+    private room = new RoomAccess(false);
+    private extensionPath?: string;
     /** The setting dungeonCoder.port (default from api/openapi.yaml), read when the server starts. */
     private port = API_PORT;
     private readonly pendingWebviewRequests = new Map<string, (response: WebviewRpcResponse) => void>();
@@ -162,7 +169,13 @@ export class DungeonCoderServer {
         (app as any)[method](route, async (req: Request, res: Response) => {
             try {
                 const data = withQuery(withHero(options?.includeBody ? req.body : null, req.query.hero), req.query);
+                const refused = this.room.refusal(command, req.ip, data);
+                if (refused) {
+                    this.sendApiResponse(res, { success: false, message: refused, exception: 'Refused' });
+                    return;
+                }
                 const response = await this.sendMessageToWebview(command, data);
+                this.room.answered(command, req.ip, response);
 
                 if (!response.success) {
                     this.sendApiResponse(res, response);
@@ -240,6 +253,7 @@ export class DungeonCoderServer {
 
     /** Start server */
     public startServer(extensionPath: string) {
+        this.extensionPath = extensionPath;
         if (this.serverInstance) {
             vscode.window.showErrorMessage("It seems like Dungeon Coder is already running in a different tab. Please check!");
             return false;
@@ -308,8 +322,8 @@ export class DungeonCoderServer {
         });
 
         this.port = vscode.workspace.getConfiguration('dungeonCoder').get<number>('port', API_PORT);
-        this.serverInstance = app.listen(this.port, this.url, () => {
-            console.log(`API running on ${this.url}:${this.port}`);
+        this.serverInstance = app.listen(this.port, this.host, () => {
+            console.log(`API running on ${this.host}:${this.port}`);
             this.writePortFile();
         });
 
@@ -345,6 +359,34 @@ export class DungeonCoderServer {
         } catch (error: any) {
             console.error(`Could not write .dungeoncoder-port: ${error.message}`);
         }
+    }
+
+    /**
+     * A live game in the room: the server listens on every network of this computer, so the teams'
+     * scripts can join from their laptops (Game.join). Levels, start and end stay with this computer;
+     * a hero belongs to the computer that joined it. Returns the addresses to give the teams.
+     */
+    public async openToRoom(): Promise<string[]> {
+        if (!this.extensionPath) {
+            return [];
+        }
+        this.host = '0.0.0.0';
+        this.room = new RoomAccess(true);
+        await new Promise<void>(resolve => {
+            if (!this.serverInstance) {
+                resolve();
+                return;
+            }
+            this.serverInstance.close(() => resolve());
+            this.serverInstance = undefined;
+        });
+        this.startServer(this.extensionPath);
+        return lanAddresses().map(address => `http://${address}:${this.port}`);
+    }
+
+    /** True while the game is open to the room. */
+    public isOpenToRoom(): boolean {
+        return this.room.exposed;
     }
 
     /** Stop server */
@@ -463,6 +505,19 @@ export class DungeonCoderServer {
  * The request's parameters plus the hero index of a co-op level (query parameter `hero`,
  * already checked against api/openapi.yaml): {...body, hero}. Without one, the body as it is.
  */
+/** This computer's IPv4 addresses on its networks (not loopback): what the teams type to reach a live game. */
+export function lanAddresses(): string[] {
+    const found: string[] = [];
+    for (const entries of Object.values(networkInterfaces())) {
+        for (const entry of entries ?? []) {
+            if (entry.family === 'IPv4' && !entry.internal) {
+                found.push(entry.address);
+            }
+        }
+    }
+    return found;
+}
+
 /** The request's parameters plus the integer query parameters the game needs besides `hero` (e.g. `distance`). */
 export function withQuery(body: any, query: Record<string, unknown>): any {
     let data = body;
@@ -712,8 +767,29 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    const openToRoom = vscode.commands.registerCommand('vscode-dungeon-coder.openToRoom', async () => {
+        if (!server.isRunning()) {
+            await vscode.commands.executeCommand('vscode-dungeon-coder.startGame');
+        }
+        const addresses = await server.openToRoom();
+        if (addresses.length === 0) {
+            vscode.window.showWarningMessage('Dungeon Coder: the game is open to the room, but this computer has no network address. Connect it to the room\'s network first.');
+            return;
+        }
+        const message = `Dungeon Coder is open to the room: ${addresses.join(', ')}. Teams join with Game.join("CODE"); `
+            + 'Space in the game starts the round, E ends it. Load levels from this computer only.';
+        // not awaited: the command is done when the game is open, the message may stay up
+        vscode.window.showInformationMessage(message, 'Copy address').then(choice => {
+            if (choice === 'Copy address') {
+                vscode.env.clipboard.writeText(addresses[0]);
+            }
+        });
+        return addresses;
+    });
+
     context.subscriptions.push(startGame);
     context.subscriptions.push(copyPythonDisposable);
+    context.subscriptions.push(openToRoom);
 
     registerPanel(context, {
         ensureRunning: async () => {

@@ -60,6 +60,9 @@ export class Game {
         this.arenaOver = false;
         this.arenaStartTime = null;
         this.arenaValueAtStart = 0;
+        /** Which heroes a team has joined, and the names the teams chose (Game.join(code, name=...)). */
+        this.arenaJoined = [];
+        this.arenaTeamNames = [];
     }
 
     /**
@@ -97,6 +100,8 @@ export class Game {
         this.arenaOver = false;
         this.arenaStartTime = null;
         this.arenaValueAtStart = this.arena ? this.level.valueLying() : 0;
+        this.arenaJoined = this.level.heroes.map(() => false);
+        this.arenaTeamNames = this.level.heroes.map(() => null);
         this.characterInterfaces = this.level.heroes.map((hero, i) => new CharacterInterface(
             this, this.level, hero, this.arena && i > 0 ? new Statistics() : this.statistics));
         this.characterInterface = this.characterInterfaces[0] ?? new CharacterInterface(this, this.level, this.character, this.statistics);
@@ -167,6 +172,21 @@ export class Game {
         return true;
     }
 
+    /** A team joined hero `index`, maybe with its own name (at most 24 characters, shown as given). */
+    joinArena(index, name) {
+        this.arenaJoined[index] = true;
+        const clean = typeof name === 'string' ? name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 24) : '';
+        if (clean) {
+            this.arenaTeamNames[index] = clean;
+        }
+    }
+
+    /** The names to show: a team's own name, else the name in its code. */
+    arenaDisplayNames() {
+        const codeNames = this.level ? this.level.arenaNames() : [];
+        return codeNames.map((n, i) => this.arenaTeamNames[i] || n);
+    }
+
     /** Seconds since the referee started the live game, or null. */
     arenaSeconds() {
         return this.arenaStartTime === null ? null : (Date.now() - this.arenaStartTime) / 1000;
@@ -217,7 +237,7 @@ export class Game {
             sensing: this.sensing,
             movesLeft: this.arena ? null : (this.characterInterface?.movesLeft() ?? null),
             outOfMoves: this.outOfMoves,
-            arena: this.arena ? { names: this.level.arenaNames(), heroes: this.level.heroes } : null,
+            arena: this.arena ? { names: this.arenaDisplayNames(), heroes: this.level.heroes } : null,
         });
 
         // State transitions are game logic, not rendering, so they stay

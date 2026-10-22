@@ -331,6 +331,7 @@ class Level:
         self.codes = [c for c in str(self.prop("codes") or "").replace(",", " ").split() if c]
         self.started = not self.arena
         self.over = False
+        self.team_names = [None] * len(self.heroes)       # Game.join(code, name=...)
         # guards by the clock (map property tick): the game steps them every `tick` ms; the simulator
         # has no clock and steps them once per round of moves (every hero one move attempt)
         tick = self.prop("tick")
@@ -557,11 +558,11 @@ class Level:
         return any(o.type == "Goal" and o.x == hero.x and o.y == hero.y for o in self.objects)
 
     def goal_distance(self, col, row):
-        """The amulet: Manhattan distance to the (first) goal (engine: Level.goalDistance)."""
-        if not self.goal:
+        """The amulet: Manhattan distance to the nearest goal (engine: Level.goalDistance)."""
+        goals = [o for o in self.objects if o.type == "Goal"]
+        if not goals:
             return None
-        gc, gr = self.cell_of(self.goal)
-        return abs(gc - col) + abs(gr - row)
+        return min(abs(self.cell_of(g)[0] - col) + abs(self.cell_of(g)[1] - row) for g in goals)
 
     def items_on_slots(self):
         return [[o for o in self.objects_at(c * self.tw + self.tw / 2, r * self.th + self.th / 2)
@@ -794,7 +795,10 @@ class Simulator:
         index = next((i for i, c in enumerate(self.level.codes) if c.upper() == code), -1)
         if not code or index < 0 or index >= len(self.level.heroes):
             return (False, f'Unknown team code "{params.get("code")}". Check the code on your table card.', None)
-        name = self.level.codes[index].split("-")[0]
+        chosen = "".join(c for c in str(params.get("name") or "") if c >= " ").strip()[:24]
+        if chosen:
+            self.level.team_names[index] = chosen
+        name = self.level.team_names[index] or self.level.codes[index].split("-")[0]
         return (True, f"Team {name} controls hero {index}.",
                 {"hero": index, "name": name, "started": self.level.started, "heroes": len(self.level.heroes)})
 
