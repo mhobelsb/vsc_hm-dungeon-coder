@@ -63,6 +63,8 @@ export class Game {
         /** Which heroes a team has joined, and the names the teams chose (Game.join(code, name=...)). */
         this.arenaJoined = [];
         this.arenaTeamNames = [];
+        /** "2/3" while a game box switches rounds (DC_ROUNDS), shown on the scoreboard. */
+        this.arenaRoundLabel = null;
     }
 
     /**

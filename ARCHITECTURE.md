@@ -217,6 +217,12 @@ scripts join from their own computers:
 - **The board** shows who has joined (`Game.arenaJoined`, "Ready: n of m"), a bar for the room towards 80 percent,
   and speaks German with `lang: de` (`ArenaBoard.TEXT`). `game/src/sound.js` plays a blip per rune picked up and
   a chord at start and end (WebAudio, unlocked by the referee's Space; `sound: false` switches it off).
+- **A game box**: the dev server with `DC_ROUNDS` (Tiled JSON files, separated by the path delimiter) sends
+  round 1 to the page as soon as it connects, and the current round again after a reload; N and R on the
+  page ask `POST /referee/round` (loopback only) for the next or the same round, `GET /referee/round` names
+  the round for the scoreboard. `index.html` gets the number of rounds as `${rounds}` (the keys are off
+  without it, e.g. in the extension). A Raspberry Pi with its own WLAN, the server and Chromium in kiosk mode
+  at the beamer is then the whole live game.
 - **A script that loads an arena itself** (`Game("arena.txt")`) is referee and team 1 at once: the package
   starts the game right after loading (a training ground with the room's rules).
 - The simulator plays an arena too (`sim.py`: `arena`, `codes`, `started`, `over`, `out` per hero, counters and

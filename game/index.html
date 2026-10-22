@@ -168,6 +168,9 @@
         // the dev server's WebSocket port (DC_WS_PORT); not replaced inside VS Code, where there is no socket
         const rawWsPort = '${wsPort}';
         window.DcWsPort = /^\d+$/.test(rawWsPort) ? Number(rawWsPort) : null;
+        // the rounds a dev server was given (DC_ROUNDS): N and R on the page switch them
+        const rawRounds = '${rounds}';
+        window.DcRounds = /^\d+$/.test(rawRounds) ? Number(rawRounds) : 0;
         const script = document.createElement('script');
         script.type = 'module';
         script.src = FINAL_GAME_URI + "src/script.js";

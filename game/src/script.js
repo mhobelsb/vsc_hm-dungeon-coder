@@ -365,6 +365,12 @@ function loadFileAsync(file) {
         callLog.showFor(level);
         arenaBoard.showFor(level);
         sound.enabled = level.getBooleanProperty('sound', true);
+        if (window.DcRounds > 0) {
+            // a game box: which round is this? (the server may have loaded it by itself)
+            setTimeout(() => fetch('/referee/round').then(r => r.json()).then(answer => {
+                game.arenaRoundLabel = answer.round ? `${answer.round}/${answer.of}` : null;
+            }).catch(() => undefined), 100);
+        }
     };
     game.onViewChange = resizeCanvas;
     game.start();
@@ -401,6 +407,20 @@ function loadFileAsync(file) {
         });
     }
 
+    async function switchRound(step) {
+        try {
+            const answer = await (await fetch('/referee/round', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step }),
+            })).json();
+            game.arenaRoundLabel = answer.round ? `${answer.round}/${answer.of}` : null;
+            if (!answer.ok) {
+                console.warn(answer.message);
+            }
+        } catch (error) {
+            console.error('Round switch failed:', error);
+        }
+    }
+
     // L shows or hides the list of the program's last calls (shown by default only with show_calls: true).
     // A live game (arena) is run from this page: Space starts it, E ends the round.
     window.addEventListener('keydown', (event) => {
@@ -419,6 +439,9 @@ function loadFileAsync(file) {
             if (game.endArena()) {
                 sound.end();
             }
+        } else if (window.DcRounds > 0 && ['n', 'r'].includes(event.key.toLowerCase())) {
+            // a game box (dev server with DC_ROUNDS): N = next round, R = the same round again
+            switchRound(event.key.toLowerCase() === 'n' ? 'next' : 'again');
         }
     });
 

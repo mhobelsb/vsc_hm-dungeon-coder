@@ -61,6 +61,10 @@ const wss = new WebSocketServer({ port: WS_PORT, path: '/ws/game' });
 wss.on('connection', socket => {
     console.log('Browser client connected.');
     activeSocket = socket;
+    if (ROUNDS.length > 0) {
+        // a game box: the (re)connected page gets the current round, or round 1
+        setTimeout(() => loadRound(Math.max(0, currentRound)), 300);
+    }
 
     socket.on('message', raw => {
         const message = JSON.parse(raw.toString());
@@ -121,6 +125,32 @@ function traceLine(command, params, response) {
     appendFileSync(TRACE_FILE, JSON.stringify(line) + '\n');
 }
 
+// DC_ROUNDS: the rounds of a live game, Tiled JSON files separated by the path delimiter (a game box
+// in the room, e.g. a Raspberry Pi at the beamer). The page gets round 1 as soon as it connects; on the
+// page, N loads the next round and R the same again (POST /referee/round, this machine only).
+const ROUNDS = (process.env.DC_ROUNDS || '').split(path.delimiter).filter(p => p);
+let currentRound = -1;
+
+async function loadRound(index) {
+    if (index < 0 || index >= ROUNDS.length) {
+        return { ok: false, round: currentRound + 1, of: ROUNDS.length, message: 'There is no such round.' };
+    }
+    let level;
+    try {
+        level = JSON.parse(readFileSync(ROUNDS[index], 'utf8'));
+    } catch (error) {
+        return { ok: false, round: currentRound + 1, of: ROUNDS.length, message: `Round ${index + 1}: ${error.message}` };
+    }
+    const response = await sendToClient(COMMANDS.LOAD_LEVEL, level);
+    traceLine(COMMANDS.LOAD_LEVEL, null, response);
+    room.answered(COMMANDS.LOAD_LEVEL, '127.0.0.1', response);
+    if (response.success) {
+        currentRound = index;
+        console.log(`Round ${index + 1} of ${ROUNDS.length} loaded: ${path.basename(ROUNDS[index])}`);
+    }
+    return { ok: Boolean(response.success), round: currentRound + 1, of: ROUNDS.length, message: response.message };
+}
+
 const app = express();
 app.use(express.json());
 // Asset packs (D8a): DC_ASSET_PACKS lists pack folders (separated by the path delimiter).
@@ -130,10 +160,29 @@ ASSET_PACKS.forEach((folder, i) => app.use(`/packs/${i}`, express.static(path.re
 app.get(['/', '/index.html'], (req, res) => {
     const html = readFileSync(path.join(__dirname, '..', 'game', 'index.html'), 'utf8')
         .replace(/\$\{assetPackUris\}/g, JSON.stringify(ASSET_PACKS.map((_, i) => `/packs/${i}/`)))
-        .replace(/\$\{wsPort\}/g, String(WS_PORT));
+        .replace(/\$\{wsPort\}/g, String(WS_PORT))
+        .replace(/\$\{rounds\}/g, String(ROUNDS.length));
     res.type('html').send(html);
 });
 app.use(express.static(path.join(__dirname, '..', 'game')));
+// the referee's round switch (keys N and R on the page): not part of the API, this machine only;
+// GET tells the page which round is loaded (for the scoreboard)
+app.get('/referee/round', (req, res) => {
+    res.json({ ok: ROUNDS.length > 0, round: currentRound + 1, of: ROUNDS.length });
+});
+app.post('/referee/round', async (req, res) => {
+    if (!RoomAccess.isLoopback(req.ip)) {
+        res.status(403).json({ ok: false, message: 'Only the game\'s own computer may switch rounds.' });
+        return;
+    }
+    if (ROUNDS.length === 0) {
+        res.status(404).json({ ok: false, message: 'No rounds (DC_ROUNDS) were given to this server.' });
+        return;
+    }
+    const step = req.body?.step;
+    const index = step === 'next' ? currentRound + 1 : step === 'first' ? 0 : Math.max(0, currentRound);
+    res.json(await loadRound(index));
+});
 app.use(OpenApiValidator.middleware({
     apiSpec: path.join(__dirname, '..', 'api', 'openapi.yaml'),
     validateRequests: true,
@@ -240,5 +289,8 @@ app.listen(HTTP_PORT, HOST, () => {
     console.log(`Dev WebSocket listening on ws://${HOST}:${WS_PORT}/ws/game`);
     if (EXPOSED) {
         console.log('Open to other computers (DC_HOST): levels, start and end only from this machine; heroes belong to the computer that joined them.');
+    }
+    if (ROUNDS.length > 0) {
+        console.log(`${ROUNDS.length} round(s) (DC_ROUNDS): round 1 loads when the page connects; on the page N = next round, R = again.`);
     }
 });

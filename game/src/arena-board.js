@@ -49,11 +49,11 @@ export class ArenaBoard {
         en: { title: 'Dungeon Coder: Arena', over: 'Round over', waiting: 'Waiting for the start (Space)', running: 'Running',
             ready: (n, m) => `Ready: ${n} of ${m}`, team: 'Team', state: 'State', value: 'Value', moves: 'Moves',
             out: 'out', exit: 'at the exit', playing: 'playing', joined: 'ready', missing: 'not joined',
-            room: (c, t, p) => `The room: ${c} of ${t} (${p} %)`, goal: '80 %', keys: 'Space: start · E: end the round' },
+            room: (c, t, p) => `The room: ${c} of ${t} (${p} %)`, goal: '80 %', round: 'round', keys: 'Space: start · E: end the round' },
         de: { title: 'Dungeon Coder: Arena', over: 'Runde beendet', waiting: 'Warten auf den Start (Leertaste)', running: 'Läuft',
             ready: (n, m) => `Bereit: ${n} von ${m}`, team: 'Team', state: 'Stand', value: 'Wert', moves: 'Züge',
             out: 'aus', exit: 'am Ausgang', playing: 'läuft', joined: 'bereit', missing: 'fehlt noch',
-            room: (c, t, p) => `Der Raum: ${c} von ${t} (${p} %)`, goal: '80 %', keys: 'Leertaste: Start · E: Runde beenden' },
+            room: (c, t, p) => `Der Raum: ${c} von ${t} (${p} %)`, goal: '80 %', round: 'Runde', keys: 'Leertaste: Start · E: Runde beenden' },
     };
 
     /** The panel's content from the game's state. */
@@ -106,10 +106,11 @@ export class ArenaBoard {
         const total = game.arenaValueAtStart;
         const percent = total > 0 ? Math.round(100 * carried / total) : 0;
         const bar = `<div class="bar" role="img" aria-label="${percent} %"><i style="width:${Math.min(100, percent)}%"></i><b style="left:80%"></b></div>`;
-        return `<h2>${text.title}</h2>`
+        const round = game.arenaRoundLabel ? ` · ${text.round} ${game.arenaRoundLabel}` : '';
+        return `<h2>${text.title}${round}</h2>`
             + `<div class="phase">${ArenaBoard.escape(phase)}</div>`
             + `<table><tr><th>${text.team}</th><th>${text.state}</th><th>${text.value}</th><th>${text.moves}</th></tr>${rows}</table>`
             + `<div class="room">${text.room(carried, total, percent)}${bar}</div>`
-            + `<div class="keys">${text.keys}</div>`;
+            + `<div class="keys">${text.keys}${window.DcRounds > 0 ? (text.round === 'Runde' ? ' · N: nächste Runde · R: noch einmal' : ' · N: next round · R: again') : ''}</div>`;
     }
 }

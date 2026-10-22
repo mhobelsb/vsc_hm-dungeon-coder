@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Added
+
+- **A game box**: the dev server takes a list of rounds (`DC_ROUNDS`, Tiled JSON files separated by the path delimiter). It loads round 1 as soon as the page connects (and the current round again after a reload); on the page, **N** loads the next round and **R** the same again (`POST /referee/round`, this machine only; `GET /referee/round` tells the page which round it shows, for the scoreboard: "Round 2/3"). With `DC_HOST=0.0.0.0` a small computer at the beamer (e.g. a Raspberry Pi with its own WLAN) is the whole live game.
+
 ## [1.1.1] - 2026-10-21
 
 A **pre-release** for the course's first live game in week 8 (the Mini-Challenge): a simpler setup in the room. Everything 1.1.0 did is unchanged.
