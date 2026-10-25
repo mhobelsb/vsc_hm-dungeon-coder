@@ -37,7 +37,7 @@ Recipe fields:
   decor_file        a file in the levels folder with them. The looks of "muster:" are optional
                     keys of decor: facade ({tileset, left, mid, right, opening}), floor_alt ([tiles]),
                     props_by_place ({tall, corner, flat: [tiles]}), arch ({tile, stairs:
-                    [left, mid, right]}), outside ([tiles]), pits ({frame: {tileset, rows}, details}),
+                    [left, mid, right]}), outside ([tiles]), pits ({frame: {tileset, rows or masks}, details}),
                     rooms ({type: {north, corner, flank: [pieces], focal: [w, h], floor: ":"}}; a
                     piece is a tile or a list of tiles for consecutive fields)
   big_props         large props for blocks of x, a file in the levels folder
@@ -130,6 +130,14 @@ def frame_paths(source, rows):
     return paths
 
 
+def pit_frame(frame):
+    """The pit frame of a recipe: {tileset, rows} (a 3x3 block, like a carpet) or {tileset, masks}
+    (a table 8-neighbour mask -> local id that covers every shape, also one field wide)."""
+    if "masks" in frame:
+        return {mask: (frame["tileset"], local) for mask, local in frame["masks"].items()}
+    return frame_paths(frame["tileset"], frame["rows"])
+
+
 def learn_decor(pack, recipe):
     """Decoration and exits of a style: from the recipe (the dungeon styles), or from the file
     tools/make_world_tiles.py writes next to a world's levels (decor_file: <world>_deko.json)."""
@@ -159,7 +167,7 @@ def learn_decor(pack, recipe):
                  "arch": {k: tuple(v) if k == "tile" else [tuple(t) for t in v]
                           for k, v in data.get("arch", {}).items()},
                  "outside": [tuple(t) for t in data.get("outside", [])],
-                 "pits": {"frame": frame_paths(pits["frame"]["tileset"], pits["frame"]["rows"]),
+                 "pits": {"frame": pit_frame(pits["frame"]),
                           "details": [tuple(t) for t in pits.get("details", [])]} if pits else {},
                  "glass": tuple(data["glass"]) if data.get("glass") else None,
                  "fences": {k: tuple(v) for k, v in data.get("fences", {}).items()},

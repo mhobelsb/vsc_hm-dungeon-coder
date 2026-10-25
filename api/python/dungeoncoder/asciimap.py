@@ -19,7 +19,7 @@ A map file has an optional header, a line "---", and the map:
     view: fit                # show only the map, with larger fields (default: full, the 30x20 field)
     deko: 6                  # scatter small details on 6 % of the plain floor and walls (seeded, default 0)
     muster: alle             # the looks of good hand-built levels (looks only, see below): wandansicht,
-                             # requisiten, bogen, aussen, gruben, flecken, vielfalt, or alle for all
+                             # requisiten, bogen, aussen, gruben, knochen, flecken, vielfalt, or alle for all
     raum: lager 1,1 8,6      # furnish the room whose floor is this rectangle (both corners inclusive)
                              # after the style's blueprint for that room type (see below); repeatable
     region: s 2,2 17,13      # variants: the switches s in this rectangle may lie on any of its
@@ -58,7 +58,8 @@ built exactly as before):
                       fields wide, reached walking north, which also gets a broad staircase
          aussen       the void beyond the walls is solid rock (a wall for the rules, instead of
                       walkable darkness)
-         gruben       a pit ~ gets its rim (edges and corners) and bones on the floor around it
+         gruben       a pit ~ gets its rim (edges and corners) for any shape, also one field wide
+         knochen      with gruben: bones on the floor around a pit
          flecken      "deko:" details gather in patches (smooth noise) instead of an even sprinkle
          vielfalt     floor tiles vary among the pieces the style uses (no two identical runs)
 Room types for "raum:" (a style brings blueprints for some of: lager, thron, kerker, schlafsaal,
@@ -112,7 +113,7 @@ DECORATION = (PROP, PATH, DETAIL, ALT)
 # "muster:": the looks of good hand-built levels, switched on by their German names (docs/level-muster.md
 # in the course workspace); a style brings the pictures for them in its recipe (learn_styles.py, decor)
 LOOKS = {"wandansicht": "facade", "requisiten": "props", "bogen": "arch", "aussen": "outside", "gruben": "pits",
-         "flecken": "patches", "vielfalt": "variety"}
+         "knochen": "bones", "flecken": "patches", "vielfalt": "variety"}
 MUSTER_VARIETY = 0.25           # how often "vielfalt" takes another fitting floor tile
 OFFSETS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 VIEWS = ("full", "fit")
@@ -724,9 +725,10 @@ def facades(grid, terrain, layers, pack):
     return cells
 
 
-def pit_frames(grid, terrain, layers, pack):
+def pit_frames(grid, terrain, layers, pack, bones=False):
     """muster: gruben. A pit gets its rim: the frame's edges and corners by which neighbours are pit too
-    (the frame's tiles are abyss tiles, so the pit stays an abyss), and bones lie on the floor around it."""
+    (the frame's tiles are abyss tiles, so the pit stays an abyss); with muster: knochen, bones lie
+    on the floor around it."""
     h, w = len(grid), len(grid[0])
     frame, details = pack.pits.get("frame", {}), pack.pits.get("details", [])
 
@@ -737,7 +739,7 @@ def pit_frames(grid, terrain, layers, pack):
             if terrain[r][c] == ABYSS and frame:
                 layers["floor"][(c, r)] = frame.get(path_mask(is_pit, c, r), frame.get("1" * 8))
                 layers["floor2"].pop((c, r), None)
-            elif (terrain[r][c] == FLOOR and grid[r][c] == FLOOR and details and _hash(c, r, 8) % 100 < 30
+            elif (bones and terrain[r][c] == FLOOR and grid[r][c] == FLOOR and details and _hash(c, r, 8) % 100 < 30
                   and any(is_pit(c + dx, r + dy) for dx, dy in NEIGHBOURS)):
                 layers["floor2"][(c, r)] = details[_hash(c, r, 9) % len(details)]
 
@@ -1011,7 +1013,7 @@ def build(header, rows, pack, seed=0, variety=0.0):
         layers["wall"][cell] = tile
     fronts = facades(grid, terrain, layers, pack) if "facade" in muster and pack.facade else set()
     if "pits" in muster and pack.pits:
-        pit_frames(grid, terrain, layers, pack)
+        pit_frames(grid, terrain, layers, pack, bones="bones" in muster)
     decorate(grid, terrain, layers, pack, header, muster, pinned)
 
     # what the style draws under/above its goal (e.g. stairs in the bridge style);
