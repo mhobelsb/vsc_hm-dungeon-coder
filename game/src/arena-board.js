@@ -48,11 +48,11 @@ export class ArenaBoard {
     static TEXT = {
         en: { title: 'Dungeon Coder: Arena', over: 'Round over', waiting: 'Waiting for the start (Space)', running: 'Running',
             ready: (n, m) => `Ready: ${n} of ${m}`, team: 'Team', state: 'State', value: 'Value', moves: 'Moves',
-            out: 'out', exit: 'at the exit', playing: 'playing', joined: 'ready', missing: 'not joined',
+            out: 'out', done: 'done', exit: 'at the exit', playing: 'playing', joined: 'ready', missing: 'not joined',
             room: (c, t, p) => `The room: ${c} of ${t} (${p} %)`, goal: '80 %', round: 'round', keys: 'Space: start · E: end the round' },
         de: { title: 'Dungeon Coder: Arena', over: 'Runde beendet', waiting: 'Warten auf den Start (Leertaste)', running: 'Läuft',
             ready: (n, m) => `Bereit: ${n} von ${m}`, team: 'Team', state: 'Stand', value: 'Wert', moves: 'Züge',
-            out: 'aus', exit: 'am Ausgang', playing: 'läuft', joined: 'bereit', missing: 'fehlt noch',
+            out: 'aus', done: 'fertig', exit: 'am Ausgang', playing: 'läuft', joined: 'bereit', missing: 'fehlt noch',
             room: (c, t, p) => `Der Raum: ${c} von ${t} (${p} %)`, goal: '80 %', round: 'Runde', keys: 'Leertaste: Start · E: Runde beenden' },
     };
 
@@ -86,7 +86,7 @@ export class ArenaBoard {
             const atGoal = !out && level.isOnGoal(hero.character);
             let state;
             if (out) {
-                state = text.out;
+                state = hero.movesLeft() === 0 ? text.done : text.out;     // the budget used up is a finished run
             } else if (atGoal) {
                 state = text.exit;
             } else if (game.arenaStarted) {
@@ -106,7 +106,8 @@ export class ArenaBoard {
         const total = game.arenaValueAtStart;
         const percent = total > 0 ? Math.round(100 * carried / total) : 0;
         const bar = `<div class="bar" role="img" aria-label="${percent} %"><i style="width:${Math.min(100, percent)}%"></i><b style="left:80%"></b></div>`;
-        const round = game.arenaRoundLabel ? ` · ${text.round} ${game.arenaRoundLabel}` : '';
+        // the round of a game box, only when it has several ("2/3"; one round with several runs needs none)
+        const round = game.arenaRoundLabel && !game.arenaRoundLabel.endsWith('/1') ? ` · ${text.round} ${game.arenaRoundLabel}` : '';
         return `<h2>${text.title}${round}</h2>`
             + `<div class="phase">${ArenaBoard.escape(phase)}</div>`
             + `<table><tr><th>${text.team}</th><th>${text.state}</th><th>${text.value}</th><th>${text.moves}</th></tr>${rows}</table>`

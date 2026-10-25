@@ -352,8 +352,8 @@ function loadFileAsync(file) {
 
     const fileInput = document.getElementById('json-file-input');
     const canvas = document.getElementById('gameCanvas');
-    if(isRunningInVSCodeWebview()) {
-        fileInput.style.display = 'none';
+    if (isRunningInVSCodeWebview() || window.DcRounds > 0) {
+        fileInput.style.display = 'none';       // in VS Code, and on a game box's beamer, there is no file to pick
     }
 
     // The game sizes the canvas buffer itself (Game.setViewSize): larger than the view, so
